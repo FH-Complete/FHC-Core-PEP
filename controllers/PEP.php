@@ -12,7 +12,7 @@ class PEP extends Auth_Controller
 	{
 		parent::__construct(
 			array(
-			'index' => 'mitarbeiter/pep:r',
+			'index' => 'extension/pep:r',
 			)
 		);
 	}

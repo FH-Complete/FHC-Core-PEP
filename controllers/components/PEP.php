@@ -7,7 +7,7 @@ class PEP extends FHC_Controller
 {
 	private $_ci;
 	private $_uid;
-	const BERECHTIGUNG_KURZBZ = 'mitarbeiter/pep';
+	const BERECHTIGUNG_KURZBZ = 'extension/pep';
 	
 	public function __construct()
 	{

@@ -5,5 +5,5 @@ $config['navigation_header']['*']['Personen']['children']['PEP'] = array(
 	'link' => site_url('extensions/FHC-Core-PEP/PEP'),
 	'description' => 'Personaleinsatzplanung',
 	'expand' => false,
-	'requiredPermissions' => 'mitarbeiter/pep:rw'
+	'requiredPermissions' => 'extension/pep:rw'
 );
