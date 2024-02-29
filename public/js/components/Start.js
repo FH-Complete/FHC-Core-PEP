@@ -116,8 +116,10 @@ export const Start = {
 							title: kategorie.beschreibung + " " + studiensemester,
 							field: "studiensemester_" + key + "_kategorie_" + kategorie.kategorie_id,
 							editor: "input",
-							hozAlign:"right",
 							tooltip: "<i class='fa fa-edit'></i>",
+							hozAlign: "right",
+							bottomCalc: 'sum',
+							bottomCalcParams: {precision:2},
 							formatter: function (cell, formatterParams, onRendered) {
 								var value = cell.getValue();
 								if (value !== "" && !isNaN(value))
@@ -126,6 +128,23 @@ export const Start = {
 									return value;
 								}
 							},
+							editable: function(cell) {
+								var rowData = cell.getRow().getData();
+
+								if (rowData.dv !== null && rowData.dv !== undefined &&
+									(rowData.dv[0] !== null && rowData.dv[0] !== undefined))
+								{
+									if (rowData.dv[0].vertragsart_kurzbz !== 'echterdv')
+									{
+										return false;
+									}
+									else
+										return true;
+
+								}
+								else
+									return false;
+							}
 						};
 
 						if (!existingColumns.includes(newColumns.field))

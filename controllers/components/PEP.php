@@ -87,9 +87,13 @@ class PEP extends FHC_Controller
 			
 			foreach ($studiensemester as $key => $ststem)
 			{
-				$lehrauftrag =  getData($this->_getLehrauftraege($mitarbeiter->uid, $ststem));
+				$lehrauftrag =  ($this->_getLehrauftraege($mitarbeiter->uid, $ststem));
 				$keyname = "studiensemester_" . $key . "_lehrauftrag";
-				$mitarbeiter->$keyname =  number_format($lehrauftrag[0]->stunden, 2);
+				
+				$stunden = 0;
+				if (hasData($lehrauftrag))
+					$stunden = getData($lehrauftrag)[0]->stunden;
+				$mitarbeiter->$keyname = $stunden;
 			}
 			
 			if (isset($mitarbeiterData->dv[0]) && $mitarbeiterData->dv[0]->vertragsart_kurzbz === 'echterdv')
@@ -103,7 +107,7 @@ class PEP extends FHC_Controller
 						foreach(getData($kategorien) as $kategorie)
 						{
 							$keyname = "studiensemester_" . $key . "_kategorie_" . $kategorie->kategorie_id;
-							$mitarbeiter->$keyname = number_format($kategorie->stunden, 2);
+							$mitarbeiter->$keyname = $kategorie->stunden;
 						}
 					}
 				}
@@ -194,27 +198,15 @@ class PEP extends FHC_Controller
 	{
 		$dbModel = new DB_Model();
 		$qry = "
-		WITH tempStunden AS (
-			SELECT vertrag_id, tbl_lehreinheitmitarbeiter.semesterstunden
+			SELECT SUM(tbl_lehreinheitmitarbeiter.semesterstunden) as stunden
 			FROM lehre.tbl_lehreinheitmitarbeiter
 				JOIN lehre.tbl_lehreinheit USING (lehreinheit_id)
 				JOIN lehre.tbl_lehrveranstaltung USING(lehrveranstaltung_id)
-				JOIN public.tbl_organisationseinheit USING (oe_kurzbz)
-				JOIN public.tbl_mitarbeiter USING(mitarbeiter_uid)
-				JOIN public.tbl_benutzer ON tbl_mitarbeiter.mitarbeiter_uid = tbl_benutzer.uid
-				JOIN public.tbl_person USING (person_id)
-				LEFT JOIN lehre.tbl_vertrag USING(vertrag_id)
-				LEFT JOIN lehre.tbl_vertrag_vertragsstatus USING (vertrag_id)
-				JOIN PUBLIC.tbl_studiengang stg ON stg.studiengang_kz = tbl_lehrveranstaltung.studiengang_kz
-			WHERE studiensemester_kurzbz = '". $studiensemester ."'
-			AND mitarbeiter_uid = '".$uid."'
-			GROUP BY vertrag_id, tbl_lehreinheitmitarbeiter.semesterstunden)
-			
-			SELECT sum(semesterstunden) as stunden
-			FROM tempStunden;
-		";
+			WHERE studiensemester_kurzbz = ?
+				AND mitarbeiter_uid = ?
+			";
 		
-		return $dbModel->execReadOnlyQuery($qry);
+		return $dbModel->execReadOnlyQuery($qry, array($studiensemester, $uid));
 		
 	}
 
@@ -342,7 +334,7 @@ class PEP extends FHC_Controller
 					FROM
 						public.tbl_organisationseinheit
 					WHERE
-						oe_kurzbz = lv_org.oe_kurzbz
+						oe_kurzbz = tbl_lehrveranstaltung.oe_kurzbz
 						AND aktiv = true
 					UNION ALL
 					SELECT
@@ -385,38 +377,38 @@ class PEP extends FHC_Controller
 					lehre.tbl_lehreinheitgruppe
 					LEFT JOIN public.tbl_studiengang USING(studiengang_kz)
 					LEFT JOIN public.tbl_gruppe USING(gruppe_kurzbz)
-				WHERE tbl_lehreinheitgruppe.lehreinheit_id = le.lehreinheit_id) as gruppe,
+				WHERE tbl_lehreinheitgruppe.lehreinheit_id = tbl_lehreinheit.lehreinheit_id) as gruppe,
 			(
 				SELECT upper(tbl_studiengang.typ::varchar(1) || tbl_studiengang.kurzbz) as stg_kuerzel
 				FROM lehre.tbl_lehrveranstaltung
 					JOIN tbl_studiengang ON tbl_lehrveranstaltung.studiengang_kz = tbl_studiengang.studiengang_kz
-				WHERE tbl_lehrveranstaltung.lehrveranstaltung_id = le.lehrveranstaltung_id
+				WHERE tbl_lehrveranstaltung.lehrveranstaltung_id = tbl_lehreinheit.lehrveranstaltung_id
 			) as stg_kuerzel,
-			le.mitarbeiter_uid as uid,
+			tbl_lehreinheitmitarbeiter.mitarbeiter_uid as uid,
 			tbl_mitarbeiter.kurzbz as lektor,
 			tbl_person.vorname as lektor_vorname,
 			tbl_person.nachname as lektor_nachname,
-			le.lehreinheit_id,
-			le.semester,
-			le.studiensemester_kurzbz,
-			le.stundensatz as le_stundensatz,
-			le.semesterstunden AS lektor_stunden,
-			lehrform_kurzbz,
+			tbl_lehreinheit.lehreinheit_id,
+			tbl_lehreinheit.studiensemester_kurzbz,
+			tbl_lehreinheitmitarbeiter.stundensatz as le_stundensatz,
+			tbl_lehreinheitmitarbeiter.semesterstunden AS lektor_stunden,
+			tbl_lehreinheit.lehrform_kurzbz,
 			lv_org.oe_kurzbz,
-			le.lv_bezeichnung as lv_bezeichnung,
+			tbl_lehrveranstaltung.bezeichnung as lv_bezeichnung,
 			lv_org.bezeichnung as lv_oe
 		FROM
-			campus.vw_lehreinheit le
+			lehre.tbl_lehreinheit
+			JOIN lehre.tbl_lehrveranstaltung USING (lehrveranstaltung_id)
+			JOIN lehre.tbl_lehrveranstaltung lehrfach ON tbl_lehreinheit.lehrfach_id = lehrfach.lehrveranstaltung_id
+			JOIN lehre.tbl_lehreinheitmitarbeiter USING (lehreinheit_id)
 			JOIN tbl_mitarbeiter USING (mitarbeiter_uid)
+			LEFT JOIN lehre.tbl_lehreinheitgruppe USING (lehreinheit_id)
+			LEFT JOIN tbl_studiengang ON tbl_lehreinheitgruppe.studiengang_kz = tbl_studiengang.studiengang_kz
 			JOIN tbl_benutzer ON tbl_mitarbeiter.mitarbeiter_uid = tbl_benutzer.uid
 			JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
-			JOIN lehre.vw_lva_stundenplan ON (
-				le.studiensemester_kurzbz = vw_lva_stundenplan.studiensemester_kurzbz
-				AND le.lehreinheit_id = vw_lva_stundenplan.lehreinheit_id
-		    )
-			JOIN tbl_organisationseinheit lv_org ON lv_org.oe_kurzbz = lehrfach_oe_kurzbz
+			JOIN tbl_organisationseinheit lv_org ON lv_org.oe_kurzbz = lehrfach.oe_kurzbz
 		WHERE
-			le.studiensemester_kurzbz IN ?
+			tbl_lehreinheit.studiensemester_kurzbz IN ?
 		AND (
 			lv_org.oe_kurzbz IN (
 				WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) AS (
@@ -437,23 +429,25 @@ class PEP extends FHC_Controller
 				FROM oes
 				GROUP BY oe_kurzbz
 			)
-			OR le.mitarbeiter_uid IN ?
+			OR tbl_lehreinheitmitarbeiter.mitarbeiter_uid IN ?
 		)
 		GROUP BY
+			tbl_lehreinheitmitarbeiter.mitarbeiter_uid,
 			tbl_mitarbeiter.kurzbz,
-			le.mitarbeiter_uid,
+			tbl_mitarbeiter.mitarbeiter_uid,
 			tbl_person.vorname,
 			tbl_person.nachname,
-			le.lehreinheit_id,
-			lehrveranstaltung_id,
-			le.lv_bezeichnung,
-			le.semester,
-			le.studiensemester_kurzbz,
-			le.stundensatz,
-			le.semesterstunden,
-			lehrform_kurzbz,
+			tbl_lehreinheit.lehreinheit_id,
+			tbl_lehreinheit.lehrveranstaltung_id,
+			tbl_lehrveranstaltung.bezeichnung,
+			tbl_lehrveranstaltung.oe_kurzbz,
+			tbl_lehreinheitgruppe.semester,
+			tbl_lehreinheit.studiensemester_kurzbz,
+			tbl_lehreinheitmitarbeiter.semesterstunden,
+			tbl_lehreinheitmitarbeiter.stundensatz,
+			tbl_lehreinheit.lehrform_kurzbz,
 			lv_org.oe_kurzbz
-		ORDER BY lehrveranstaltung_id";
+		ORDER BY tbl_lehreinheit.lehrveranstaltung_id";
 		return $dbModel->execReadOnlyQuery($qry, array($studiensemester, $org, $mitarbeiter_uids));
 	}
 

@@ -303,6 +303,15 @@ export const formatter = {
 	berechneSumme: function(cell, formatterParams, onRendered)
 	{
 		var row = cell.getRow().getData();
+
+		if (istGueltig((row.dv)) && istGueltig(row.dv[0]))
+		{
+			if (row.dv[0].vertragsart_kurzbz !== 'echterdv')
+				return '';
+		}
+		else
+			return '-';
+
 		var praefix = "studiensemester_";
 
 		var summe = cell.getRow().getData().summe;
@@ -330,6 +339,13 @@ export const formatter = {
 		let bottomsum = 0;
 		var praefix = "studiensemester_";
 		data.forEach((row) => {
+			if (istGueltig((row.dv)) && istGueltig(row.dv[0]))
+			{
+				if (row.dv[0].vertragsart_kurzbz !== 'echterdv')
+					return;
+			}
+			else
+				return;
 			var summe = row.summe;
 			for (var key in row)
 			{

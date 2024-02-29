@@ -110,7 +110,7 @@ export const PepReport = {
 							<br />
 							- <b>Aktuell</b>: Informationen zum aktuellen Zeitpunkt.
 							<br />
-							- Felder mit dem <i class='fa fa-edit fa-sm'></i> - Tooltip (Weiterbildung, Admin...), können editiert und gespeichert werden. 
+							- Felder mit dem <i class='fa fa-edit fa-sm'></i> - Tooltip (Weiterbildung, Admin...), können editiert und gespeichert werden. Nur bei echten DV´s. 
 						</div>
 					</div>
 				</div>
