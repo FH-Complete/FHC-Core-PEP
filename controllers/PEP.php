@@ -25,6 +25,5 @@ class PEP extends Auth_Controller
 		$this->load->view('extensions/FHC-Core-PEP/pep.php');
 	}
 
-	
 }
 

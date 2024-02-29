@@ -23,7 +23,7 @@ export const OrganisationDropdown = {
 				{
 					let data = CoreRESTClient.getData(res.data);
 					this.options = data;
-					this.selectedOption = data.retval[0];
+					this.selectedOption = null;
 					this.$emit("orgChanged", this.selectedOption);
 				}
 			} catch (error) {
@@ -36,11 +36,11 @@ export const OrganisationDropdown = {
 	},
 
 	template: `
-		<div class="col-md-2">
+		<div class="col-md-3">
 			<select @change="orgChanged" class="form-control">
 				<option>Abteilung</option>
-				<option v-for="option in options" :value="option" >
-					{{ option }}
+				<option v-for="option in options" :value="option.oe_kurzbz" >
+					[{{ option.organisationseinheittyp_kurzbz }}] {{ option.bezeichnung }}
 				</option>
 			</select>
 		</div>

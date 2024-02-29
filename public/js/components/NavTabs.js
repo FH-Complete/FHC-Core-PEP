@@ -1,6 +1,5 @@
 import {Start} from "./Start.js";
 import {Lehre} from "./Lehre.js";
-import {Personal} from "./Personal.js";
 
 export const NavTabs = {
 	emits: [
@@ -8,8 +7,7 @@ export const NavTabs = {
 	],
 	components: {
 		Start,
-		Lehre,
-		Personal
+		Lehre
 	},
 	data: function() {
 		return {
@@ -17,7 +15,6 @@ export const NavTabs = {
 			tabs: [
 				{name: 'Start', action: 'loadReport'},
 				{name: 'Lehre', action: 'lehreReport'},
-				{name: 'Personal', action: 'personalReport'},
 			]
 		}
 	},
@@ -35,6 +32,9 @@ export const NavTabs = {
 		updateTabData(data) {
 			this.$refs.currentTab.setTableData(data);
 		},
+		saveTabData() {
+			this.$refs.currentTab.saveTableData();
+		},
 	},
 	template: `
 	<div class="row">
@@ -46,7 +46,7 @@ export const NavTabs = {
 					</li>
 				</ul>
 				<component :is="currentTab" ref="currentTab" @new-filter-entry="emitNewFilterEntry"></component>
-			</div>	
+			</div>
   		</div>
   </div>
 	`

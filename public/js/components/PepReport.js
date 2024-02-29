@@ -20,7 +20,7 @@ import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import {CoreNavigationCmpt} from '../../../../js/components/navigation/Navigation.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
 
-import {StudienjahrDropdown} from './StudienjahrDropdown.js';
+import {StudiensemesterDropdown} from './StudiensemesterDropdown.js';
 import {OrganisationDropdown} from './OrganisationDropdown.js';
 import {Button} from './Button.js';
 import {NavTabs} from './NavTabs.js';
@@ -30,15 +30,17 @@ export const PepReport = {
 		return {
 			appSideMenuEntries: {},
 			studienjahr: null,
+			studiensemester: [],
 			org: null,
 			currentTab: null,
+			showInfo: false
 		};
 	},
 	components: {
 		CoreNavigationCmpt,
 		CoreFilterCmpt,
-		Studienjahr : StudienjahrDropdown,
 		Organisation : OrganisationDropdown,
+		Semester : StudiensemesterDropdown,
 		ButtonCmpt : Button,
 		NavTabs
 	},
@@ -46,11 +48,11 @@ export const PepReport = {
 		newSideMenuEntryHandler: function(payload) {
 			this.appSideMenuEntries = payload;
 		},
-		sjChangedHandler: function(sj) {
-			this.studienjahr = sj;
-		},
 		orgChangedHandler: function(org) {
 			this.org = org;
+		},
+		ssChangedHandler: function(studiensemester) {
+			this.studiensemester = studiensemester;
 		},
 		handleButtonClick: function() {
 			this.loadReport();
@@ -58,46 +60,108 @@ export const PepReport = {
 		handleTabChange(tab) {
 			this.currentTab = tab;
 		},
-
+		saveButtonClick: function() {
+			this.$refs.navtabs.saveTabData();
+		},
 		async loadReport() {
 			try {
 				const res = await CoreRESTClient.get('/extensions/FHC-Core-PEP/components/PEP/' + this.currentTab.action,
 					{
 						'org' : this.org,
-						'studienjahr' : this.studienjahr
+						'studiensemester' : this.studiensemester
 					});
 				if (CoreRESTClient.isSuccess(res.data))
 				{
 					this.$refs.navtabs.updateTabData(CoreRESTClient.getData(res.data));
 				}
-				else
+				else if (CoreRESTClient.isError(res.data))
 				{
+					this.$fhcAlert.handleSystemMessage(res.data.retval);
 					this.$refs.navtabs.updateTabData();
 				}
 			} catch (error) {
-				this.errors = "Fehler beim Laden der Studiengaenge";
+				this.errors = "Fehler beim Laden des Reports";
 			}
 		},
 	},
 	template: `
+
 	<core-navigation-cmpt 
 		v-bind:add-side-menu-entries="sideMenuEntries"
-		v-bind:add-header-menu-entries="headerMenuEntries">	
+		v-bind:add-header-menu-entries="headerMenuEntries"
+		leftNavCssClasses="''">	
 	</core-navigation-cmpt>
-
-	<div id="content">
-		<div class="row">
-			<Studienjahr @sjChanged="sjChangedHandler"></Studienjahr>
-			<Organisation @orgChanged="orgChangedHandler"></Organisation>
-			<ButtonCmpt @click="handleButtonClick">Laden</ButtonCmpt>
+	
+	<div id="wrapper">
+		<div id="page-wrapper">
+			<div class="container-fluid">
+				<div class="row">
+					<div class="col-12">
+						<h4 class="page-header">
+						Personaleinsatzplanung
+						<i class="fa fa-info-circle text-right fa-xs" data-bs-toggle="collapse" href="#faq0"></i>
+						</h4>
+					</div>
+				</div>
+				<div class="row collapse" id="faq0">
+					<div class="col-6">
+						<div class="alert alert-info">
+							- <b>Zeitraum</b>: Informationen für die festgelegten Studiensememster.
+							<br />
+							- <b>Aktuell</b>: Informationen zum aktuellen Zeitpunkt.
+							<br />
+							- Felder mit dem <i class='fa fa-edit fa-sm'></i> - Tooltip (Weiterbildung, Admin...), können editiert und gespeichert werden. 
+						</div>
+					</div>
+				</div>
+				<hr />
+				<div class="row">
+					<div class="col-md-9" id="container">
+						<div class="row">
+							<Semester @ssChanged="ssChangedHandler"></Semester>
+							<Organisation @orgChanged="orgChangedHandler"></Organisation>
+							<ButtonCmpt @click="handleButtonClick">Laden</ButtonCmpt>
+							<ButtonCmpt @click="saveButtonClick" v-if="currentTab  && currentTab.name === 'Start'">Speichern</ButtonCmpt>
+						</div>
+						<hr />
+						<div class="row">
+							<nav-tabs ref="navtabs" @tabChanged="handleTabChange"></nav-tabs>
+						</div>
+					</div>
+					<div class="col-md-3">
+						<div class="accordion" id="accordionExample">
+							<div class="accordion-item">
+								<h2 class="accordion-header" id="headingOne">
+									<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+										<i class="fa fa-circle-exclamation"></i>&ensp; Info Start
+									</button>
+								</h2>
+								<div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
+									<div class="accordion-body">
+										Die Übersicht zeigt die Mitarbeiter, die während des ausgewählten Semestern der Organisation oder einer untergeordneten Organisation zugeordnet (Kostenstellen und organisatorische Zuordnung) waren.
+									</div>
+								</div>
+							</div>
+							<div class="accordion-item">
+								<h2 class="accordion-header" id="headingTwo">
+									<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+										<i class="fa fa-circle-exclamation"></i>&ensp; Info Lehre
+									</button>
+								</h2>
+								<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
+									<div class="accordion-body">
+										Die Übersicht enthält alle Lehrveranstaltungen, die von der Organisation für die gewählten Semestern zugeordnet waren.
+										Ebenso enthält die Liste alle Lehrveranstaltungen der Mitarbeiter, die in dem ausgewählten Semestern der die Organisation zugeordnet (Kostenstellen und organisatorische Zuordnung) waren.
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 		</div>
-		<hr />
-		<div class="row">
-			<nav-tabs ref="navtabs" @tabChanged="handleTabChange"></nav-tabs>
-		</div>
-
-		
 	</div>
+	
 `
 };
 

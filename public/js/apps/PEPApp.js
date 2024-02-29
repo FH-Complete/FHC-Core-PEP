@@ -16,6 +16,7 @@
  */
 
 import {PepReport} from '../components/PepReport.js';
+import FhcAlert from '../../../../js/plugin/FhcAlert.js';
 
 const pepAPP = Vue.createApp({
 	components: {
@@ -23,4 +24,5 @@ const pepAPP = Vue.createApp({
 	}
 });
 
+pepAPP.use(primevue.config.default).use(FhcAlert);
 pepAPP.mount('#main');
