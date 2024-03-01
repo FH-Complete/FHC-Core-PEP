@@ -322,7 +322,10 @@ class PEP extends FHC_Controller
 	private function _getLehreMitarbeiter($org, $studiensemester)
 	{
 		$mitarbeiter_uids = $this->_getMitarbeiter($org, $studiensemester);
-		$mitarbeiter_uids = array_column(getData($mitarbeiter_uids), 'uid');
+		if (hasData($mitarbeiter_uids))
+			$mitarbeiter_uids = array_column(getData($mitarbeiter_uids), 'uid');
+		else
+			$mitarbeiter_uids = array('');
 		$dbModel = new DB_Model();
 		$qry = "
 			SELECT

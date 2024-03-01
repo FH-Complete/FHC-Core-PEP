@@ -106,9 +106,9 @@ export const PepReport = {
 				<div class="row collapse" id="faq0">
 					<div class="col-6">
 						<div class="alert alert-info">
-							- <b>Zeitraum</b>: Informationen für die festgelegten Studiensememster.
+							- <b>Zrm (Zeitraum)</b>: Informationen für die festgelegten Studiensememster.
 							<br />
-							- <b>Aktuell</b>: Informationen zum aktuellen Zeitpunkt.
+							- <b>Akt (Aktuell)</b>: Informationen zum aktuellen Zeitpunkt.
 							<br />
 							- Felder mit dem <i class='fa fa-edit fa-sm'></i> - Tooltip (Weiterbildung, Admin...), können editiert und gespeichert werden. Nur bei echten DV´s. 
 						</div>

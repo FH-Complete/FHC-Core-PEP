@@ -17,8 +17,6 @@ export const Start = {
 				layout: 'fitDataStretch',
 				selectable: false,
 				placeholder: "Keine Daten verfügbar",
-				headerFilter: true,
-
 				rowFormatter: function(row) {
 					var data = row.getData();
 					var element = row.getElement();
@@ -37,20 +35,14 @@ export const Start = {
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
-					{title: 'Zeitraum',  columns:[
-							{title: 'DV', field: 'dv', headerFilter: false, formatter: formatter.dvFormatter, tooltip: ""},
-							{title: 'Stunden', field: 'dv.stunden', hozAlign:"right", headerFilter: false, formatter: formatter.stundenFormatter, tooltip: formatter.stundenFormatterToolTip},
-							{title: 'Stunden/Jahr', field: 'dv.stunden.jahresstunden', hozAlign:"right", headerFilter: false, formatter: formatter.stundenJahrFormatter, tooltip: formatter.stundenJahrFormatterTooltip}
-						]
-					},
-					{title: 'Aktuell',  columns:[
-							{title: 'Akt - DV', field: 'aktuelles_dv.bezeichnung', headerFilter: false, formatter: formatter.aktDVFormatter, visible: false},
-							{title: 'Akt - Kostenstelle', field: 'aktuelles_dv.kststelle.bezeichnung', headerFilter: false, formatter: formatter.aktKostenstelleFormatter, visible: false},
-							{title: 'Akt - Kostenstelle - Parent', field: 'aktuelles_dv.kststelle.parentbezeichnung', headerFilter: false, formatter: formatter.aktParentKostenstelleFormatter, visible: false},
-							{title: 'Akt - Stunden', field: 'aktuelles_dv.stunden', hozAlign:"right", headerFilter: false, formatter: formatter.aktStundenFormatter, tooltip: formatter.aktStundenFormatterTooltip, visible: false},
-							{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', hozAlign:"right", headerFilter: false, formatter: formatter.aktStundensatzFormatter, tooltip: formatter.datumFormatter, visible: false},
-						]
-					},
+					{title: 'Zrm - DV', field: 'dv', headerFilter: false, formatter: formatter.dvFormatter, tooltip: ""},
+					{title: 'Zrm - Stunden', field: 'dv.stunden', hozAlign:"right", headerFilter: false, formatter: formatter.stundenFormatter, tooltip: formatter.stundenFormatterToolTip},
+					{title: 'Zrm - Stunden/Jahr', field: 'dv.stunden.jahresstunden', hozAlign:"right", headerFilter: false, formatter: formatter.stundenJahrFormatter, tooltip: formatter.stundenJahrFormatterTooltip},
+					{title: 'Akt - DV', field: 'aktuelles_dv.bezeichnung', headerFilter: false, formatter: formatter.aktDVFormatter, visible: false},
+					{title: 'Akt - Kostenstelle', field: 'aktuelles_dv.kststelle.orgbezeichnung', headerFilter: false, formatter: formatter.aktKostenstelleFormatter, visible: false},
+					{title: 'Akt - Kostenstelle - Parent', field: 'aktuelles_dv.kststelle.parentbezeichnung', headerFilter: false, formatter: formatter.aktParentKostenstelleFormatter, visible: false},
+					{title: 'Akt - Stunden', field: 'aktuelles_dv.stunden', hozAlign:"right", headerFilter: false, formatter: formatter.aktStundenFormatter, tooltip: formatter.aktStundenFormatterTooltip, visible: false},
+					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', hozAlign:"right", headerFilter: false, formatter: formatter.aktStundensatzFormatter, tooltip: formatter.datumFormatter, visible: false},
 					{title: 'Karenz', field: 'karenz', visible: false, formatter: formatter.karenzFormatter},
 					{field: "studiensemester_0_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, title: 'Lehraufträge 1. Semester'},
 					{field: "studiensemester_1_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, title: 'Lehraufträge 2. Semester'},
