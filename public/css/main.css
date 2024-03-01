@@ -1,0 +1,10 @@
+.navbar.navbar-left-side ~ *, #content
+{
+	margin: 0 0 0 0;
+}
+
+
+#page-wrapper
+{
+	padding-top: 20px;
+}
