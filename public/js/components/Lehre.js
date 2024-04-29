@@ -1,14 +1,24 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
+import {CoreRESTClient} from '../../../../js/RESTClient.js';
+
 import {formatter} from "../mixins/formatters";
 
 
-export const Lehre = {
+export default {
+	name: "Lehre",
 	components: {
 		CoreFilterCmpt,
 	},
-	data: function() {
-		return {
-			lehreViewTabulatorOptions: {
+	props: {
+		config: null,
+		modelValue: null,
+		currentTab: ''
+	},
+
+	computed: {
+		tabulatorOptions()
+		{
+			return {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				selectable: false,
@@ -25,35 +35,63 @@ export const Lehre = {
 					{title: 'Lektor*in', field: 'lektor', headerFilter: true},
 					{title: 'Vorname', field: 'lektor_vorname', headerFilter: true},
 					{title: 'Nachname', field: 'lektor_nachname', headerFilter: true},
-					{title: 'Zrm - DV', field: 'dv', headerFilter: false, formatter: formatter.dvFormatter, visible: false},
-					{title: 'Zrm - Stunden', field: 'dv.stunden', headerFilter: false, formatter: formatter.stundenFormatter, visible: false, hozAlign:"right"},
-					{title: 'Zrm - Stundensatz', field: 'stundensaetze_lehre', headerFilter: false, formatter: formatter.stundensatzLehre, visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
 
+
+
+					{title: 'Zrm - DV', field: 'vertraege', headerFilter: "input", formatter:"textarea", visible: false},
+					{title: 'Zrm - Stunden/Woche', field: 'wochenstundenstunden', headerFilter: "input", formatter:"textarea", visible: false, hozAlign:"right"},
+					{title: 'Zrm - Stundensatz', field: 'stundensaetze_lehre', headerFilter: "input", visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
 					{title: 'Semesterstunden', field: 'lektor_stunden', headerFilter: true, bottomCalc: "sum", bottomCalcParams:{precision:2},visible: true, hozAlign:"right"},
 					{title: 'LE Stundensatz', field: 'le_stundensatz', headerFilter: true, hozAlign:"right"},
-					{title: 'Akt - DV', field: 'aktuelles_dv.bezeichnung', headerFilter: false, formatter: formatter.aktDVFormatter, visible: false},
-					{title: 'Akt - Kostenstelle', field: 'aktuelles_dv.kststelle.orgbezeichnung', headerFilter: false, formatter: formatter.aktKostenstelleFormatter, visible: false},
-					{title: 'Akt - Kostenstelle - Parent', field: 'aktuelles_dv.kststelle.parentbezeichnung', headerFilter: false, formatter: formatter.aktParentKostenstelleFormatter, visible: false},
-					{title: 'Akt - Stunden', field: 'aktuelles_dv.stunden', headerFilter: false, formatter: formatter.aktStundenFormatter, visible: false, hozAlign:"right"},
-					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', headerFilter: false, formatter: formatter.aktStundensatzFormatter, hozAlign:"right", tooltip: formatter.aktStundensatzTooltip},
 
+					{title: 'Akt - DV', field: 'aktbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Kostenstelle', field: 'aktorgbezeichnung', headerFilter: "input", visible: false},
+					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", visible: false},
+					{title: 'Akt - Stunden', field: 'aktstunden', headerFilter: "input", visible: false, hozAlign:"right"},
+					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', formatter:"textarea", headerFilter: "input", hozAlign:"right"},
 				],
-			},
+			}
+		}
+	},
+	data: function() {
+		return {
+			org: 'kfAIDataAnalytics',
+			studiensemester: ['WS2023'],
+			configs: [],
 		}
 	},
 	methods: {
 		newSideMenuEntryHandler: function (payload) {
 			this.appSideMenuEntries = payload;
 		},
-		setTableData(data) {
-			this.$refs.lehreTable.tabulator.setData(data);
-		}
+		async loadData(data) {
+			await Vue.$fhcapi.Category.getLehre(data).then(response => {
+				if (CoreRESTClient.isSuccess(response.data))
+				{
+					if (CoreRESTClient.hasData(response.data))
+					{
+						let result = CoreRESTClient.getData(response.data);
+						this.$refs.lehreTable.tabulator.setData(result);
+					}
+					else
+					{
+						this.$refs.lehreTable.tabulator.setData([]);
+						this.$fhcAlert.alertWarning("Keine Daten vorhanden");
+					}
+				}
+				else
+				{
+					this.$refs.lehreTable.tabulator.setData([]);
+					this.$fhcAlert.alertWarning("Keine Daten vorhanden");
+				}
+			});
+		},
 	},
 
 	template: `
 	<core-filter-cmpt
 			ref="lehreTable"
-			:tabulator-options="lehreViewTabulatorOptions"
+			:tabulator-options="tabulatorOptions"
 			@nw-new-entry="newSideMenuEntryHandler"
 			:table-only=true
 			:hideTopMenu=false

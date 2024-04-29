@@ -16,7 +16,12 @@ $this->load->view('templates/FHC-Header', $includesArray);
 ?>
 
 <div id="main">
-	<pep-report></pep-report>
+	<pep-report
+		:studienjahre="<?= htmlspecialchars(json_encode($studienjahre)); ?>"
+		:studiensemestern="<?= htmlspecialchars(json_encode($studiensemestern)); ?>"
+		:organisationen="<?= htmlspecialchars(json_encode($organisationen)); ?>"
+
+	></pep-report>
 </div>
 
 <?php $this->load->view('templates/FHC-Footer', $includesArray); ?>

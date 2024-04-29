@@ -1,5 +1,5 @@
 import {Start} from "./Start.js";
-import {Lehre} from "./Lehre.js";
+//import {Lehre} from "./Lehre.js";
 
 export const NavTabs = {
 	emits: [
@@ -7,7 +7,7 @@ export const NavTabs = {
 	],
 	components: {
 		Start,
-		Lehre
+	//	Lehre
 	},
 	data: function() {
 		return {

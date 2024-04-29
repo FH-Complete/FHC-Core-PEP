@@ -14,8 +14,9 @@ CREATE TABLE IF NOT EXISTS extension.tbl_pep_kategorie_mitarbeiter
     kategorie_mitarbeiter_id    integer NOT NULL default NEXTVAL('extension.tbl_pep_kategorie_mitarbeiter_id_seq'::regClass),
     kategorie_id                integer NOT NULL,
     mitarbeiter_uid             varchar(32) NOT NULL,
-    studiensemester_kurzbz      character varying(16) NOT NULL,
+    studienjahr_kurzbz          character varying(16) NOT NULL,
     stunden                     numeric(5,2),
+    anmerkung                   text,
     insertamum                  timestamp without time zone DEFAULT now(),
     insertvon                   varchar (32),
     updateamum                  timestamp without time zone,
@@ -30,8 +31,8 @@ END $$;
 
 DO $$
     BEGIN
-        ALTER TABLE extension.tbl_pep_kategorie_mitarbeiter ADD CONSTRAINT tbl_pep_kategorie_mitarbeiter_studiensemester_kurzbz_fkey
-        FOREIGN KEY (studiensemester_kurzbz) REFERENCES public.tbl_studiensemester(studiensemester_kurzbz) ON UPDATE CASCADE ON DELETE RESTRICT;
+        ALTER TABLE extension.tbl_pep_kategorie_mitarbeiter ADD CONSTRAINT tbl_pep_kategorie_mitarbeiter_studienjahr_kurzbz_fkey
+        FOREIGN KEY (studienjahr_kurzbz) REFERENCES public.tbl_studienjahr(studienjahr_kurzbz) ON UPDATE CASCADE ON DELETE RESTRICT;
     EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 

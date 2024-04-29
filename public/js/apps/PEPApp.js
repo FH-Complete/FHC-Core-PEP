@@ -15,14 +15,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import {PepReport} from '../components/PepReport.js';
+import PepReport from '../components/PepReport.js';
 import FhcAlert from '../../../../js/plugin/FhcAlert.js';
+import fhc_anwesenheitenapifactory from "../api/fhc-anwesenheitenapifactory.js";
+import Phrasen from '../../../../js/plugin/Phrasen.js';
+
+Vue.$fhcapi = fhc_anwesenheitenapifactory;
 
 const pepAPP = Vue.createApp({
 	components: {
-		PepReport
+		PepReport,
+		Phrasen
 	}
 });
 
-pepAPP.use(primevue.config.default).use(FhcAlert);
+pepAPP.use(primevue.config.default).use(FhcAlert).use(Phrasen);
 pepAPP.mount('#main');

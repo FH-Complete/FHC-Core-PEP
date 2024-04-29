@@ -17,70 +17,131 @@
 
 
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
+import FhcTabs from '../../../../js/components/Tabs.js';
 import {CoreNavigationCmpt} from '../../../../js/components/navigation/Navigation.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
 
-import {StudiensemesterDropdown} from './StudiensemesterDropdown.js';
-import {OrganisationDropdown} from './OrganisationDropdown.js';
 import {Button} from './Button.js';
-import {NavTabs} from './NavTabs.js';
 
-export const PepReport = {
+
+export default {
+	name: "PepReport",
+	props: {
+		studiensemestern: {
+			type: Array,
+			required: true
+		},
+		studienjahre: {
+			type: Array,
+			required: true
+		},
+		organisationen: {
+			type: Array,
+			required: true
+		},
+		config:null,
+	},
 	data: function() {
 		return {
 			appSideMenuEntries: {},
-			studienjahr: null,
-			studiensemester: [],
-			org: null,
 			currentTab: null,
-			showInfo: false
+			showInfo: false,
+			studiensemester: [],
+			selectedTab: '',
+			selectedOrg: "",
+			modelValue: [],
+			selectedStsem: [],
+			selectedStjahr: "",
+			tabsConfig: null,
+			showStudiensemester: false,
+			showStudienjahr: false,
+			isRecursive: false
 		};
+	},
+	created() {
+		this.loadTabConfig();
+		window.addEventListener('beforeunload', this.checkBeforeLeave);
+	},
+	beforeDestroy() {
+		window.removeEventListener('beforeunload', this.checkBeforeLeave)
 	},
 	components: {
 		CoreNavigationCmpt,
 		CoreFilterCmpt,
-		Organisation : OrganisationDropdown,
-		Semester : StudiensemesterDropdown,
 		ButtonCmpt : Button,
-		NavTabs
+		FhcTabs,
+		Multiselect: primevue.multiselect
+	},
+	watch: {
+		currentTab(newTabKey)
+		{
+			this.updateDropdowns(newTabKey);
+		}
 	},
 	methods: {
-		newSideMenuEntryHandler: function(payload) {
-			this.appSideMenuEntries = payload;
+		updateDropdowns(tabKey) {
+			if (this.tabsConfig[tabKey]) {
+				this.showStudienjahr = this.tabsConfig[tabKey].config.studienjahr ? this.tabsConfig[tabKey].config.studienjahr : false;
+				this.showStudiensemester = this.tabsConfig[tabKey].config.studiensemester ? this.tabsConfig[tabKey].config.studiensemester : false;
+				/*this.selectedStsem = this.tabsConfig[tabKey].config.studiensemester ? this.selectedStsem : "";
+				this.selectedStjahr = this.tabsConfig[tabKey].config.studienjahr ? this.selectedStjahr : "";*/
+			}
 		},
-		orgChangedHandler: function(org) {
-			this.org = org;
-		},
-		ssChangedHandler: function(studiensemester) {
-			this.studiensemester = studiensemester;
-		},
-		handleButtonClick: function() {
-			this.loadReport();
-		},
-		handleTabChange(tab) {
-			this.currentTab = tab;
-		},
-		saveButtonClick: function() {
-			this.$refs.navtabs.saveTabData();
-		},
-		async loadReport() {
+		async loadTabConfig() {
 			try {
-				const res = await CoreRESTClient.get('/extensions/FHC-Core-PEP/components/PEP/' + this.currentTab.action,
-					{
-						'org' : this.org,
-						'studiensemester' : this.studiensemester
-					});
-				if (CoreRESTClient.isSuccess(res.data))
-				{
-					this.$refs.navtabs.updateTabData(CoreRESTClient.getData(res.data));
-				}
-				else if (CoreRESTClient.isError(res.data))
-				{
-					this.$fhcAlert.handleSystemMessage(res.data.retval);
-					this.$refs.navtabs.updateTabData();
+				const response = await CoreRESTClient.get('/extensions/FHC-Core-PEP/components/TabsConfig/get');
+				if (CoreRESTClient.isSuccess(response.data)) {
+					this.tabsConfig = CoreRESTClient.getData(response.data);
+					this.updateTab('start');
 				}
 			} catch (error) {
 				this.errors = "Fehler beim Laden des Reports";
+			}
+		},
+		newSideMenuEntryHandler: function (payload) {
+			this.appSideMenuEntries = payload;
+		},
+		ssChanged: function (e) {
+			this.selectedStsem = e.value.map(item => item.studiensemester_kurzbz);
+		},
+
+		saveButtonClick: function () {
+			this.$refs.navtabs.saveTabData();
+		},
+		handleLoad: function () {
+			if (this.selectedOrg !== '' && (this.selectedStsem !== "" || this.selectedStjahr)) {
+				let data = {
+					'org': this.selectedOrg,
+					'recursive': this.isRecursive
+				}
+
+				if (this.selectedStsem !== "" && this.tabsConfig[this.currentTab].config.studiensemester) {
+					data.studiensemester = this.selectedStsem;
+				} else if (this.selectedStjahr !== "" && this.tabsConfig[this.currentTab].config.studienjahr)
+					data.studienjahr = this.selectedStjahr;
+
+				this.$refs.currentTab.$refs.current.loadData(data);
+			}
+
+		},
+		speichern: function () {
+			if (!Object.keys(this.modelValue).length)
+				return;
+
+			Vue.$fhcapi.Category.saveMitarbeiter(this.modelValue).then(response => {
+				if (CoreRESTClient.isSuccess(response.data)) {
+					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
+					this.modelValue = {};
+				}
+			});
+		},
+		updateTab(newTab) {
+			this.currentTab = newTab;
+		},
+		checkBeforeLeave(e) {
+			if (Object.keys(this.modelValue).length)
+			{
+				e.preventDefault()
 			}
 		},
 	},
@@ -118,16 +179,63 @@ export const PepReport = {
 				<div class="row">
 					<div class="col-md-9" id="container">
 						<div class="row">
-							<Semester @ssChanged="ssChangedHandler"></Semester>
-							<Organisation @orgChanged="orgChangedHandler"></Organisation>
-							<ButtonCmpt @click="handleButtonClick">Laden</ButtonCmpt>
-							<ButtonCmpt @click="saveButtonClick" v-if="currentTab  && currentTab.name === 'Start'">Speichern</ButtonCmpt>
-						</div>
-						<hr />
-						<div class="row">
-							<nav-tabs ref="navtabs" @tabChanged="handleTabChange"></nav-tabs>
-						</div>
-					</div>
+							<div class="col-md-2" v-if="showStudiensemester">
+								<Multiselect
+									v-model="studiensemester"
+									option-label="studiensemester_kurzbz" 
+									:options="studiensemestern"
+									placeholder="Studiensemester"
+									:hide-selected="true"
+									:selectionLimit="2"
+									@change="ssChanged" 
+								>
+								</Multiselect>
+							</div>
+							
+							
+							<div class="col-md-2" v-if="showStudienjahr">
+								<select v-model="selectedStjahr" class="form-control">
+									<option value="">Studienjahr</option>
+									<option v-for="studienjahr in studienjahre" :value="studienjahr.studienjahr_kurzbz" >
+										{{ studienjahr.studienjahr_kurzbz }}
+									</option>
+								</select>
+							</div>
+							<div class="col-md-3">
+								<select v-model="selectedOrg" class="form-control">
+									<option value="">Abteilung</option>
+									<option v-for="organisation in organisationen" :value="organisation.oe_kurzbz" >
+										[{{ organisation.organisationseinheittyp_kurzbz }}] {{ organisation.bezeichnung }}
+									</option>
+								</select>
+							</div>
+							<div class="col-md-1">
+								<div class="form-check">
+										<input
+											class="form-check-input"
+											type="checkbox"
+											id="recursive"
+											v-model="isRecursive"
+										>
+																
+									<label class="form-check-label" for="recursive">
+										Rekursiv
+									</label>
+								</div>
+							</div>
+							<div class="col-md-2">
+								<button @click="handleLoad" class="form-control btn-default">
+									Laden
+								</button>
+							</div>
+							<div class="col-md-2">
+								<button @click="speichern" class="form-control btn-default">Speichern</button>
+								</div>
+								<br/>
+								<br/>
+								<hr />
+								</div>
+							</div>
 					<div class="col-md-3">
 						<div class="accordion" id="accordionExample">
 							<div class="accordion-item">
@@ -158,6 +266,16 @@ export const PepReport = {
 						</div>
 					</div>
 				</div>
+				<fhc-tabs v-if="tabsConfig !== ''"
+					ref="currentTab"
+					:config="tabsConfig"
+					style="flex: 1 1 0%; height: 0%"
+					:vertical="false"
+					border="true"
+					@changed="updateTab"
+					v-model="modelValue"
+				>
+				</fhc-tabs>
 			</div>
 		</div>
 	</div>
