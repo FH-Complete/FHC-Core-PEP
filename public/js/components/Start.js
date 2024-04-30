@@ -1,6 +1,5 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
-import {Button} from './Button.js';
 import {formatter} from "../mixins/formatters";
 
 export default {
@@ -20,24 +19,6 @@ export default {
 		tabulatorOptions()
 		{
 			return {
-				/*ajaxURL: CoreRESTClient._generateRouterURI('/extensions/FHC-Core-PEP/components/PEP/loadReport'),
-				ajaxParams: () => {
-					return {
-						org : this.modelValue.selectedOrg,
-						studiensemester: this.studiensemester
-					};
-				},
-				ajaxResponse: (url, params, response)=>  {
-					if (CoreRESTClient.isSuccess(response))
-					{
-						if (CoreRESTClient.hasData(response))
-						{
-							return this.setTableData(CoreRESTClient.getData(response));
-						}
-						else
-							return [];
-					}
-				},*/
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				selectable: false,
@@ -77,8 +58,6 @@ export default {
 	methods: {
 		async loadData(data)
 		{
-
-
 			await Vue.$fhcapi.Category.getStart(data).then(response => {
 				if (CoreRESTClient.isSuccess(response.data))
 				{
@@ -106,7 +85,6 @@ export default {
 			this.appSideMenuEntries = payload;
 		},
 		setTableData(data) {
-			this.changedData = {};
 			const lastElement = data[data.length - 1];
 
 			if (lastElement['configs'] !== undefined)
@@ -122,9 +100,7 @@ export default {
 						let newColumns = {
 							title: kategorie.beschreibung + " " + studiensemester,
 							field: "studiensemester_" + key + "_kategorie_" + kategorie.kategorie_id,
-							/*editor: "input",*/
 							headerFilter: "input",
-							//tooltip: "<i class='fa fa-edit'></i>",
 							hozAlign: "right",
 							bottomCalc: 'sum',
 							bottomCalcParams: {precision:2},

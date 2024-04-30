@@ -1,7 +1,5 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
-import {formatter} from "../mixins/formatters";
-
 export default {
 	props: {
 		config: null,
@@ -30,6 +28,8 @@ export default {
 					{title: 'Zrm - DV', field: 'vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
 					{title: 'Zrm - Stunden/Woche', field: 'wochenstundenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
 					{title: 'Zrm - Stunden/Jahr', field: 'jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Akt - Kostenstelle', field: 'aktorgbezeichnung', headerFilter: "input", formatter: "textarea"},
+					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", formatter: "textarea"},
 					{title: 'Stunden', field: 'stunden', headerFilter: true, editor: "input", bottomCalcParams: {precision:2}, bottomCalc: "sum", hozAlign: "right",
 						formatter: function (cell, formatterParams, onRendered) {
 							var value = cell.getValue();
@@ -65,7 +65,7 @@ export default {
 	},
 	mounted()
 	{
-		//this.updateValue("testCate");
+
 	},
 	methods: {
 		async loadData(data)
@@ -92,12 +92,10 @@ export default {
 			let uid = data.mitarbeiter_uid;
 			let newValue = { ...this.theModel };
 
-			// Prüfen, ob der UID Eintrag existiert, wenn nicht, erstellen
 			if (!newValue[uid]) {
 				newValue[uid] = [];
 			}
 
-			// Hinzufügen des neuen Eintrags
 			newValue[uid].push({
 				kategorie: this.config.category_id,
 				studienjahr: this.studienjahr,
@@ -105,62 +103,9 @@ export default {
 				anmerkung: data.anmerkung,
 			});
 
-			// Aktualisieren des theModel, was den Setter der computed Eigenschaft aufruft
 			this.theModel = newValue;
-			/*
-			let uid = cell.getRow().getData().mitarbeiter_uid;
 
-			if (!this.theModel[uid])
-			{
-				this.theModel[uid] = [];
-			}
-
-			this.theModel[uid].push({
-				kategorie: this.config.category_id,
-				studienjahr: '2011/12',
-				stunden: cell.getRow().getData().stunden,
-				anmerkung: cell.getRow().getData().anmerkung,
-			});*/
-
-			/*this.modelValue[uid].push({
-				kategorie: this.config.category_id,
-
-			});*/
-
-			// Auslösen des update:modelValue Events, um die Änderung nach oben zu senden
-			/*this.$emit('update:modelValue', this.modelValue);
-*/
-			/*if (mitarbeiter !== -1) {
-				// Mitarbeiter existiert bereits, fügen Sie die Kategorie hinzu
-				mitarbeiter[mitarbeiterIndex].kategorien.push({ kategorie, stunden });
-			} else {
-				// Mitarbeiter existiert nicht, fügen Sie ihn hinzu
-				mitarbeiterListe.push({
-					name: mitarbeiterName,
-					kategorien: [
-						{ kategorie, stunden }
-					]
-				});
-			}
-
-
-			console.log(this.config);
-			if (!isset(this.modelValue))
-				this.modelValue.uids = [
-					cell.getRow().getData().mitarbeiter_uid
-				]
-			console.log(cell.getRow().getData());*/
-			/*let mitarbeiter = this.modelValue.uid.findIndex(m => m.uid === cell.getRow().getData().mitarbeiter_uid);
-
-			console.log(mitarbeiter);*/
-
-			/*let anrechnungId = cell.getRow().getIndex();
-			let status = cell.getValue();
-			this.$fhcAlert.alertSuccess(this.$p.t('global', 'aenderungGespeichert'));*/
 		},
-		/*updateValue(newValue) {
-			this.$emit('update:modelValue', newValue);
-		},*/
 		setTableData(data) {
 			this.$refs.categoryTable.tabulator.setData(data);
 		}

@@ -1,15 +1,6 @@
 import {CoreRESTClient} from "../../../../../public/js/RESTClient";
 
 export default {
-	/*deleteMassnahme(data)
-	{
-		try {
-			return CoreRESTClient.post('/extensions/FHC-Core-International/Student/studentDeleteMassnahme', data);
-		} catch (error) {
-			throw error;
-		}
-	},*/
-
 	get(data)
 	{
 		try {

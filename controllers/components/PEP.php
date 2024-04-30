@@ -60,6 +60,8 @@ class PEP extends FHC_Controller
 			$mitarbeiterData->vertraege = isset($dvs->vertraege) ? $dvs->vertraege : '-';
 			$mitarbeiterData->wochenstundenstunden = isset($dvs->wochenstundenstunden) ? $dvs->wochenstundenstunden : '-';
 			$mitarbeiterData->jahresstunden = isset($dvs->jahresstunden) ? $dvs->jahresstunden : '-';
+			$mitarbeiterData->aktorgbezeichnung = isset($dvs->aktorgbezeichnung) ? $dvs->aktorgbezeichnung : '-';
+			$mitarbeiterData->aktparentbezeichnung = isset($dvs->aktparentbezeichnung) ? $dvs->aktparentbezeichnung : '-';
 			$allMitarbeiterData[] = $mitarbeiterData;
 		}
 
@@ -109,19 +111,16 @@ class PEP extends FHC_Controller
 		
 		foreach (getData($allMitarbeiter) as $mitarbeiter)
 		{
-			$mitarbeiterData = $mitarbeiter;
+			$dienstverhaeltnis = $this->_getDVs($mitarbeiter->uid, $studiensemester);
 
-			$mitarbeiterData->dv = $this->_getDVs($mitarbeiter->uid, $studiensemester);
+			if (hasData($dienstverhaeltnis))
+				$dienstverhaeltnis = getData($dienstverhaeltnis)[0];
 
-			$dienstverhaeltnis = getData($mitarbeiterData->dv)[0];
 			$mitarbeiterData = $dienstverhaeltnis;
 			$mitarbeiterData->vorname = $mitarbeiter->vorname;
 			$mitarbeiterData->nachname = $mitarbeiter->nachname;
 			$mitarbeiterData->uid = $mitarbeiter->uid;
 
-			//$mitarbeiterData->vertraege = $dienstverhaeltnis->vertraege;
-
-			//$mitarbeiterData->aktuelles_dv = $this->_getAktuellstesDV($mitarbeiter->uid);
 			$karenz = $this->_getKarenz($mitarbeiter->uid);
 			$mitarbeiterData->karenz = $karenz ? $karenz : false;
 
@@ -358,10 +357,10 @@ class PEP extends FHC_Controller
 		foreach ($uniqueMitarbeiter as $mitarbeiter)
 		{
 			$mitarbeiterInfos[$mitarbeiter] = new stdClass();
-			$mitarbeiterInfos[$mitarbeiter]->dv = $this->_getDVs($mitarbeiter, $studiensemester);
 
-			$dienstverhaeltnis = getData($this->_getDVs($mitarbeiter, $studiensemester))[0];
-			//$mitarbeiterInfos[$mitarbeiter]->aktuelles_dv = $this->_getAktuellstesDV($mitarbeiter);
+			$dienstverhaeltnis = ($this->_getDVs($mitarbeiter, $studiensemester));
+			if (hasData($dienstverhaeltnis))
+				$dienstverhaeltnis = getData($dienstverhaeltnis)[0];
 			$mitarbeiterInfos[$mitarbeiter]->vertraege = isset($dienstverhaeltnis->vertraege) ? $dienstverhaeltnis->vertraege : '-';
 			$mitarbeiterInfos[$mitarbeiter]->wochenstundenstunden = isset($dienstverhaeltnis->wochenstundenstunden) ? $dienstverhaeltnis->wochenstundenstunden : '-';
 			$mitarbeiterInfos[$mitarbeiter]->aktbezeichnung = isset($dienstverhaeltnis->aktbezeichnung) ? $dienstverhaeltnis->aktbezeichnung : '-';
@@ -370,10 +369,8 @@ class PEP extends FHC_Controller
 			$mitarbeiterInfos[$mitarbeiter]->aktparentbezeichnung = isset($dienstverhaeltnis->aktparentbezeichnung) ? $dienstverhaeltnis->aktparentbezeichnung : '-';
 			$mitarbeiterInfos[$mitarbeiter]->aktstunden = isset($dienstverhaeltnis->aktstunden) ? $dienstverhaeltnis->aktstunden : '-';
 
-			//$mitarbeiterInfos[$mitarbeiter]->stundensaetze_lehre_aktuell = getData($this->_getAktuellenStundensatz($mitarbeiter, 'lehre'))[0];
 			$mitarbeiterInfos[$mitarbeiter]->stundensaetze_lehre_aktuell = isset($dienstverhaeltnis->stundensaetze_lehre_aktuell) ? $dienstverhaeltnis->stundensaetze_lehre_aktuell : '-';
 			$mitarbeiterInfos[$mitarbeiter]->stundensaetze_lehre = isset($dienstverhaeltnis->stundensaetze_lehre) ? $dienstverhaeltnis->stundensaetze_lehre : '-';
-			/*$mitarbeiterInfos[$mitarbeiter]->stundensaetze_lehre = getData($this->_getStundensatze($mitarbeiter, $studiensemester, 'lehre'));*/
 		}
 		
 		foreach ($allMitarbeiter as $mitarbeiter)
@@ -486,7 +483,11 @@ class PEP extends FHC_Controller
 		WHERE
 			tbl_lehreinheit.studiensemester_kurzbz IN ?
 		AND (
-			lv_org.oe_kurzbz IN (
+			lv_org.oe_kurzbz";
+
+		if ($recursive)
+		{
+			$qry .= " IN (
 				WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) AS (
 					SELECT oe_kurzbz,
 							oe_parent_kurzbz
@@ -504,26 +505,33 @@ class PEP extends FHC_Controller
 				SELECT oe_kurzbz
 				FROM oes
 				GROUP BY oe_kurzbz
-			)
-			OR tbl_lehreinheitmitarbeiter.mitarbeiter_uid IN ?
-		)
-		GROUP BY
-			tbl_lehreinheitmitarbeiter.mitarbeiter_uid,
-			tbl_mitarbeiter.kurzbz,
-			tbl_mitarbeiter.mitarbeiter_uid,
-			tbl_person.vorname,
-			tbl_person.nachname,
-			tbl_lehreinheit.lehreinheit_id,
-			tbl_lehreinheit.lehrveranstaltung_id,
-			tbl_lehrveranstaltung.bezeichnung,
-			tbl_lehrveranstaltung.oe_kurzbz,
-			tbl_lehreinheitgruppe.semester,
-			tbl_lehreinheit.studiensemester_kurzbz,
-			tbl_lehreinheitmitarbeiter.semesterstunden,
-			tbl_lehreinheitmitarbeiter.stundensatz,
-			tbl_lehreinheit.lehrform_kurzbz,
-			lv_org.oe_kurzbz
-		ORDER BY tbl_lehreinheit.lehrveranstaltung_id";
+			)";
+		}
+		else
+		{
+			$qry .= " = ?";
+		}
+
+		$qry .=	" OR tbl_lehreinheitmitarbeiter.mitarbeiter_uid IN ?
+					)
+			GROUP BY
+				tbl_lehreinheitmitarbeiter.mitarbeiter_uid,
+				tbl_mitarbeiter.kurzbz,
+				tbl_mitarbeiter.mitarbeiter_uid,
+				tbl_person.vorname,
+				tbl_person.nachname,
+				tbl_lehreinheit.lehreinheit_id,
+				tbl_lehreinheit.lehrveranstaltung_id,
+				tbl_lehrveranstaltung.bezeichnung,
+				tbl_lehrveranstaltung.oe_kurzbz,
+				tbl_lehreinheitgruppe.semester,
+				tbl_lehreinheit.studiensemester_kurzbz,
+				tbl_lehreinheitmitarbeiter.semesterstunden,
+				tbl_lehreinheitmitarbeiter.stundensatz,
+				tbl_lehreinheit.lehrform_kurzbz,
+				lv_org.oe_kurzbz
+			ORDER BY tbl_lehreinheit.lehrveranstaltung_id";
+
 		return $dbModel->execReadOnlyQuery($qry, array($studiensemester, $org, $mitarbeiter_uids));
 	}
 
@@ -536,15 +544,7 @@ class PEP extends FHC_Controller
 					lektor,
 					vorname,
 					nachname,
-					ma.uid/*,
-				    (
-						SELECT kontakt
-						FROM PUBLIC.tbl_kontakt
-						WHERE person_id = ma.person_id
-							AND kontakttyp = 'email'
-						ORDER BY zustellung ASC,
-							insertamum DESC LIMIT 1
-					) AS email*/
+					ma.uid
 				FROM campus.vw_mitarbeiter ma
 				JOIN hr.tbl_dienstverhaeltnis dv ON ma.uid = dv.mitarbeiter_uid
 				JOIN hr.tbl_vertragsart vertragsart USING(vertragsart_kurzbz)
@@ -602,33 +602,6 @@ class PEP extends FHC_Controller
 	private function _getDVs($uid, $studiensemester)
 	{
 		$dbModel = new DB_Model();
-		/*$qry = "SELECT dv.von,
-						dv.bis,
-						dv.dienstverhaeltnis_id,
-						bezeichnung,
-						vertragsart_kurzbz
-				FROM hr.tbl_dienstverhaeltnis dv
-				JOIN hr.tbl_vertragsart USING (vertragsart_kurzbz)
-				WHERE (
-					dv.von <= (
-						SELECT MIN(start)
-						FROM public.tbl_studiensemester
-						WHERE public.tbl_studiensemester.studiensemester_kurzbz IN ?
-					)
-					OR dv.von IS NULL
-				)
-				AND
-				(
-					dv.bis >= (
-						SELECT MAX(ende)
-						FROM public.tbl_studiensemester
-						WHERE public.tbl_studiensemester.studiensemester_kurzbz IN ?
-					)
-					OR dv.bis IS NULL
-				)
-				AND dv.mitarbeiter_uid = ?
-		";*/
-
 		$qry = "
 			WITH semester_datum AS (
 				SELECT MIN(start) as start,
@@ -666,7 +639,7 @@ class PEP extends FHC_Controller
 											   ELSE ROUND(1700/40 * wochenstunden, 2)
 											   END ORDER BY tbl_vertragsbestandteil.von DESC
 								   ),
-								   E'\n'
+								E'\n'
 						   ) AS jahresstunden
 					FROM relevante_dvs dv
 						JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
@@ -675,118 +648,103 @@ class PEP extends FHC_Controller
 					  AND (tbl_vertragsbestandteil.bis >= (SELECT ende FROM semester_datum) OR tbl_vertragsbestandteil.bis IS NULL)
 					GROUP BY dv.mitarbeiter_uid
 				),
-    akt_vertrag AS (
-      SELECT dv.mitarbeiter_uid,
-             tbl_vertragsart.bezeichnung,
-             dv.dienstverhaeltnis_id,
-              dv.oe_kurzbz
-       FROM hr.tbl_dienstverhaeltnis dv
-                JOIN hr.tbl_vertragsart ON dv.vertragsart_kurzbz = tbl_vertragsart.vertragsart_kurzbz
-                WHERE (dv.von <= NOW() OR dv.von IS NULL)
-           AND (dv.bis >= NOW() OR dv.bis IS NULL)
-           AND dv.mitarbeiter_uid = ?
-         ORDER BY dv.von DESC NULLS LAST LIMIT 1
-    ),
-    akt_funktion AS (
-        SELECT parentorg.bezeichnung as parentbezeichnung,
-               org.bezeichnung as orgbezeichnung,
-               tbl_vertragsbestandteil.von,
-               tbl_vertragsbestandteil.bis,
-               mitarbeiter_uid
-        FROM akt_vertrag
-                 JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
-                 JOIN hr.tbl_vertragsbestandteil_funktion USING (vertragsbestandteil_id)
-                 JOIN public.tbl_benutzerfunktion ON tbl_vertragsbestandteil_funktion.benutzerfunktion_id = tbl_benutzerfunktion.benutzerfunktion_id
-                 JOIN tbl_organisationseinheit org ON tbl_benutzerfunktion.oe_kurzbz = org.oe_kurzbz
-                 JOIN tbl_organisationseinheit parentorg ON org.oe_parent_kurzbz = parentorg.oe_kurzbz
-        WHERE funktion_kurzbz = 'kstzuordnung'
-          AND (tbl_vertragsbestandteil.von <= NOW() OR tbl_vertragsbestandteil.von IS NULL)
-          AND (tbl_vertragsbestandteil.bis >= NOW() OR tbl_vertragsbestandteil.bis IS NULL)
-        ORDER BY tbl_vertragsbestandteil.von desc NULLS LAST
-        LIMIT 1
-    ),
-    akt_stunden AS (
-        SELECT wochenstunden, mitarbeiter_uid,
-        ( CASE
-                     WHEN akt_vertrag.oe_kurzbz = 'gst' THEN ROUND(1680/38.5 * wochenstunden, 2)
-                     ELSE ROUND(1700/40 * wochenstunden, 2)
-                   END )  as stunden
-        FROM akt_vertrag
-                 JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
-                 JOIN hr.tbl_vertragsbestandteil_stunden USING (vertragsbestandteil_id)
-        WHERE (tbl_vertragsbestandteil.von <= NOW() OR tbl_vertragsbestandteil.von IS NULL)
-          AND (tbl_vertragsbestandteil.bis >= NOW() OR tbl_vertragsbestandteil.bis IS NULL)
-        ORDER BY tbl_vertragsbestandteil.von desc NULLS LAST
-        LIMIT 1
-    ),
-     akt_lehre_stundensatz AS (
-        SELECT stundensatz, uid
-        FROM hr.tbl_stundensatz
-            JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
-            AND (tbl_stundensatz.gueltig_von <= NOW() OR tbl_stundensatz.gueltig_von IS NULL)
-            AND (tbl_stundensatz.gueltig_bis >= NOW() OR tbl_stundensatz.gueltig_bis IS NULL)
-            AND tbl_stundensatz.stundensatztyp = ?
-        WHERE uid = ?
-        ORDER BY gueltig_von DESC NULLS LAST LIMIT 1
-    ),
-    lehre_stundensatz AS (
-        SELECT ARRAY_TO_STRING(ARRAY_AGG((stundensatz) ORDER BY gueltig_von DESC), E'\n') AS stunden,
-               uid
-        FROM hr.tbl_stundensatz
-            JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
-            AND tbl_stundensatz.stundensatztyp = ?
-        WHERE uid = ?
-          AND (
-            gueltig_von <= (
-                SELECT start FROM semester_datum
-            )
-                OR gueltig_von IS NULL
-            )
-          AND
-            ((
-                gueltig_bis >=
-                    (SELECT ende FROM semester_datum)
-                   
-                ) OR gueltig_bis IS NULL)
-      GROUP BY uid
-    )
-        
-			SELECT
-			 		relevante_dvs.*, 
+				akt_vertrag AS (
+				  SELECT dv.mitarbeiter_uid,
+						 tbl_vertragsart.bezeichnung,
+						 dv.dienstverhaeltnis_id,
+						  dv.oe_kurzbz
+				   FROM hr.tbl_dienstverhaeltnis dv
+							JOIN hr.tbl_vertragsart ON dv.vertragsart_kurzbz = tbl_vertragsart.vertragsart_kurzbz
+							WHERE (dv.von <= NOW() OR dv.von IS NULL)
+					   AND (dv.bis >= NOW() OR dv.bis IS NULL)
+					   AND dv.mitarbeiter_uid = ?
+					 ORDER BY dv.von DESC NULLS LAST LIMIT 1
+				),
+				akt_funktion AS (
+					SELECT parentorg.bezeichnung as parentbezeichnung,
+						   org.bezeichnung as orgbezeichnung,
+						   tbl_vertragsbestandteil.von,
+						   tbl_vertragsbestandteil.bis,
+						   mitarbeiter_uid
+					FROM akt_vertrag
+							 JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
+							 JOIN hr.tbl_vertragsbestandteil_funktion USING (vertragsbestandteil_id)
+							 JOIN public.tbl_benutzerfunktion ON tbl_vertragsbestandteil_funktion.benutzerfunktion_id = tbl_benutzerfunktion.benutzerfunktion_id
+							 JOIN tbl_organisationseinheit org ON tbl_benutzerfunktion.oe_kurzbz = org.oe_kurzbz
+							 JOIN tbl_organisationseinheit parentorg ON org.oe_parent_kurzbz = parentorg.oe_kurzbz
+					WHERE funktion_kurzbz = 'kstzuordnung'
+					  AND (tbl_vertragsbestandteil.von <= NOW() OR tbl_vertragsbestandteil.von IS NULL)
+					  AND (tbl_vertragsbestandteil.bis >= NOW() OR tbl_vertragsbestandteil.bis IS NULL)
+					ORDER BY tbl_vertragsbestandteil.von desc NULLS LAST
+					LIMIT 1
+				),
+				akt_stunden AS (
+					SELECT wochenstunden, mitarbeiter_uid,
+					( CASE
+								 WHEN akt_vertrag.oe_kurzbz = 'gst' THEN ROUND(1680/38.5 * wochenstunden, 2)
+								 ELSE ROUND(1700/40 * wochenstunden, 2)
+							   END )  as stunden
+					FROM akt_vertrag
+							 JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
+							 JOIN hr.tbl_vertragsbestandteil_stunden USING (vertragsbestandteil_id)
+					WHERE (tbl_vertragsbestandteil.von <= NOW() OR tbl_vertragsbestandteil.von IS NULL)
+					  AND (tbl_vertragsbestandteil.bis >= NOW() OR tbl_vertragsbestandteil.bis IS NULL)
+					ORDER BY tbl_vertragsbestandteil.von desc NULLS LAST
+					LIMIT 1
+				),
+				 akt_lehre_stundensatz AS (
+					SELECT stundensatz, uid
+					FROM hr.tbl_stundensatz
+						JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
+						AND (tbl_stundensatz.gueltig_von <= NOW() OR tbl_stundensatz.gueltig_von IS NULL)
+						AND (tbl_stundensatz.gueltig_bis >= NOW() OR tbl_stundensatz.gueltig_bis IS NULL)
+						AND tbl_stundensatz.stundensatztyp = ?
+					WHERE uid = ?
+					ORDER BY gueltig_von DESC NULLS LAST LIMIT 1
+				),
+				lehre_stundensatz AS (
+					SELECT ARRAY_TO_STRING(ARRAY_AGG((stundensatz) ORDER BY gueltig_von DESC), E'\n') AS stunden,
+						   uid
+					FROM hr.tbl_stundensatz
+						JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
+						AND tbl_stundensatz.stundensatztyp = ?
+					WHERE uid = ?
+					  AND (
+						gueltig_von <= (
+							SELECT start FROM semester_datum
+						)
+							OR gueltig_von IS NULL
+						)
+					  AND
+						((
+							gueltig_bis >=
+								(SELECT ende FROM semester_datum)
+							   
+							) OR gueltig_bis IS NULL)
+				  GROUP BY uid
+				)
+				SELECT
+					relevante_dvs.*, 
 					aggregated_relevante_dvs.vertraege, 
 					relevante_stunden.wochenstundenstunden, 
 					relevante_stunden.jahresstunden, 
 					akt_vertrag.bezeichnung as aktbezeichnung,
 					akt_stunden.stunden as aktjahresstunden,
-        akt_funktion.orgbezeichnung as aktorgbezeichnung,
-        akt_funktion.parentbezeichnung as aktparentbezeichnung,
-        akt_lehre_stundensatz.stundensatz as stundensaetze_lehre_aktuell,
-        akt_stunden.wochenstunden as aktstunden,
-         lehre_stundensatz.stunden as stundensaetze_lehre
-			FROM relevante_dvs
-			LEFT JOIN aggregated_relevante_dvs ON relevante_dvs.mitarbeiter_uid = aggregated_relevante_dvs.mitarbeiter_uid
-			LEFT JOIN relevante_stunden ON relevante_stunden.mitarbeiter_uid = aggregated_relevante_dvs.mitarbeiter_uid
-LEFT JOIN akt_vertrag ON akt_vertrag.mitarbeiter_uid = relevante_dvs.mitarbeiter_uid
-LEFT JOIN akt_funktion ON akt_funktion.mitarbeiter_uid = relevante_dvs.mitarbeiter_uid
-LEFT JOIN akt_stunden ON akt_stunden.mitarbeiter_uid = relevante_dvs.mitarbeiter_uid
- LEFT JOIN akt_lehre_stundensatz ON akt_lehre_stundensatz.uid = relevante_dvs.mitarbeiter_uid
- LEFT JOIN lehre_stundensatz ON lehre_stundensatz.uid = relevante_dvs.mitarbeiter_uid
-
-
-
+					akt_funktion.orgbezeichnung as aktorgbezeichnung,
+					akt_funktion.parentbezeichnung as aktparentbezeichnung,
+					akt_lehre_stundensatz.stundensatz as stundensaetze_lehre_aktuell,
+					akt_stunden.wochenstunden as aktstunden,
+					lehre_stundensatz.stunden as stundensaetze_lehre
+				FROM relevante_dvs
+					LEFT JOIN aggregated_relevante_dvs ON relevante_dvs.mitarbeiter_uid = aggregated_relevante_dvs.mitarbeiter_uid
+					LEFT JOIN relevante_stunden ON relevante_stunden.mitarbeiter_uid = aggregated_relevante_dvs.mitarbeiter_uid
+					LEFT JOIN akt_vertrag ON akt_vertrag.mitarbeiter_uid = relevante_dvs.mitarbeiter_uid
+					LEFT JOIN akt_funktion ON akt_funktion.mitarbeiter_uid = relevante_dvs.mitarbeiter_uid
+					LEFT JOIN akt_stunden ON akt_stunden.mitarbeiter_uid = relevante_dvs.mitarbeiter_uid
+					LEFT JOIN akt_lehre_stundensatz ON akt_lehre_stundensatz.uid = relevante_dvs.mitarbeiter_uid
+					LEFT JOIN lehre_stundensatz ON lehre_stundensatz.uid = relevante_dvs.mitarbeiter_uid
 			;";
-		$dienstverhaeltnis = $dbModel->execReadOnlyQuery($qry, array($studiensemester, $uid, $uid, 'lehre', $uid, 'lehre', $uid));
-		
-		if (hasData($dienstverhaeltnis))
-		{
-			/*$dienstverhaeltnis = getData($dienstverhaeltnis);
-			foreach ($dienstverhaeltnis as $dv)
-			{
-				$dv->stunden = $this->_getStunden($dv->dienstverhaeltnis_id, $studiensemester);
-			}*/
-			
-			return $dienstverhaeltnis;
-		}
+		return $dbModel->execReadOnlyQuery($qry, array($studiensemester, $uid, $uid, 'lehre', $uid, 'lehre', $uid));
 	}
 	
 	public function saveMitarbeiter()

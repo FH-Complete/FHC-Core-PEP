@@ -21,9 +21,6 @@ import FhcTabs from '../../../../js/components/Tabs.js';
 import {CoreNavigationCmpt} from '../../../../js/components/navigation/Navigation.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
 
-import {Button} from './Button.js';
-
-
 export default {
 	name: "PepReport",
 	props: {
@@ -60,7 +57,12 @@ export default {
 	},
 	created() {
 		this.loadTabConfig();
-		window.addEventListener('beforeunload', this.checkBeforeLeave);
+		window.addEventListener('beforeunload', (event) => {
+			if (this.checkBeforeLeave())
+			{
+				event.preventDefault();
+			}
+		})
 	},
 	beforeDestroy() {
 		window.removeEventListener('beforeunload', this.checkBeforeLeave)
@@ -68,7 +70,6 @@ export default {
 	components: {
 		CoreNavigationCmpt,
 		CoreFilterCmpt,
-		ButtonCmpt : Button,
 		FhcTabs,
 		Multiselect: primevue.multiselect
 	},
@@ -83,8 +84,6 @@ export default {
 			if (this.tabsConfig[tabKey]) {
 				this.showStudienjahr = this.tabsConfig[tabKey].config.studienjahr ? this.tabsConfig[tabKey].config.studienjahr : false;
 				this.showStudiensemester = this.tabsConfig[tabKey].config.studiensemester ? this.tabsConfig[tabKey].config.studiensemester : false;
-				/*this.selectedStsem = this.tabsConfig[tabKey].config.studiensemester ? this.selectedStsem : "";
-				this.selectedStjahr = this.tabsConfig[tabKey].config.studienjahr ? this.selectedStjahr : "";*/
 			}
 		},
 		async loadTabConfig() {
@@ -108,7 +107,14 @@ export default {
 		saveButtonClick: function () {
 			this.$refs.navtabs.saveTabData();
 		},
-		handleLoad: function () {
+		handleLoad: function (e) {
+			if (this.checkBeforeLeave()) {
+				if (!confirm('Es gibt ungespeicherte Änderungen. Möchten Sie diese Seite wirklich verlassen?'))
+				{
+					return;
+				}
+			}
+
 			if (this.selectedOrg !== '' && (this.selectedStsem !== "" || this.selectedStjahr)) {
 				let data = {
 					'org': this.selectedOrg,
@@ -120,6 +126,7 @@ export default {
 				} else if (this.selectedStjahr !== "" && this.tabsConfig[this.currentTab].config.studienjahr)
 					data.studienjahr = this.selectedStjahr;
 
+				this.resetModelValue();
 				this.$refs.currentTab.$refs.current.loadData(data);
 			}
 
@@ -131,18 +138,21 @@ export default {
 			Vue.$fhcapi.Category.saveMitarbeiter(this.modelValue).then(response => {
 				if (CoreRESTClient.isSuccess(response.data)) {
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
-					this.modelValue = {};
+					this.resetModelValue();
 				}
 			});
+		},
+		resetModelValue() {
+			this.modelValue = {};
 		},
 		updateTab(newTab) {
 			this.currentTab = newTab;
 		},
-		checkBeforeLeave(e) {
-			if (Object.keys(this.modelValue).length)
-			{
-				e.preventDefault()
-			}
+		checkBeforeLeave() {
+			if (Object.keys(this.modelValue).length > 0)
+				return true;
+			else
+				return false;
 		},
 	},
 	template: `
@@ -152,7 +162,7 @@ export default {
 		v-bind:add-header-menu-entries="headerMenuEntries"
 		leftNavCssClasses="''">	
 	</core-navigation-cmpt>
-	
+
 	<div id="wrapper">
 		<div id="page-wrapper">
 			<div class="container-fluid">
@@ -217,7 +227,6 @@ export default {
 											id="recursive"
 											v-model="isRecursive"
 										>
-																
 									<label class="form-check-label" for="recursive">
 										Rekursiv
 									</label>
