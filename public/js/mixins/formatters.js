@@ -73,6 +73,8 @@ export const formatter = {
 
 	dvFormatter: function(cell, formatterParams, onRendered) {
 
+
+		return (cell.getValue());
 		var value = cell.getValue();
 		if (!istGueltig(value))
 			return "-"
@@ -289,6 +291,22 @@ export const formatter = {
 	},
 
 
+	checkLehrauftraegeStunden: function(cell, formatterParams, onRendered)
+	{
+		var row = cell.getRow().getData();
+		let value = cell.getValue();
+		if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
+		{
+			if (row.releavante_vertragsart === 'externerlehrender')
+			{
+				if (cell.getValue() > 130)
+				{
+					return "<span style='color:red; font-weight:bold;'>" + value + "</span>";
+				}
+			}
+		}
+		return value;
+	},
 	karenzFormatter: function(cell, formatterParams, onRendered)
 	{
 		let value = cell.getValue();
@@ -304,9 +322,9 @@ export const formatter = {
 	{
 		var row = cell.getRow().getData();
 
-		if (istGueltig((row.dv)) && istGueltig(row.dv[0]))
+		if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
 		{
-			if (row.dv[0].vertragsart_kurzbz !== 'echterdv')
+			if (row.releavante_vertragsart !== 'echterdv')
 				return '';
 		}
 		else
@@ -339,9 +357,9 @@ export const formatter = {
 		let bottomsum = 0;
 		var praefix = "studiensemester_";
 		data.forEach((row) => {
-			if (istGueltig((row.dv)) && istGueltig(row.dv[0]))
+			if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
 			{
-				if (row.dv[0].vertragsart_kurzbz !== 'echterdv')
+				if (row.releavante_vertragsart !== 'echterdv')
 					return;
 			}
 			else

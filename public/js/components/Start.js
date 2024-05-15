@@ -1,18 +1,24 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
-import {Button} from './Button.js';
 import {formatter} from "../mixins/formatters";
 
-export const Start = {
-	components: {
-		CoreFilterCmpt,
-		ButtonCmpt : Button
+export default {
+	name: "Start",
+	props: {
+		config: null,
+		modelValue: null,
+		currentTab: ''
 	},
-	data: function() {
-		return {
-			changedData : {},
-			configs: [],
-			startOptions: {
+	components: {
+		CoreFilterCmpt
+	},
+	async beforeCreate() {
+		await this.$p.loadCategory(['global', 'lehre', 'person', 'ui', 'international']);
+	},
+	computed: {
+		tabulatorOptions()
+		{
+			return {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				selectable: false,
@@ -22,10 +28,8 @@ export const Start = {
 					var element = row.getElement();
 					if (data.karenz !== false && !element.classList.contains('calcs-bottom'))
 					{
-						row.getCells().forEach(function(cell)
-						{
-							if(!cell.getColumn().getDefinition().bottomCalc)
-							{
+						row.getCells().forEach(function (cell) {
+							if (!cell.getColumn().getDefinition().bottomCalc) {
 								cell.getElement().style.color = "#0c5460";
 							}
 						});
@@ -35,63 +39,52 @@ export const Start = {
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
-					{title: 'Zrm - DV', field: 'dv', headerFilter: false, formatter: formatter.dvFormatter, tooltip: ""},
-					{title: 'Zrm - Stunden', field: 'dv.stunden', hozAlign:"right", headerFilter: false, formatter: formatter.stundenFormatter, tooltip: formatter.stundenFormatterToolTip},
-					{title: 'Zrm - Stunden/Jahr', field: 'dv.stunden.jahresstunden', hozAlign:"right", headerFilter: false, formatter: formatter.stundenJahrFormatter, tooltip: formatter.stundenJahrFormatterTooltip},
-					{title: 'Akt - DV', field: 'aktuelles_dv.bezeichnung', headerFilter: false, formatter: formatter.aktDVFormatter, visible: false},
-					{title: 'Akt - Kostenstelle', field: 'aktuelles_dv.kststelle.orgbezeichnung', headerFilter: false, formatter: formatter.aktKostenstelleFormatter, visible: false},
-					{title: 'Akt - Kostenstelle - Parent', field: 'aktuelles_dv.kststelle.parentbezeichnung', headerFilter: false, formatter: formatter.aktParentKostenstelleFormatter, visible: false},
-					{title: 'Akt - Stunden', field: 'aktuelles_dv.stunden', hozAlign:"right", headerFilter: false, formatter: formatter.aktStundenFormatter, tooltip: formatter.aktStundenFormatterTooltip, visible: false},
-					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', hozAlign:"right", headerFilter: false, formatter: formatter.aktStundensatzFormatter, tooltip: formatter.datumFormatter, visible: false},
-					{title: 'Karenz', field: 'karenz', visible: false, formatter: formatter.karenzFormatter},
-					{field: "studiensemester_0_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, title: 'Lehraufträge 1. Semester'},
-					{field: "studiensemester_1_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, title: 'Lehraufträge 2. Semester'},
+					{title: 'Karenz', field: 'karenz', visible: false, formatter: formatter.karenzFormatter, headerFilter:"input"},
+					{title: 'Zrm - DV', field: 'vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
+					{title: 'Zrm - Stunden/Woche', field: 'wochenstundenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Zrm - Stunden/Jahr', field: 'jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Akt - DV', field: 'aktbezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
+					{title: 'Akt - Kostenstelle', field: 'aktorgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Stunden', field: 'aktstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
+					{field: "studiensemester_0_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 1. Semester', formatter: formatter.checkLehrauftraegeStunden},
+					{field: "studiensemester_1_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 2. Semester', formatter: formatter.checkLehrauftraegeStunden},
 					{title: 'Summe', formatter: formatter.berechneSumme, field: 'summe', hozAlign:"right", bottomCalc: formatter.berechneSummeBottom, bottomCalcFormatter: formatter.bottomCalcFormatter, bottomCalcParams:{precision:2},visible: true}
 				],
 			}
 		}
 	},
-	mounted() {
-		this.$refs.startTable.tabulator.on("cellEdited", (cell) => {
-			let column = cell.getField();
-			let row = cell.getRow();
-			let value = cell.getValue();
-			let uid = row.getData().uid;
-
-			if (column.includes("kategorie"))
-			{
-				let teile = column.split("_");
-				let semester = teile[1];
-				semester = (this.configs['semester'][semester]);
-				let kategorie_id = parseInt(teile[3]);
-
-				if (value !== "" && !isNaN(value))
+	methods: {
+		async loadData(data)
+		{
+			await Vue.$fhcapi.Category.getStart(data).then(response => {
+				if (CoreRESTClient.isSuccess(response.data))
 				{
-					if (!this.changedData[uid])
+					if (CoreRESTClient.hasData(response.data))
 					{
-						this.changedData[uid] = [];
+						let result = CoreRESTClient.getData(response.data);
+						this.setTableData(result);
+					}
+					else
+					{
+						this.$fhcAlert.alertWarning("Keine Daten vorhanden");
+						this.$refs.startTable.tabulator.setData([]);
 					}
 
-					this.changedData[uid].push({
-						kategorie: kategorie_id,
-						semester: semester,
-						stunden: value
-					});
-
-					this.$refs.startTable.tabulator.redraw(true);
 				}
-			}
-		});
-	},
-	methods: {
+			});
+		},
 		saveButtonClick: function() {
 			this.saveData();
+		},
+		updateValue(newValue) {
+			this.$emit('update:modelValue', newValue);
 		},
 		newSideMenuEntryHandler: function (payload) {
 			this.appSideMenuEntries = payload;
 		},
 		setTableData(data) {
-			this.changedData = {};
 			const lastElement = data[data.length - 1];
 
 			if (lastElement['configs'] !== undefined)
@@ -107,8 +100,7 @@ export const Start = {
 						let newColumns = {
 							title: kategorie.beschreibung + " " + studiensemester,
 							field: "studiensemester_" + key + "_kategorie_" + kategorie.kategorie_id,
-							editor: "input",
-							tooltip: "<i class='fa fa-edit'></i>",
+							headerFilter: "input",
 							hozAlign: "right",
 							bottomCalc: 'sum',
 							bottomCalcParams: {precision:2},
@@ -120,23 +112,6 @@ export const Start = {
 									return value;
 								}
 							},
-							editable: function(cell) {
-								var rowData = cell.getRow().getData();
-
-								if (rowData.dv !== null && rowData.dv !== undefined &&
-									(rowData.dv[0] !== null && rowData.dv[0] !== undefined))
-								{
-									if (rowData.dv[0].vertragsart_kurzbz !== 'echterdv')
-									{
-										return false;
-									}
-									else
-										return true;
-
-								}
-								else
-									return false;
-							}
 						};
 
 						if (!existingColumns.includes(newColumns.field))
@@ -199,9 +174,9 @@ export const Start = {
 		},
 	},
 	template: `
-		<core-filter-cmpt
+		<core-filter-cmpt 
 			ref="startTable"
-			:tabulator-options="startOptions"
+			:tabulator-options="tabulatorOptions"
 			@nw-new-entry="newSideMenuEntryHandler"
 			:table-only=true
 			:hideTopMenu=false
