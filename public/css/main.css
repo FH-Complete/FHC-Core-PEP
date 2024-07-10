@@ -8,3 +8,14 @@
 {
 	padding-top: 20px;
 }
+
+.p-autocomplete-panel
+{
+	z-index: 99999 !important;
+}
+
+.tabulator-row.disabled-row {
+	background-color: #f0f0f0;
+	pointer-events: none;
+	opacity: 0.5;
+}

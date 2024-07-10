@@ -3,7 +3,7 @@
 if (!defined('BASEPATH'))
 	exit('No direct script access allowed');
 
-class TabsConfig extends Auth_Controller
+class TabsConfig extends FHCAPI_Controller
 {
 
 	const DEFAULT_PERMISSION = 'extension/pep';
@@ -48,11 +48,14 @@ class TabsConfig extends Auth_Controller
 			)
 		);
 
+		$this->_ci->PEPModel->addOrder(
+			'sort'
+		);
+
 		$this->_ci->PEPModel->addSelect(
 			'kategorie_id,
 			bezeichnung,
-			bezeichnung_mehrsprachig[('.$language.')] as tabname,
-			default_stunden
+			bezeichnung_mehrsprachig[('.$language.')] as tabname
 			'
 		);
 
@@ -70,6 +73,7 @@ class TabsConfig extends Auth_Controller
 					'category_id' => $category->kategorie_id,
 					'studienjahr' => true,
 				];
+
 				$tab = [
 					'title' => $category->tabname,
 					'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Category.js',
@@ -80,7 +84,7 @@ class TabsConfig extends Auth_Controller
 			}
 		}
 
-		$this->outputJsonSuccess($tabs);
+		$this->terminateWithSuccess($tabs);
 
 	}
 
