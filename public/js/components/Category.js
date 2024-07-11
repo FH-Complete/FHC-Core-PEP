@@ -3,9 +3,6 @@ import {CoreRESTClient} from '../../../../js/RESTClient.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 
 export default {
-	emits: [
-		'component-loaded'
-	],
 	props: {
 		config: null,
 		modelValue: {
@@ -23,7 +20,6 @@ export default {
 			rowCount: {},
 		}
 	},
-
 	mounted() {
 		this.$nextTick(() => {
 			this.theModel = { ...this.modelValue, loadDataReady: true };
@@ -114,10 +110,11 @@ export default {
 	},
 
 	methods: {
-		async loadData()
+		async loadData(data)
 		{
 			this.theModel.config.category_id = this.config.category_id
-			await this.$fhcApi.factory.pep.getCategory(this.theModel.config)
+			data.category_id = this.config.category_id
+			await this.$fhcApi.factory.pep.getCategory(data)
 				.then(response => {
 					this.$refs.categoryTable.tabulator.setData(response.data);
 					if (!this.rowCount[this.config.category_id])
@@ -146,10 +143,8 @@ export default {
 				});
 		},
 
-
 		onCellEdited(cell)
 		{
-
 			if ((cell.getValue() === "" || cell.getValue() === "0") && (cell.getOldValue() === null || cell.getOldValue() === 0))
 				return;
 
@@ -197,7 +192,7 @@ export default {
 		{
 			let row = cell.getRow()
 			let rowData = row.getData();
-			if (rowData.stunden === 0.00 || rowData.stunden == "0")
+			if (!rowData.stunden)
 				return;
 			let newData = { ...rowData };
 

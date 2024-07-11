@@ -78,11 +78,11 @@ export default {
 		});
 	},
 	methods: {
-		async loadData()
+		async loadData(data)
 		{
 			await this.loadColumns();
 
-			await this.$fhcApi.factory.pep.getStart(this.theModel.config)
+			await this.$fhcApi.factory.pep.getStart(data)
 				.then(response => {
 					this.$refs.startTable.tabulator.setData(response.data)
 				})
