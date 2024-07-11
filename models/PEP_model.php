@@ -290,7 +290,7 @@ class PEP_model extends DB_Model
 			TO_CHAR(tbl_lehreinheitmitarbeiter.updateamum, 'DD.MM.YYYY HH24:mm:ss') as updateamum,
 			tbl_lehreinheitmitarbeiter.anmerkung,
 			tbl_mitarbeiter.kurzbz as lektor,
-			tbl_person.vorname as lektor_vorname,
+			tbl_person.vorname as vorname,
 			tbl_person.nachname as lektor_nachname,
 			tbl_lehreinheit.lehreinheit_id,
 			tbl_lehreinheit.studiensemester_kurzbz,

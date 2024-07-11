@@ -92,17 +92,16 @@ export default {
 			Object.values(this.tabsConfig).forEach(tab => {
 				let category_id = tab.config?.category_id
 
-				let title = this.$refs.tabComponent.tabs[tab.title]?.title;
+				let title = tab.title
 				if (tabs.includes(category_id))
 				{
-					let title = this.$refs.tabComponent.tabs[tab.title].title;
 					if (title.includes('*'))
 						return;
-					this.$refs.tabComponent.tabs[tab.title].title += '*';
+					tab.title += '*';
 				}
-				else if (title !== undefined && title.includes('*'))
+				else if (title.includes('*'))
 				{
-					this.$refs.tabComponent.tabs[tab.title].title = title.replace('*', '')
+					tab.title = title.replace('*', '')
 				}
 
 			});
@@ -136,13 +135,14 @@ export default {
 						continue;
 
 					if (tabInstanceConfig?.studiensemester && this.loadedStsem.length === 0)
-					{
 						continue;
+					else
+						data.semester = this.loadedStsem;
 
-					}
 					if (tabInstanceConfig?.studienjahr && this.loadedStjahr === "")
 						continue;
-
+					else
+						data.studienjahr = this.loadedStjahr;
 					await tabInstance.loadData(data);
 				}
 			}
@@ -207,7 +207,7 @@ export default {
 			this.loadedRecursive = this.isRecursive
 
 			this.$refs.loader.show();
-			this.$refs.tabComponent.$refs.current.loadData().then(() => this.$refs.loader.hide());
+			this.$refs.tabComponent.$refs.current.loadData(this.modelValue.config).then(() => this.$refs.loader.hide());
 		},
 
 		updateTab(newTab, firstRun = false)
@@ -216,6 +216,29 @@ export default {
 
 			if (firstRun === false)
 			{
+				const tabellenNamen = ["categoryTable", "startTable", "lehreTable"];
+
+				function getTabulatorInstance(refs) {
+					for (const name of tabellenNamen) {
+						if (refs?.[name]?.tabulator) {
+							return refs[name].tabulator;
+						}
+					}
+					return null;
+				}
+
+				const tabulatorInstance = getTabulatorInstance(this.$refs.tabComponent?.$refs?.current?.$refs);
+
+				if (tabulatorInstance)
+				{
+					try {
+						tabulatorInstance.setSort( [
+							{column: "vorname", dir:"asc"}
+						])
+					}catch (e) {
+
+					}
+				}
 				this.addTabForReload()
 			}
 		},
@@ -276,7 +299,7 @@ title="Personaleinsatzplanung"
 				</div>
 				<hr />
 				<div class="row">
-					<div class="col-md-9" id="container">
+					<div class="col-md-12" id="container">
 						<div class="row">
 							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studiensemester">
 								<Multiselect
