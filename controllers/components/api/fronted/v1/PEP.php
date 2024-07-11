@@ -3,7 +3,7 @@
 if (!defined('BASEPATH'))
 	exit('No direct script access allowed');
 
-class PEP extends FHCAPI_Controlle
+class PEP extends FHCAPI_Controller
 {
 	private $_ci;
 	private $_uid;
