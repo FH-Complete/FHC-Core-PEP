@@ -1,29 +1,84 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
+import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
+import BsModal from '../../../../js/components/Bootstrap/Modal.js';
+import FormInput from "../../../../js/components/Form/Input.js";
 
 import {formatter} from "../mixins/formatters";
 
 
 export default {
+	emits: [
+		'component-loaded'
+	],
 	name: "Lehre",
 	components: {
 		CoreFilterCmpt,
+		BsModal,
+		FormInput,
+		CoreBaseLayout
 	},
 	props: {
 		config: null,
-		modelValue: null,
-		currentTab: ''
+		modelValue: {
+			type: Object,
+			required: true
+		},
 	},
+	mounted(){
+		this.getRaumtypen();
+		this.getLektoren();
+	},
+	data: function() {
+		return {
+			formData: {
+				lehreinheit_id: '',
+				raumtyp: '',
+				raumtypalternativ: '',
+				start_kw: '',
+				stundenblockung: '',
+				wochenrythmus: '',
+				anmerkung: '',
+				lektor: '',
+				oldlektor: '',
+			},
+			raumtypen: {
+				type: Array
+			},
+			lektoren: {
+				type: Array
+			},
+			studiensemester: [],
+			filteredLektor: [],
+			filteredRaumtypen: [],
+			selectedLektor: null,
+			selectedRow: null,
+			modalTitle: 'Änderungen' //TODO phrasen
 
+		}
+	},
+	created() {
+		this.$nextTick(() => {
+			this.theModel = { ...this.modelValue, loadDataReady: true };
+		});
+	},
 	computed: {
 		tabulatorOptions()
 		{
 			return {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
-				selectable: false,
 				placeholder: "Keine Daten verfügbar",
 				columns: [
+					{
+						formatter: 'rowSelection',
+						titleFormatter: 'rowSelection',
+						titleFormatterParams: {
+							rowRange: "active" // Only toggle the values of the active filtered rows
+						},
+						headerSort: false,
+						width: 70
+					},
 					{title: 'Fakultaet', field: 'fakultaet', headerFilter: true},
 					{title: 'STG', field: 'stg_kuerzel', headerFilter: true},
 					{title: 'LV Organisationseinheit', field: 'lv_oe', headerFilter: true, visible: true},
@@ -35,66 +90,356 @@ export default {
 					{title: 'Lektor*in', field: 'lektor', headerFilter: true},
 					{title: 'Vorname', field: 'lektor_vorname', headerFilter: true},
 					{title: 'Nachname', field: 'lektor_nachname', headerFilter: true},
-
-
-
+					{title: 'Hinzugefuegt am', field: 'insertamum', headerFilter: true},
+					{title: 'Updated am', field: 'updateamum', headerFilter: true},
+					{title: 'Anmerkung', field: 'anmerkung', headerFilter: true},
 					{title: 'Zrm - DV', field: 'vertraege', headerFilter: "input", formatter:"textarea", visible: false},
 					{title: 'Zrm - Stunden/Woche', field: 'wochenstundenstunden', headerFilter: "input", formatter:"textarea", visible: false, hozAlign:"right"},
 					{title: 'Zrm - Stundensatz', field: 'stundensaetze_lehre', headerFilter: "input", visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
 					{title: 'Semesterstunden', field: 'lektor_stunden', headerFilter: true, bottomCalc: "sum", bottomCalcParams:{precision:2},visible: true, hozAlign:"right"},
-					{title: 'LE Stundensatz', field: 'le_stundensatz', headerFilter: true, hozAlign:"right"},
+					{title: 'Faktorstunden', field: 'faktorstunden', headerFilter: true, visible: true, hozAlign:"right", bottomCalc: "sum", bottomCalcParams:{precision:2}},
+					{title: 'Faktor', field: 'faktor', headerFilter: true, visible: true, hozAlign:"right"},
 
+					{title: 'LE Stundensatz', field: 'le_stundensatz', headerFilter: true, hozAlign:"right"},
 					{title: 'Akt - DV', field: 'aktbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Kostenstelle', field: 'aktorgbezeichnung', headerFilter: "input", visible: false},
 					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", visible: false},
 					{title: 'Akt - Stunden', field: 'aktstunden', headerFilter: "input", visible: false, hozAlign:"right"},
 					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', formatter:"textarea", headerFilter: "input", hozAlign:"right"},
+					{
+						title: 'Aktionen',
+						field: 'actions',
+						width: 85,
+						formatter: (cell, formatterParams, onRendered) => {
+							let container = document.createElement('div');
+							container.className = "d-flex gap-1";
+
+							let button = document.createElement('button');
+							button.className = 'btn btn-outline-secondary';
+							button.innerHTML = '<i class="fa fa-envelope"></i>';
+							button.addEventListener('click', (event) =>
+								this.assistenzMail(cell.getData())
+							);
+							container.append(button);
+
+							if (cell.getData().editable === true)
+							{
+								container.className = "d-flex gap-2";
+								button = document.createElement('button');
+								button.className = 'btn btn-outline-secondary';
+								button.innerHTML = '<i class="fa fa-edit"></i>';
+								button.addEventListener('click', (event) =>
+									this.editLehreinheit(cell.getData(), cell.getRow())
+								);
+								container.append(button);
+							}
+							return container;
+
+						},
+
+					}
 				],
+				persistenceID: "pep_lehre",
+			}
+		},
+		theModel: {
+			get() {
+				return this.modelValue;
+			},
+			set(value) {
+				this.$emit('update:modelValue', value);
 			}
 		}
 	},
-	data: function() {
-		return {
-			org: 'kfAIDataAnalytics',
-			studiensemester: ['WS2023'],
-			configs: [],
-		}
-	},
+
 	methods: {
 		newSideMenuEntryHandler: function (payload) {
 			this.appSideMenuEntries = payload;
 		},
-		async loadData(data) {
-			await Vue.$fhcapi.Category.getLehre(data).then(response => {
-				if (CoreRESTClient.isSuccess(response.data))
-				{
-					if (CoreRESTClient.hasData(response.data))
-					{
-						let result = CoreRESTClient.getData(response.data);
-						this.$refs.lehreTable.tabulator.setData(result);
-					}
-					else
-					{
-						this.$refs.lehreTable.tabulator.setData([]);
-						this.$fhcAlert.alertWarning("Keine Daten vorhanden");
-					}
+		async loadData() {
+			this.studiensemester = this.theModel.config.semester;
+			await this.$fhcApi.factory.pep.getLehre(this.theModel.config)
+				.then(response => {
+					this.$refs.lehreTable.tabulator.setData(response.data);
+					if (response.data.length === 0)
+						this.$fhcAlert.alertInfo("Lehre: Keine Daten vorhanden");
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
+		editLehreinheit(data, row)
+		{
+			this.selectedRow = row;
+			this.getLehreinheit(data.lehreinheit_id, data.uid)
+		},
+		getLehreinheit(le_id, uid)
+		{
+			let data = {
+				'lehreinheit_id': le_id,
+				'mitarbeiter_uid': uid
+			}
+
+			this.$fhcApi.factory.pep.getLehreinheit(data)
+				.then(result => result.data)
+				.then(result => {
+					this.prefillLehreinheitModal(result)
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				})
+		},
+		prefillLehreinheitModal(data)
+		{
+			this.formData.lehreinheit_id = data.lehreinheit_id;
+			this.formData.raumtyp = data.raumtyp;
+			this.formData.raumtypalternativ = data.raumtypalternativ;
+			this.formData.start_kw = data.start_kw;
+			this.formData.stundenblockung = data.stundenblockung;
+			this.formData.wochenrythmus = data.wochenrythmus;
+			this.formData.anmerkung = data.anmerkung;
+			this.formData.oldlektor = data.mitarbeiter_uid;
+			this.formData.studiensemester = this.studiensemester;
+
+			const selectedLektor = this.lektoren.find(lektor => lektor.uid === data.mitarbeiter_uid);
+			if (selectedLektor) {
+				this.formData.lektor = {
+					label: `${selectedLektor.nachname} ${selectedLektor.vorname} (${selectedLektor.uid})`,
+					uid: data.mitarbeiter_uid
 				}
-				else
-				{
-					this.$refs.lehreTable.tabulator.setData([]);
-					this.$fhcAlert.alertWarning("Keine Daten vorhanden");
+			}
+
+			const selectedRaumtyp = this.raumtypen.find(raumtyp => raumtyp.raumtyp_kurzbz === data.raumtyp);
+
+			if (selectedRaumtyp) {
+				this.formData.raumtyp = {
+					label: `${selectedRaumtyp.beschreibung}`,
+					raumtyp_kurzbz: data.raumtyp
 				}
-			});
+			}
+
+			const selectedRaumtypAlt = this.raumtypen.find(raumtyp => raumtyp.raumtyp_kurzbz === data.raumtypalternativ);
+
+			if (selectedRaumtypAlt) {
+				this.formData.raumtypalternativ = {
+					label: `${selectedRaumtypAlt.beschreibung}`,
+					raumtyp_kurzbz: data.raumtypalternativ
+				}
+			}
+			this.$refs.editModal.show();
+		},
+		getRaumtypen() {
+			this.$fhcApi.factory.pep.getRaumtypen()
+				.then(result => result.data)
+				.then(result => {
+					this.raumtypen = result;
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
+		getLektoren() {
+			this.$fhcApi.factory.pep.getLektoren()
+				.then(result => result.data)
+				.then(result => {
+					this.lektoren = result
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
+		searchLektor(event)
+		{
+			const query = event.query.toLowerCase().trim();
+			this.filteredLektor = this.lektoren.filter(lektor => {
+				const fullName = `${lektor.vorname.toLowerCase()} ${lektor.nachname.toLowerCase()}`;
+				const reverseFullName = `${lektor.nachname.toLowerCase()} ${lektor.vorname.toLowerCase()}`;
+				return fullName.includes(query) || reverseFullName.includes(query) || lektor.uid.toLowerCase().includes(query);
+			}).map(lektor => ({
+				label: `${lektor.nachname} ${lektor.vorname} (${lektor.uid})`,
+				uid: lektor.uid
+			}));
+		},
+		searchRaumtyp(event)
+		{
+			const query = event.query.toLowerCase().trim();
+			this.filteredRaumtypen = this.raumtypen.filter(raumtyp => {
+				return raumtyp.beschreibung.toLowerCase().includes(query);
+			}).map(raumtyp => ({
+				label: `${raumtyp.beschreibung}`,
+				raumtyp_kurzbz: raumtyp.raumtyp_kurzbz
+			}));
+		},
+		assistenzMail(rowData)
+		{
+			let body = `Lehrveranstaltung: ${rowData.lv_bezeichnung} (${rowData.lv_id}) %0D%0A
+								Lehreinheit: ${rowData.lehreinheit_id} %0D%0A
+								Studiensemester: ${rowData.studiensemester_kurzbz} %0D%0A
+								Lektor: ${rowData.lektor} %0D%0A
+								Gruppe: ${rowData.gruppe}`
+
+			window.location.href = `mailto:${rowData.stg_email}?body=${body}`;
+		},
+		lektorMail()
+		{
+			const selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
+			let emails = []
+			selectedRows.forEach(row => {
+				let rowData = row.getData()
+
+				if (!emails.includes(rowData.email))
+					emails.push(rowData.email)
+			})
+
+			window.location.href = `mailto:${emails}`;
+
+		},
+		updateLehreinheit()
+		{
+			this.$fhcApi.factory.pep.saveLehreinheit(this.formData)
+				.then(result => result.data)
+				.then(updateData => {
+
+					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
+					this.selectedRow.update({
+							'lektor' : updateData.lektor,
+							'lektor_vorname' : updateData.vorname,
+							'lektor_nachname' : updateData.nachname,
+							'vertraege' : updateData.vertraege,
+							'wochenstundenstunden' : updateData.wochenstundenstunden,
+							'stundensaetze_lehre' : updateData.stundensaetze_lehre,
+							'aktbezeichnung' : updateData.aktbezeichnung,
+							'aktorgbezeichnung' : updateData.aktorgbezeichnung,
+							'aktparentbezeichnung' : updateData.aktparentbezeichnung,
+							'aktstunden' : updateData.aktstunden,
+							'stundensaetze_lehre_aktuell' : updateData.stundensaetze_lehre_aktuell,
+							'uid' : updateData.uid,
+							'anmerkung' : updateData.anmerkung,
+							'updateamum' : updateData.updateamum,
+						})
+						.then(() => this.resetFormData())
+						.then(() => this.$refs.editModal.hide());
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
+		resetFormData()
+		{
+			this.formData = {
+				lehreinheit_id: '',
+				raumtyp: '',
+				raumtypalternativ: '',
+				start_kw: '',
+				stundenblockung: '',
+				wochenrythmus: '',
+				anmerkung: '',
+				lektor: '',
+				oldlektor: ''
+			};
+			this.selectedRow = null;
 		},
 	},
-
 	template: `
-	<core-filter-cmpt
-			ref="lehreTable"
-			:tabulator-options="tabulatorOptions"
-			@nw-new-entry="newSideMenuEntryHandler"
-			:table-only=true
-			:hideTopMenu=false
-	></core-filter-cmpt>
+		<core-base-layout>
+			<template #main>
+			<h5>{{$p.t('lehre', 'studiensemester')}}: {{studiensemester.join(', ')}}</h5>
+				<core-filter-cmpt
+						ref="lehreTable"
+						:tabulator-options="tabulatorOptions"
+						@nw-new-entry="newSideMenuEntryHandler"
+						:table-only=true
+						:hideTopMenu=false
+				>
+					<template #actions>
+						<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
+					</template>
+				</core-filter-cmpt>
+				<bs-modal ref="editModal" class="bootstrap-prompt" dialogClass="modal-lg" @hidden-bs-modal="reset">
+					<template #title>{{ modalTitle }}</template>
+					<template #default>
+						<div class="row row-cols-2">
+							<div class="col">
+								<!--<form-input
+									type="autocomplete"
+									v-model="formData.raumtyp"
+									:suggestions="filteredRaumtypen"
+									field="label"
+									placeholder="Raumtypen auswählen"
+									@complete="searchRaumtyp" 
+									:label="$p.t('lehre', 'raumtyp')"
+								></form-input>-->
+							</div>
+							<!--<div class="col">
+								<form-input
+									type="autocomplete"
+									v-model="formData.raumtypalternativ"
+									:suggestions="filteredRaumtypen"
+									field="label"
+									placeholder="Raumtypen auswählen"
+									@complete="searchRaumtyp"
+									:label="$p.t('lehre', 'raumtypalternative')"
+									dropdown 
+								></form-input>
+								
+							</div>-->
+						</div>
+						<!--<div class="row row-cols-3">
+							<div class="col">
+								<form-input
+									type="number"
+									v-model="formData.start_kw"
+									name="startkw"
+									:label="$p.t('lehre', 'startkw')"
+								>
+								</form-input>
+							</div>
+							<div class="col">
+								<form-input
+									type="number"
+									v-model="formData.stundenblockung"
+									name="stundenblockung"
+									:label="$p.t('lehre', 'stundenblockung')"
+								>
+								</form-input>
+							</div>
+							<div class="col">
+								<form-input
+									type="number"
+									v-model="formData.wochenrythmus"
+									name="wochenrythmus"
+									:label="$p.t('lehre', 'wochenrythmus')"
+								>
+								</form-input>
+							</div>
+						</div>
+						<hr />-->
+						<div class="row row-cols-2">
+							<div class="col">
+								<form-input
+									type="autocomplete"
+									:label="$p.t('lehre', 'lektor')"
+									:suggestions="filteredLektor"
+									field="label"
+									v-model="formData.lektor"
+									@complete="searchLektor"
+								></form-input>
+							</div>
+							<div class="col">
+								<form-input
+									v-model="formData.anmerkung"
+									name="raumtypalternativ"
+									:label="$p.t('lehre', 'infoandepl/kfl')"
+								>
+								</form-input>
+							</div>
+						</div>
+					</template>
+					<template #footer>
+						<button type="button" class="btn btn-primary" @click="updateLehreinheit">{{ $p.t('ui', 'speichern') }}</button>
+					</template>
+				</bs-modal>
+			</template>
+		</core-base-layout>
 	`
 };

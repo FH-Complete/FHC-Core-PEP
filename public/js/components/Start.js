@@ -1,20 +1,28 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import {CoreRESTClient} from '../../../../js/RESTClient.js';
+import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {formatter} from "../mixins/formatters";
 
 export default {
 	name: "Start",
 	props: {
 		config: null,
-		modelValue: null,
-		currentTab: ''
+		modelValue: {
+			type: Object,
+			required: true
+		},
 	},
 	components: {
-		CoreFilterCmpt
+		CoreFilterCmpt,
+		CoreBaseLayout
 	},
-	async beforeCreate() {
-		await this.$p.loadCategory(['global', 'lehre', 'person', 'ui', 'international']);
+	data()
+	{
+		return {
+			categoriesConfig: {}
+		}
 	},
+
 	computed: {
 		tabulatorOptions()
 		{
@@ -35,6 +43,7 @@ export default {
 						});
 					}
 				},
+				persistenceID: "pep_start",
 				columns: [
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
@@ -48,87 +57,83 @@ export default {
 					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stunden', field: 'aktstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
-					{field: "studiensemester_0_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 1. Semester', formatter: formatter.checkLehrauftraegeStunden},
-					{field: "studiensemester_1_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 2. Semester', formatter: formatter.checkLehrauftraegeStunden},
+					{field: "studiensemester_0_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 1. Semester', formatter: formatter.checkLehrauftraegeStunden, formatterParams:{precision:2}},
+					{field: "studiensemester_1_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 2. Semester', formatter: formatter.checkLehrauftraegeStunden, formatterParams:{precision:2}},
 					{title: 'Summe', formatter: formatter.berechneSumme, field: 'summe', hozAlign:"right", bottomCalc: formatter.berechneSummeBottom, bottomCalcFormatter: formatter.bottomCalcFormatter, bottomCalcParams:{precision:2},visible: true}
 				],
 			}
+		},
+		theModel: {
+			get() {
+				return this.modelValue;
+			},
+			set(value) {
+				this.$emit('update:modelValue', value);
+			}
 		}
 	},
+	created() {
+		this.$nextTick(() => {
+			this.theModel = { ...this.modelValue, loadDataReady: true };
+		});
+	},
 	methods: {
-		async loadData(data)
+		async loadData()
 		{
-			await Vue.$fhcapi.Category.getStart(data).then(response => {
-				if (CoreRESTClient.isSuccess(response.data))
-				{
-					if (CoreRESTClient.hasData(response.data))
+			await this.loadColumns();
+
+			await this.$fhcApi.factory.pep.getStart(this.theModel.config)
+				.then(response => {
+					this.$refs.startTable.tabulator.setData(response.data)
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
+		async loadColumns()
+		{
+			this.theModel?.config?.semester?.forEach((studiensemester, key) => {
+				this.categoriesConfig.forEach(kategorie => {
+					let existingColumns = this.$refs.startTable.tabulator.getColumns().map(column => column.getField());
+
+					let newColumns = {
+						title: kategorie.beschreibung + " " + studiensemester,
+						field: "studiensemester_" + key + "_kategorie_" + kategorie.kategorie_id,
+						headerFilter: "input",
+						hozAlign: "right",
+						bottomCalc: 'sum',
+						bottomCalcParams: {precision:2},
+						formatterParams:{precision:2},
+						visible:true,
+						formatter: function (cell, formatterParams, onRendered) {
+							var value = cell.getValue();
+							if (value !== "" && !isNaN(value))
+							{
+								return parseFloat(value).toFixed(formatterParams.precision);
+							}
+							else
+								return parseFloat(0).toFixed(formatterParams.precision);
+						},
+					};
+
+					if (!existingColumns.includes(newColumns.field))
 					{
-						let result = CoreRESTClient.getData(response.data);
-						this.setTableData(result);
+						this.$refs.startTable.tabulator.addColumn(newColumns, true, "summe");
 					}
 					else
 					{
-						this.$fhcAlert.alertWarning("Keine Daten vorhanden");
-						this.$refs.startTable.tabulator.setData([]);
+						this.$refs.startTable.tabulator.updateColumnDefinition(newColumns.field, {title: newColumns.title, visible:true});
 					}
-
-				}
-			});
-		},
-		saveButtonClick: function() {
-			this.saveData();
-		},
-		updateValue(newValue) {
-			this.$emit('update:modelValue', newValue);
-		},
-		newSideMenuEntryHandler: function (payload) {
-			this.appSideMenuEntries = payload;
-		},
-		setTableData(data) {
-			const lastElement = data[data.length - 1];
-
-			if (lastElement['configs'] !== undefined)
-			{
-				this.configs = lastElement['configs'];
-				data.pop();
-
-				this.configs.semester.forEach((studiensemester, key) => {
-
-					this.configs.kategorien.forEach(kategorie => {
-						let existingColumns = this.$refs.startTable.tabulator.getColumns().map(column => column.getField());
-
-						let newColumns = {
-							title: kategorie.beschreibung + " " + studiensemester,
-							field: "studiensemester_" + key + "_kategorie_" + kategorie.kategorie_id,
-							headerFilter: "input",
-							hozAlign: "right",
-							bottomCalc: 'sum',
-							bottomCalcParams: {precision:2},
-							formatter: function (cell, formatterParams, onRendered) {
-								var value = cell.getValue();
-								if (value !== "" && !isNaN(value))
-								{
-									value = parseFloat(value).toFixed(2);
-									return value;
-								}
-							},
-						};
-
-						if (!existingColumns.includes(newColumns.field))
-						{
-							this.$refs.startTable.tabulator.addColumn(newColumns, true, "summe");
-						}
-						else
-						{
-							this.$refs.startTable.tabulator.updateColumnDefinition(newColumns.field, {title: newColumns.title});
-						}
-					});
-					this.$refs.startTable.tabulator.updateColumnDefinition('studiensemester_' + key + '_lehrauftrag', {title: "Lehrauftraege " + studiensemester});
 				});
 
-				if (this.configs.semester[1] === undefined)
+				this.$refs.startTable.tabulator.updateColumnDefinition('studiensemester_' + key + '_lehrauftrag', {title: "Lehrauftraege " + studiensemester});
+			});
+
+			if ((Array.isArray(this.theModel?.config?.semester)))
+			{
+				if (this.theModel?.config?.semester[1] === undefined)
 				{
-					this.configs.kategorien.forEach(kategorie => {
+					this.categoriesConfig.forEach(kategorie => {
 
 						let columnField = "studiensemester_1_kategorie_" + kategorie.kategorie_id;
 
@@ -144,42 +149,31 @@ export default {
 					this.$refs.startTable.tabulator.showColumn('studiensemester_1_lehrauftrag');
 				}
 			}
-			this.$refs.startTable.tabulator.setData(data);
-		},
-		saveTableData()
-		{
-			if (Object.keys(this.changedData).length === 0)
-				return
-			CoreRESTClient.post(
-				'/extensions/FHC-Core-PEP/components/PEP/save',
-				this.changedData
-			).then(
-				result => {
-					// display errors
-					if (CoreRESTClient.isError(result.data))
-					{
-						this.$fhcAlert.handleSystemMessage(result.data.retval);
-					}
-					else
-					{
-						this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
-					}
-				}
-			).catch(
-				error => {
-					let errorMessage = error.message ? error.message : 'Unknown error';
-					this.errors.push('Error when saving software: ' + errorMessage);
-				}
-			);
 		},
 	},
+	mounted() {
+		this.$fhcApi.factory.pep.getCategories()
+			.then(response => {
+				this.categoriesConfig = response.data
+			})
+			.catch(error => {
+				this.$fhcAlert.handleSystemError(error);
+			});
+	},
 	template: `
-		<core-filter-cmpt 
-			ref="startTable"
-			:tabulator-options="tabulatorOptions"
-			@nw-new-entry="newSideMenuEntryHandler"
-			:table-only=true
-			:hideTopMenu=false
-		></core-filter-cmpt>
+		<core-base-layout>
+			<template #main>
+			<h5>{{$p.t('lehre', 'studiensemester')}}: {{theModel?.config?.semester?.join(', ')}}</h5>
+				<core-filter-cmpt
+					ref="startTable"
+					:tabulator-options="tabulatorOptions"
+
+					:table-only=true
+					:side-menu="false"
+					:hideTopMenu=false
+				></core-filter-cmpt>
+			</template>
+		</core-base-layout>
+		
 	`
 };

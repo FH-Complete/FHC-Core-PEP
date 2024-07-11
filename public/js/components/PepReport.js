@@ -1,25 +1,10 @@
-/**
- * Copyright (C) 2023 fhcomplete.org
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import FhcTabs from '../../../../js/components/Tabs.js';
 import {CoreNavigationCmpt} from '../../../../js/components/navigation/Navigation.js';
-import {CoreRESTClient} from '../../../../js/RESTClient.js';
+import FhcLoader from '../../../../js/components/Loader.js';
+import FormInput from "../../../../js/components/Form/Input.js";
+import BaseLayout from "../../../../js/components/layout/BaseLayout.js";
+
 
 export default {
 	name: "PepReport",
@@ -36,25 +21,30 @@ export default {
 			type: Array,
 			required: true
 		},
-		config:null,
+		config: {
+			type: Array
+		}
 	},
 	data: function() {
 		return {
-			appSideMenuEntries: {},
 			currentTab: null,
-			showInfo: false,
+			tabInstances: [],
 			studiensemester: [],
-			selectedTab: '',
 			selectedOrg: "",
-			modelValue: [],
+			modelValue: {
+				config: {},
+				updatedData: {},
+			},
 			selectedStsem: [],
-			selectedStjahr: "",
+			selectedStudienjahr: "",
+			loadedStjahr: "",
+			loadedStsem: [],
+			loadedOrg: "",
 			tabsConfig: null,
-			showStudiensemester: false,
-			showStudienjahr: false,
-			isRecursive: false
+			isRecursive: false,
 		};
 	},
+
 	created() {
 		this.loadTabConfig();
 		window.addEventListener('beforeunload', (event) => {
@@ -62,7 +52,7 @@ export default {
 			{
 				event.preventDefault();
 			}
-		})
+		});
 	},
 	beforeDestroy() {
 		window.removeEventListener('beforeunload', this.checkBeforeLeave)
@@ -71,90 +61,182 @@ export default {
 		CoreNavigationCmpt,
 		CoreFilterCmpt,
 		FhcTabs,
-		Multiselect: primevue.multiselect
+		Multiselect: primevue.multiselect,
+		FhcLoader,
+		FormInput,
+		BaseLayout
 	},
 	watch: {
-		currentTab(newTabKey)
-		{
-			this.updateDropdowns(newTabKey);
+		selectedOrg: function(newOrg) {
+			this.handleLoad()
+		},
+		selectedStudienjahr: function(newOrg) {
+			this.handleLoad(true)
+		},
+		modelValue: {
+			handler(newValue) {
+				if (newValue.loadDataReady)
+				{
+					this.updateTab(this.currentTab, false)
+				}
+				let changedKeys = Object.keys(newValue.updatedData).map(Number);
+				this.customTitle(changedKeys);
+			},
+			deep: true
 		}
+
 	},
 	methods: {
-		updateDropdowns(tabKey) {
-			if (this.tabsConfig[tabKey]) {
-				this.showStudienjahr = this.tabsConfig[tabKey].config.studienjahr ? this.tabsConfig[tabKey].config.studienjahr : false;
-				this.showStudiensemester = this.tabsConfig[tabKey].config.studiensemester ? this.tabsConfig[tabKey].config.studiensemester : false;
-			}
-		},
-		async loadTabConfig() {
-			try {
-				const response = await CoreRESTClient.get('/extensions/FHC-Core-PEP/components/TabsConfig/get');
-				if (CoreRESTClient.isSuccess(response.data)) {
-					this.tabsConfig = CoreRESTClient.getData(response.data);
-					this.updateTab('start');
+		customTitle(tabs)
+		{
+			Object.values(this.tabsConfig).forEach(tab => {
+				let category_id = tab.config?.category_id
+
+				let title = this.$refs.tabComponent.tabs[tab.title]?.title;
+				if (tabs.includes(category_id))
+				{
+					let title = this.$refs.tabComponent.tabs[tab.title].title;
+					if (title.includes('*'))
+						return;
+					this.$refs.tabComponent.tabs[tab.title].title += '*';
 				}
-			} catch (error) {
-				this.errors = "Fehler beim Laden des Reports";
-			}
-		},
-		newSideMenuEntryHandler: function (payload) {
-			this.appSideMenuEntries = payload;
-		},
-		ssChanged: function (e) {
-			this.selectedStsem = e.value.map(item => item.studiensemester_kurzbz);
+				else if (title !== undefined && title.includes('*'))
+				{
+					this.$refs.tabComponent.tabs[tab.title].title = title.replace('*', '')
+				}
+
+			});
 		},
 
-		saveButtonClick: function () {
-			this.$refs.navtabs.saveTabData();
-		},
-		handleLoad: function (e) {
-			if (this.checkBeforeLeave()) {
-				if (!confirm('Es gibt ungespeicherte Änderungen. Möchten Sie diese Seite wirklich verlassen?'))
+		async loopAllTabs(onlyCategories = false)
+		{
+			this.modelValue.config = {
+				'studienjahr' : this.selectedStudienjahr,
+				'semester': this.selectedStsem,
+				'org': this.selectedOrg,
+				'recursive': this.isRecursive
+			};
+
+			this.loadedStjahr =  this.selectedStudienjahr;
+			this.loadedStsem =  this.selectedStsem;
+			this.loadedOrg =  this.selectedOrg;
+			this.loadedRecursive = this.isRecursive
+
+			let data = {
+				'org': this.selectedOrg,
+				'recursive': this.isRecursive
+			}
+
+			for (const tabInstance of Object.values(this.tabInstances))
+			{
+				let tabInstanceConfig = tabInstance.config;
+				if (tabInstance && tabInstance.loadData)
 				{
+					if (onlyCategories && !tabInstanceConfig?.studienjahr)
+						continue;
+
+					if (tabInstanceConfig?.studiensemester && this.loadedStsem.length === 0)
+					{
+						continue;
+
+					}
+					if (tabInstanceConfig?.studienjahr && this.loadedStjahr === "")
+						continue;
+
+					await tabInstance.loadData(data);
+				}
+			}
+		},
+		checkStudiensemester ()
+		{
+			if (this.loadedStsem !== this.selectedStsem)
+				this.handleLoad()
+		},
+		handleLoad(onlyCategories)
+		{
+			if (
+				(this.selectedStudienjahr === "" && this.selectedStsem.length === 0) || this.selectedOrg === "")
+				return;
+			if (this.checkBeforeLeave()) {
+				if (!confirm('Es gibt ungespeicherte Änderungen. Möchten Sie diese Seite wirklich verlassen?')) {
 					return;
 				}
 			}
-
-			if (this.selectedOrg !== '' && (this.selectedStsem !== "" || this.selectedStjahr)) {
-				let data = {
-					'org': this.selectedOrg,
-					'recursive': this.isRecursive
-				}
-
-				if (this.selectedStsem !== "" && this.tabsConfig[this.currentTab].config.studiensemester) {
-					data.studiensemester = this.selectedStsem;
-				} else if (this.selectedStjahr !== "" && this.tabsConfig[this.currentTab].config.studienjahr)
-					data.studienjahr = this.selectedStjahr;
-
-				this.resetModelValue();
-				this.$refs.currentTab.$refs.current.loadData(data);
-			}
-
+			this.$refs.loader.show();
+			this.resetValues();
+			this.loopAllTabs(onlyCategories).then(() => this.$refs.loader.hide());
 		},
-		speichern: function () {
-			if (!Object.keys(this.modelValue).length)
-				return;
-
-			Vue.$fhcapi.Category.saveMitarbeiter(this.modelValue).then(response => {
-				if (CoreRESTClient.isSuccess(response.data)) {
+		async loadTabConfig() {
+			await this.$fhcApi.factory.pep.getConfig()
+				.then(response => {this.tabsConfig = response.data})
+				.then(() => this.updateTab("start", true));
+		},
+		semesterChanged: function (e)
+		{
+			this.selectedStsem = e.value.map(item => item.studiensemester_kurzbz);
+		},
+		async speichern () {
+			await this.$fhcApi.factory.pep.saveMitarbeiter(this.modelValue.updatedData)
+				.then(async () => {
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
-					this.resetModelValue();
-				}
+					this.resetValues().then(() => this.handleLoad(false));
 			});
 		},
-		resetModelValue() {
-			this.modelValue = {};
+		async resetValues() {
+			this.modelValue.updatedData = {};
 		},
-		updateTab(newTab) {
+		handleLoadOneTab: function (e)
+		{
+			const currentTabConfig = this.tabsConfig[this.currentTab].config;
+			if ((currentTabConfig?.studiensemester && this.selectedStsem.length === 0) ||
+				(currentTabConfig?.studienjahr && this.selectedStudienjahr === "") ||
+				this.selectedOrg === ""
+			)
+				return;
+
+			this.modelValue.config = {
+				'studienjahr' : this.selectedStudienjahr,
+				'semester': this.selectedStsem,
+				'org': this.selectedOrg,
+				'recursive': this.isRecursive
+			};
+
+			this.loadedStjahr =  this.selectedStudienjahr;
+			this.loadedStsem =  this.selectedStsem;
+			this.loadedOrg =  this.selectedOrg;
+			this.loadedRecursive = this.isRecursive
+
+			this.$refs.loader.show();
+			this.$refs.tabComponent.$refs.current.loadData().then(() => this.$refs.loader.hide());
+		},
+
+		updateTab(newTab, firstRun = false)
+		{
 			this.currentTab = newTab;
+
+			if (firstRun === false)
+			{
+				this.addTabForReload()
+			}
+		},
+		addTabForReload()
+		{
+			let tabInstance = this.$refs.tabComponent.$refs.current
+			if (tabInstance && !this.tabInstances.includes(tabInstance))
+			{
+				this.tabInstances.push(tabInstance);
+				this.handleLoadOneTab();
+			}
 		},
 		checkBeforeLeave() {
-			if (Object.keys(this.modelValue).length > 0)
+			if (Object.keys(this.modelValue.updatedData).length > 0)
 				return true;
 			else
 				return false;
 		},
+
 	},
+
 	template: `
 
 	<core-navigation-cmpt 
@@ -163,6 +245,13 @@ export default {
 		leftNavCssClasses="''">	
 	</core-navigation-cmpt>
 
+<core-base-layout
+title="Personaleinsatzplanung"
+>
+<template #main>
+
+</template>
+</core-base-layout>
 	<div id="wrapper">
 		<div id="page-wrapper">
 			<div class="container-fluid">
@@ -189,7 +278,7 @@ export default {
 				<div class="row">
 					<div class="col-md-9" id="container">
 						<div class="row">
-							<div class="col-md-2" v-if="showStudiensemester">
+							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studiensemester">
 								<Multiselect
 									v-model="studiensemester"
 									option-label="studiensemester_kurzbz" 
@@ -197,14 +286,15 @@ export default {
 									placeholder="Studiensemester"
 									:hide-selected="true"
 									:selectionLimit="2"
-									@change="ssChanged" 
+									@change="semesterChanged" 
+									@hide="checkStudiensemester"
+									class="w-full md:w-80"
 								>
 								</Multiselect>
+								
 							</div>
-							
-							
-							<div class="col-md-2" v-if="showStudienjahr">
-								<select v-model="selectedStjahr" class="form-control">
+							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studienjahr">
+								<select v-model="selectedStudienjahr" class="form-select">
 									<option value="">Studienjahr</option>
 									<option v-for="studienjahr in studienjahre" :value="studienjahr.studienjahr_kurzbz" >
 										{{ studienjahr.studienjahr_kurzbz }}
@@ -212,7 +302,7 @@ export default {
 								</select>
 							</div>
 							<div class="col-md-3">
-								<select v-model="selectedOrg" class="form-control">
+								<select v-model="selectedOrg" class="form-select">
 									<option value="">Abteilung</option>
 									<option v-for="organisation in organisationen" :value="organisation.oe_kurzbz" >
 										[{{ organisation.organisationseinheittyp_kurzbz }}] {{ organisation.bezeichnung }}
@@ -232,9 +322,9 @@ export default {
 									</label>
 								</div>
 							</div>
-							<div class="col-md-2">
-								<button @click="handleLoad" class="form-control btn-default">
-									Laden
+							<div class="col-md-1">
+								<button class="btn btn-outline-secondary" aria-label="Reload" @click="handleLoad(false)">
+									<span class="fa-solid fa-rotate-right" aria-hidden="true"></span>
 								</button>
 							</div>
 							<div class="col-md-2">
@@ -245,7 +335,7 @@ export default {
 								<hr />
 								</div>
 							</div>
-					<div class="col-md-3">
+				<!--	<div class="col-md-3">
 						<div class="accordion" id="accordionExample">
 							<div class="accordion-item">
 								<h2 class="accordion-header" id="headingOne">
@@ -273,20 +363,22 @@ export default {
 								</div>
 							</div>
 						</div>
-					</div>
+					</div>-->
 				</div>
-				<fhc-tabs v-if="tabsConfig !== ''"
-					ref="currentTab"
+
+				<fhc-tabs v-if="tabsConfig"
+					ref="tabComponent"
 					:config="tabsConfig"
-					style="flex: 1 1 0%; height: 0%"
+					default="start"
 					:vertical="false"
-					border="true"
+					border=true
 					@changed="updateTab"
 					v-model="modelValue"
 				>
 				</fhc-tabs>
 			</div>
 		</div>
+		<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 	</div>
 	
 `

@@ -17,17 +17,20 @@
 
 import PepReport from '../components/PepReport.js';
 import FhcAlert from '../../../../js/plugin/FhcAlert.js';
-import fhc_anwesenheitenapifactory from "../api/fhc-anwesenheitenapifactory.js";
+import fhcapifactory from "../api/fhcapifactory";
 import Phrasen from '../../../../js/plugin/Phrasen.js';
+import FhcApi from '../../../../js/plugin/FhcApi.js';
 
-Vue.$fhcapi = fhc_anwesenheitenapifactory;
 
 const pepAPP = Vue.createApp({
 	components: {
-		PepReport,
-		Phrasen
+		PepReport
 	}
 });
 
-pepAPP.use(primevue.config.default).use(FhcAlert).use(Phrasen);
-pepAPP.mount('#main');
+pepAPP
+	.use(primevue.config.default)
+	.use(FhcAlert)
+	.use(FhcApi, {factory: fhcapifactory})
+	.use(Phrasen)
+	.mount('#main');

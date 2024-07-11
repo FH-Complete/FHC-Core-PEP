@@ -301,11 +301,11 @@ export const formatter = {
 			{
 				if (cell.getValue() > 130)
 				{
-					return "<span style='color:red; font-weight:bold;'>" + value + "</span>";
+					return "<span style='color:red; font-weight:bold;'>" + parseFloat(value).toFixed(formatterParams.precision) + "</span>";
 				}
 			}
 		}
-		return value;
+		return parseFloat(value).toFixed(formatterParams.precision);
 	},
 	karenzFormatter: function(cell, formatterParams, onRendered)
 	{
@@ -325,7 +325,7 @@ export const formatter = {
 		if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
 		{
 			if (row.releavante_vertragsart !== 'echterdv')
-				return '';
+				return '-';
 		}
 		else
 			return '-';
@@ -333,6 +333,8 @@ export const formatter = {
 		var praefix = "studiensemester_";
 
 		var summe = cell.getRow().getData().summe;
+		if (summe === undefined)
+			return '-';
 		for (var key in row)
 		{
 			if (row.hasOwnProperty(key) && key.startsWith(praefix))
@@ -360,11 +362,13 @@ export const formatter = {
 			if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
 			{
 				if (row.releavante_vertragsart !== 'echterdv')
-					return;
+					return '-';
 			}
 			else
 				return;
 			var summe = row.summe;
+			if (summe === undefined)
+				return;
 			for (var key in row)
 			{
 				if (row.hasOwnProperty(key) && key.startsWith(praefix))

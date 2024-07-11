@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS extension.tbl_pep_kategorie_mitarbeiter
     kategorie_id                integer NOT NULL,
     mitarbeiter_uid             varchar(32) NOT NULL,
     studienjahr_kurzbz          character varying(16) NOT NULL,
-    stunden                     numeric(5,2),
+    stunden                     numeric(5,2) NOT NULL,
     anmerkung                   text,
     insertamum                  timestamp without time zone DEFAULT now(),
     insertvon                   varchar (32),
