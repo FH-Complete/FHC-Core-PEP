@@ -11,7 +11,7 @@ GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_kategorie_studienjahr_id_seq 
 
 CREATE TABLE IF NOT EXISTS extension.tbl_pep_kategorie_studienjahr
 (
-    kategorie_studienjahr_id    integer NOT NULL default NEXTVAL('extension.tbl_pep_kategorie_studienjahr_id_seq'::regClass)
+    kategorie_studienjahr_id    integer NOT NULL default NEXTVAL('extension.tbl_pep_kategorie_studienjahr_id_seq'::regClass),
     kategorie_id                integer NOT NULL,
     default_stunden             numeric(5,2) NOT NULL,
     gueltig_ab_studienjahr      character varying(16) NOT NULL,
