@@ -19,7 +19,8 @@ export default {
 	data()
 	{
 		return {
-			categoriesConfig: {}
+			categoriesConfig: {},
+			semester: [],
 		}
 	},
 
@@ -29,7 +30,6 @@ export default {
 			return {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
-				selectable: false,
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: function(row) {
 					var data = row.getData();
@@ -38,13 +38,22 @@ export default {
 					{
 						row.getCells().forEach(function (cell) {
 							if (!cell.getColumn().getDefinition().bottomCalc) {
-								cell.getElement().style.color = "#0c5460";
+								cell.getElement().style.color = "#ABBD06FF";
 							}
 						});
 					}
 				},
 				persistenceID: "pep_start",
 				columns: [
+					{
+						formatter: 'rowSelection',
+						titleFormatter: 'rowSelection',
+						titleFormatterParams: {
+							rowRange: "active"
+						},
+						headerSort: false,
+						width: 70
+					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
@@ -59,7 +68,7 @@ export default {
 					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
 					{field: "studiensemester_0_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 1. Semester', formatter: formatter.checkLehrauftraegeStunden, formatterParams:{precision:2}},
 					{field: "studiensemester_1_lehrauftrag", hozAlign:"right", bottomCalc: 'sum', bottomCalcParams:{precision:2}, headerFilter:"input", title: 'Lehraufträge 2. Semester', formatter: formatter.checkLehrauftraegeStunden, formatterParams:{precision:2}},
-					{title: 'Summe', formatter: formatter.berechneSumme, field: 'summe', hozAlign:"right", bottomCalc: formatter.berechneSummeBottom, bottomCalcFormatter: formatter.bottomCalcFormatter, bottomCalcParams:{precision:2},visible: true}
+					{title: 'Offene Stunden', formatter: formatter.berechneSumme, field: 'summe', hozAlign:"right", bottomCalc: formatter.berechneSummeBottom, bottomCalcFormatter: formatter.bottomCalcFormatter, bottomCalcParams:{precision:2},visible: true}
 				],
 			}
 		},
@@ -73,13 +82,16 @@ export default {
 		}
 	},
 	created() {
-		this.$nextTick(() => {
-			this.theModel = { ...this.modelValue, loadDataReady: true };
-		});
+
+
+		/*	this.$nextTick(() => {
+				this.theModel = { ...this.modelValue, loadDataReady: true };
+			});*/
 	},
 	methods: {
 		async loadData(data)
 		{
+			this.semester = data.semester;
 			await this.loadColumns();
 
 			await this.$fhcApi.factory.pep.getStart(data)
@@ -90,7 +102,60 @@ export default {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
-		async loadColumns()
+
+		async loadColumns() {
+			const tabulatorInstance = this.$refs.startTable.tabulator;
+			let existingColumns = tabulatorInstance?.getColumns().map(column => column.getField());
+
+			this.semester.forEach((studiensemester, key) => {
+				this.categoriesConfig.forEach(kategorie => {
+					const fieldKey = `studiensemester_${key}_kategorie_${kategorie.kategorie_id}`;
+					const newColumn = {
+						title: `${kategorie.beschreibung} ${studiensemester}`,
+						field: fieldKey,
+						headerFilter: "input",
+						hozAlign: "right",
+						bottomCalc: 'sum',
+						bottomCalcParams: { precision: 2 },
+						formatterParams: { precision: 2 },
+						visible: true,
+						formatter: (cell) => {
+							const value = cell.getValue();
+							return !isNaN(value) ? parseFloat(value).toFixed(2) : "0.00";
+						}
+					};
+
+					if (!existingColumns.includes(fieldKey))
+					{
+						tabulatorInstance.addColumn(newColumn, true, "summe");
+					}
+					else
+					{
+						tabulatorInstance.updateColumnDefinition(fieldKey, { title: newColumn.title, visible: true });
+					}
+				});
+
+				tabulatorInstance.updateColumnDefinition(`studiensemester_${key}_lehrauftrag`, {
+					title: `Lehrauftraege ${studiensemester}`
+				});
+			});
+
+			if (!this.semester[1]) {
+				this.categoriesConfig.forEach(kategorie => {
+					const fieldKey = `studiensemester_1_kategorie_${kategorie.kategorie_id}`;
+
+					if (existingColumns.includes(fieldKey)) {
+						tabulatorInstance.deleteColumn(fieldKey);
+					}
+				});
+
+				tabulatorInstance.hideColumn('studiensemester_1_lehrauftrag');
+			} else {
+				tabulatorInstance.showColumn('studiensemester_1_lehrauftrag');
+			}
+		},
+
+		async loadColumns2()
 		{
 			this.theModel?.config?.semester?.forEach((studiensemester, key) => {
 				this.categoriesConfig.forEach(kategorie => {
@@ -150,24 +215,31 @@ export default {
 				}
 			}
 		},
-	},
-	mounted() {
-		this.$fhcApi.factory.pep.getCategories()
-			.then(response => {
-				this.categoriesConfig = response.data
-			})
-			.catch(error => {
-				this.$fhcAlert.handleSystemError(error);
-			});
+		async getCategoriesConfig()
+		{
+			if (Object.keys(this.categoriesConfig).length !== 0)
+				return;
+			await this.$fhcApi.factory.pep.getCategories()
+				.then(response => {
+					this.categoriesConfig = response.data
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
+		tableBuilt(){
+			this.getCategoriesConfig().then(() => this.theModel = { ...this.modelValue, loadDataReady: true })
+
+		}
 	},
 	template: `
 		<core-base-layout>
 			<template #main>
-			<h5>{{$p.t('lehre', 'studiensemester')}}: {{theModel?.config?.semester?.join(', ')}}</h5>
+			<h5>{{$p.t('lehre', 'studiensemester')}}: {{semester?.join(', ')}}</h5>
 				<core-filter-cmpt
 					ref="startTable"
 					:tabulator-options="tabulatorOptions"
-
+					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }]"
 					:table-only=true
 					:side-menu="false"
 					:hideTopMenu=false

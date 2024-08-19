@@ -19,3 +19,17 @@
 	pointer-events: none;
 	opacity: 0.5;
 }
+
+.highlight-success {
+	color: #0f5132 !important;
+	background-color: #d1e7dd !important;
+	border-color: #badbcc !important;
+	transition: background-color 0.5s ease-out;
+}
+
+.highlight-alert {
+	color: #842029 !important;
+	background-color: #f8d7da !important;
+	border-color: #f5c2c7 !important;
+	transition: background-color 0.5s ease-in-out;
+}

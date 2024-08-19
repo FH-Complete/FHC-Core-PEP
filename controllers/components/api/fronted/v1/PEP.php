@@ -8,7 +8,7 @@ class PEP extends FHCAPI_Controller
 	private $_ci;
 	private $_uid;
 	const BERECHTIGUNG_KURZBZ = 'extension/pep:rw';
-	
+
 	public function __construct()
 	{
 		parent::__construct([
@@ -16,35 +16,48 @@ class PEP extends FHCAPI_Controller
 			'getLehre' => self::BERECHTIGUNG_KURZBZ,
 			'getCategory' => self::BERECHTIGUNG_KURZBZ,
 			'vorruecken' => self::BERECHTIGUNG_KURZBZ,
+			'stundenzuruecksetzen' => self::BERECHTIGUNG_KURZBZ,
 			'getCategories' => self::BERECHTIGUNG_KURZBZ,
 			'saveMitarbeiter' => self::BERECHTIGUNG_KURZBZ,
 			'getLektoren' => self::BERECHTIGUNG_KURZBZ,
+			'getProjekte' => self::BERECHTIGUNG_KURZBZ,
 			'getRaumtypen' => self::BERECHTIGUNG_KURZBZ,
 			'getLehreinheit' => self::BERECHTIGUNG_KURZBZ,
 			'saveLehreinheit' => self::BERECHTIGUNG_KURZBZ,
+			'updateAnmerkung' => self::BERECHTIGUNG_KURZBZ,
+			'setVariables' => self::BERECHTIGUNG_KURZBZ,
+			'getStudienjahre' => self::BERECHTIGUNG_KURZBZ,
+			'getOrganisationen' => self::BERECHTIGUNG_KURZBZ,
+			'getProjects' => self::BERECHTIGUNG_KURZBZ,
+			'addProjectStunden' => self::BERECHTIGUNG_KURZBZ,
+			'deleteProjectStunden' => self::BERECHTIGUNG_KURZBZ,
+			'updateProjectStunden' => self::BERECHTIGUNG_KURZBZ,
 
 		]);
-		
+
 		$this->_ci = &get_instance();
 
 		$this->_ci->load->model('organisation/Studiensemester_model', 'StudiensemesterModel');
 		$this->_ci->load->model('organisation/Studiengang_model', 'StudiengangModel');
 		$this->_ci->load->model('organisation/Studienjahr_model', 'StudienjahrModel');
+		$this->_ci->load->model('organisation/Organisationseinheit_model', 'OrganisationseinheitModel');
 		$this->_ci->load->model('person/Benutzerfunktion_model', 'BenutzerfunktionModel');
 		$this->_ci->load->model('system/MessageToken_model', 'MessageTokenModel');
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_model', 'PEPModel');
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_Kategorie_Mitarbeiter_model', 'PEPKategorieMitarbeiterModel');
+		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_Projects_Employees_model', 'PEPProjectsEmployeesModel');
 		$this->_ci->load->model('education/Lehreinheit_model', 'LehreinheitModel');
 		$this->_ci->load->model('education/Lehreinheitmitarbeiter_model', 'LehreinheitmitarbeiterModel');
 		$this->_ci->load->model('ressource/Raumtyp_model', 'RaumtypModel');
 		$this->_ci->load->model('person/Person_model', 'PersonModel');
+		$this->_ci->load->model('system/Variable_model', 'VariableModel');
 
 		$this->_ci->load->library('AuthLib');
 		$this->_ci->load->library('PermissionLib');
 		$this->_setAuthUID();
 
 	}
-	
+
 	//------------------------------------------------------------------------------------------------------------------
 	// Public methods
 
@@ -52,6 +65,39 @@ class PEP extends FHCAPI_Controller
 	{
 		$this->_ci->PEPModel->addSelect('kategorie_id, array_to_json(bezeichnung_mehrsprachig::varchar[])->>0 as beschreibung');
 		$this->terminateWithSuccess(getData($this->_ci->PEPModel->load()));
+	}
+
+	public function getStudienjahre()
+	{
+		$this->_ci->StudienjahrModel->addOrder('studienjahr_kurzbz', 'DESC');
+		$studienjahre = getData($this->_ci->StudienjahrModel->load());
+
+		$this->terminateWithSuccess($studienjahre);
+	}
+
+	public function getOrganisationen()
+	{
+		$oeKurzbz = $this->_ci->permissionlib->getOE_isEntitledFor(self::BERECHTIGUNG_KURZBZ);
+		$this->_ci->OrganisationseinheitModel->addSelect('organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz');
+		$this->_ci->OrganisationseinheitModel->addOrder('organisationseinheittyp_kurzbz');
+		$organisationen = $this->_ci->OrganisationseinheitModel->loadWhere("oe_kurzbz IN ('". implode("', '", $oeKurzbz) . "')");
+		$this->terminateWithSuccess(getData($organisationen));
+	}
+	public function setVariables()
+	{
+		$variables = $this->getPostJson();
+		$studienjahr = $variables->var_studienjahr;
+		$studiensemester = $variables->var_studiensemester;
+		$org = $variables->var_organisation;
+
+		if (!isEmptyString($studienjahr))
+			$this->_ci->VariableModel->setVariable($this->_uid, 'pep_studienjahr', $studienjahr);
+
+		if (!isEmptyString($studiensemester))
+			$this->_ci->VariableModel->setVariable($this->_uid, 'pep_studiensemester', implode(",", $studiensemester));
+
+		if (!isEmptyString($org))
+			$this->_ci->VariableModel->setVariable($this->_uid, 'pep_abteilung', $org);
 	}
 	public function getStart()
 	{
@@ -78,7 +124,7 @@ class PEP extends FHCAPI_Controller
 			$mitarbeiterData->nachname = $mitarbeiter->nachname;
 			$mitarbeiterData->uid = $mitarbeiter->uid;
 
-			$karenz = $this->_getCurrentKarenz($mitarbeiter->uid);
+			$karenz = $this->_getFutureKarenz($mitarbeiter->uid);
 			$mitarbeiterData->karenz = $karenz ?: false;
 
 			if (isset($dienstverhaeltnis->jahresstunden))
@@ -222,8 +268,27 @@ class PEP extends FHCAPI_Controller
 		$this->terminateWithSuccess($allMitarbeiterData);
 	}
 
-	public function vorruecken()
+	public function getProjects()
 	{
+
+		$org = $this->_ci->input->get('org');
+		$studienjahr = $this->_ci->input->get('studienjahr');
+		$recursive = $this->_ci->input->get('recursive');
+
+		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
+		$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
+		if (!hasData($studiensemestern))
+			$this->terminateWithJsonError("Fehler beim Lesen");
+
+		$studiensemestern = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
+		$mitarbeiter_uids = $this->_getMitarbeiterUids($org, $studiensemestern , $recursive === "true");
+		$projectsData = $this->_ci->PEPModel->getProjectData($mitarbeiter_uids, $studienjahr);
+		$this->terminateWithSuccess(getData($projectsData));
+	}
+
+	/*public function vorruecken()
+	{
+
 		$studienjahr = $this->_ci->input->post('studienjahr');
 		$category_id = $this->_ci->input->post('category_id');
 		$org = $this->_ci->input->post('org');
@@ -232,7 +297,7 @@ class PEP extends FHCAPI_Controller
 		$this->_ci->StudiensemesterModel->addSelect('studienjahr_kurzbz');
 		$result = $this->_ci->StudiensemesterModel->loadWhere('
 			start >= (
-				SELECT ende 
+				SELECT ende
 				FROM public.tbl_studiensemester
 				WHERE studienjahr_kurzbz = '. $this->_ci->db->escape($studienjahr). '
 				ORDER BY ende DESC LIMIT 1
@@ -274,6 +339,108 @@ class PEP extends FHCAPI_Controller
 		{
 			$this->terminateWithSuccess($this->_ci->PEPKategorieMitarbeiterModel->vorruecken($studienjahr, $newStudienjahr, $category_id, $uidsNeedUpdate));
 		}
+	}*/
+
+	public function stundenzuruecksetzen()
+	{
+		$data = $this->getPostJson();
+
+		$studienjahr = $data->studienjahr;
+		$category_id = $data->category_id;
+		$org = $data->org;
+
+		$recursive = $data->recursive;
+
+		$aktStudiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
+		if (!hasData($aktStudiensemestern))
+			$this->terminateWithSuccess(false);
+
+		$aktStudiensemestern = array_column(getData($aktStudiensemestern), 'studiensemester_kurzbz');
+
+
+		$aktStudienjahrUids = $this->_getMitarbeiterUids($org, $aktStudiensemestern, $recursive === "true");
+
+		$this->_ci->PEPKategorieMitarbeiterModel->addSelect('kategorie_mitarbeiter_id');
+		$neededDelete = $this->_ci->PEPKategorieMitarbeiterModel->loadWhere('
+			mitarbeiter_uid IN ('. implode(',', $this->_ci->db->escape($aktStudienjahrUids)) .')
+			AND studienjahr_kurzbz = '. $this->_ci->db->escape($studienjahr).'
+			AND kategorie_id = '. $this->_ci->db->escape($category_id) .'
+		');
+
+		if (hasData($neededDelete))
+		{
+			$neededDeleteIds = array_column(getData($neededDelete), 'kategorie_mitarbeiter_id');
+
+			foreach ($neededDeleteIds as $id)
+			{
+				$this->_ci->PEPKategorieMitarbeiterModel->delete(array($id));
+			}
+		}
+			$this->terminateWithSuccess();
+
+	}
+
+	public function vorruecken()
+	{
+		$data = $this->getPostJson();
+
+		/*if (!$data->fromStudienjahr ||
+			!$data->toStudienjahr ||
+			!$data->organisation ||
+			!$data->kategorien)
+			$this->terminateWithJsonError("test");*/
+
+		/*$this->_ci->StudiensemesterModel->addSelect('studienjahr_kurzbz');
+		$result = $this->_ci->StudiensemesterModel->loadWhere('
+			start >= (
+				SELECT ende
+				FROM public.tbl_studiensemester
+				WHERE studienjahr_kurzbz = '. $this->_ci->db->escape($data->fromStudienjahr). '
+				ORDER BY ende DESC LIMIT 1
+			)
+			ORDER BY start LIMIT 1
+		');
+
+		if (isError($result) || !hasData($result))
+			$this->terminateWithError("Fehler");*/
+
+
+		$fromStudienjahr = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $data->fromStudienjahr));
+		if (!hasData($fromStudienjahr))
+			$this->terminateWithSuccess(false);
+		$fromStudiensemester = array_column(getData($fromStudienjahr), 'studiensemester_kurzbz');
+
+		$toStudienjahr = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $data->toStudienjahr));
+		if (!hasData($toStudienjahr))
+			$this->terminateWithSuccess(false);
+		$toStudiensemester = array_column(getData($toStudienjahr), 'studiensemester_kurzbz');
+
+		$aktStudienjahrUids = $this->_getMitarbeiterUids($data->organisation, $fromStudiensemester, $data->recursive === "true");
+		$newStudienjahrUids = $this->_getMitarbeiterUids($data->organisation, $toStudiensemester, $data->recursive === "true");
+		$uidsNeedUpdate = array_intersect($aktStudienjahrUids, $newStudienjahrUids);
+
+		$fromStudienjahr = getData($fromStudienjahr)[0]->studienjahr_kurzbz;
+		$toStudienjahr = getData($toStudienjahr)[0]->studienjahr_kurzbz;
+		$nichtVorgerueckt = [];
+
+		foreach ($data->kategorien as $kategorie)
+		{
+			$exists = $this->_ci->PEPKategorieMitarbeiterModel->loadWhere('
+				mitarbeiter_uid IN ('. implode(',', $this->_ci->db->escape($newStudienjahrUids)) .')
+				AND studienjahr_kurzbz = '. $this->_ci->db->escape($toStudienjahr).'
+				AND kategorie_id = '. $this->_ci->db->escape($kategorie) .'
+			');
+
+
+			if (hasData($exists))
+			{
+				$nichtVorgerueckt[] = $kategorie;
+				continue;
+			}
+			$this->_ci->PEPKategorieMitarbeiterModel->vorruecken($fromStudienjahr, $toStudienjahr, $kategorie, $uidsNeedUpdate);
+		}
+
+		$this->terminateWithSuccess($nichtVorgerueckt);
 	}
 
 
@@ -295,13 +462,243 @@ class PEP extends FHCAPI_Controller
 		return getData($dbModel->execReadOnlyQuery($qry));
 	}
 
+	private function _getFutureKarenz($uid)
+	{
+		$dbModel = new DB_Model();
+		$qry = "
+			SELECT hr.tbl_vertragsbestandteil.*
+			FROM hr.tbl_dienstverhaeltnis
+				JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
+				WHERE mitarbeiter_uid = '". $uid ."'
+					AND (tbl_vertragsbestandteil.von <= NOW() OR tbl_vertragsbestandteil.von > NOW())
+					AND (tbl_vertragsbestandteil.bis >= NOW() OR tbl_vertragsbestandteil.bis IS NULL)
+			AND vertragsbestandteiltyp_kurzbz = 'karenz'
+			ORDER BY tbl_vertragsbestandteil.von DESC NULLS LAST
+				LIMIT 1
+		";
+
+		return getData($dbModel->execReadOnlyQuery($qry));
+	}
 
 
-	public function saveMitarbeiter()
+	public function addProjectStunden()
 	{
 		$data = $this->getPostJson();
 
-		foreach ($data as $categoryId => $categoryArray)
+		if ((property_exists($data, 'lektor')) &&
+			(property_exists($data, 'project')) &&
+			(property_exists($data, 'stunden')))
+		{
+			$result = $this->_ci->PEPProjectsEmployeesModel->insert(array(
+				'projekt_id' => $data->project,
+				'mitarbeiter_uid' => $data->lektor,
+				'stunden' => $data->stunden,
+				'anmerkung' => $data->anmerkung,
+				'studienjahr_kurzbz' => '2023/24', //TODO
+				'insertamum' => date('Y-m-d H:i:s'),
+				'insertvon' => $this->_uid
+			));
+			if (isError($result))
+				$this->terminateWithJsonError('Fehler beim Speichern');
+			$this->terminateWithSuccess($result);
+		}
+	}
+
+	public function deleteProjectStunden()
+	{
+		$data = $this->getPostJson();
+
+		if ((property_exists($data, 'id')) &&
+			(property_exists($data, 'uid')))
+		{
+			$result = $this->_ci->PEPProjectsEmployeesModel->loadWhere(array('pep_projects_employees_id' =>  $data->id, 'mitarbeiter_uid' => $data->uid));
+
+			if (hasData($result))
+			{
+				$deleteResult = $this->_ci->PEPProjectsEmployeesModel->delete(array('pep_projects_employees_id' =>  $data->id));
+				$this->terminateWithSuccess($deleteResult);
+			}
+				$this->terminateWithSuccess(false);
+
+		}
+	}
+
+	public function updateProjectStunden()
+	{
+		$data = $this->getPostJson();
+
+		if ((property_exists($data, 'project_id')) &&
+			(property_exists($data, 'id')) &&
+			(property_exists($data, 'uid')))
+		{
+			if ($data->id !== null)
+			{
+				$result = $this->_ci->PEPProjectsEmployeesModel->loadWhere(array('pep_projects_employees_id' =>  $data->id, 'mitarbeiter_uid' => $data->uid));
+
+				if (hasData($result))
+				{
+					$updateResult = $this->_ci->PEPProjectsEmployeesModel->update(
+						array('pep_projects_employees_id' => $data->id),
+						array(
+							'stunden' => $data->stunden,
+							'updatevon' => $this->_uid,
+							'updateamum' => date('Y-m-d H:i:s'),
+						)
+					);
+					$this->terminateWithSuccess($data->id);
+				}
+				$this->terminateWithSuccess(false);
+			}
+			else
+			{
+				$result = $this->_ci->PEPProjectsEmployeesModel->insert(array(
+					'projekt_id' => $data->project_id,
+					'mitarbeiter_uid' => $data->uid,
+					'stunden' => $data->stunden,
+					'studienjahr_kurzbz' => '2023/24', //TODO
+					'insertamum' => date('Y-m-d H:i:s'),
+					'insertvon' => $this->_uid
+				));
+
+				$this->terminateWithSuccess(getData($result));
+			}
+
+
+		}
+	}
+	public function saveMitarbeiter()
+	{
+		$mitarbeiterCategory = $this->getPostJson();
+
+		$kategorie = $this->_ci->PEPModel->load(array('kategorie_id' => $mitarbeiterCategory->kategorie));
+
+		if (is_null($mitarbeiterCategory->kategorie_mitarbeiter_id))
+		{
+			$result = $this->_ci->PEPKategorieMitarbeiterModel->insert(array(
+				'kategorie_id' =>  $mitarbeiterCategory->kategorie,
+				'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
+				'studienjahr_kurzbz' => $mitarbeiterCategory->studienjahr,
+				'stunden' => $mitarbeiterCategory->stunden,
+				'anmerkung' => $mitarbeiterCategory->anmerkung,
+				'insertamum' => date('Y-m-d H:i:s'),
+				'insertvon' => $this->_uid
+			));
+
+			if (isError($result))
+				$this->terminateWithJsonError('Fehler beim Speichern');
+
+			$mitarbeiterCategory->kategorie_mitarbeiter_id = getData($result);
+			$this->terminateWithSuccess($mitarbeiterCategory->kategorie_mitarbeiter_id);
+		}
+		else
+		{
+			if (property_exists($mitarbeiterCategory, 'delete'))
+			{
+				$stunden_delete = $this->_ci->PEPKategorieMitarbeiterModel->delete(array('kategorie_mitarbeiter_id' => $mitarbeiterCategory->kategorie_mitarbeiter_id));
+
+				if (isError($stunden_delete))
+					$this->terminateWithJsonError('Fehler beim Speichern');
+
+				$categoryData = $this->_ci->PEPModel->getCategoryData([$mitarbeiterCategory->mitarbeiter_uid],  $mitarbeiterCategory->kategorie, $mitarbeiterCategory->studienjahr);
+
+				$this->terminateWithSuccess(getData($categoryData)[0]);
+			}
+			else
+			{
+				$stunden_exists = $this->_ci->PEPKategorieMitarbeiterModel->load(array($mitarbeiterCategory->kategorie_mitarbeiter_id));
+
+				if (!hasData($stunden_exists) || isError($stunden_exists))
+					$this->terminateWithJsonError("Fehler beim Speichern");
+
+				$stunden_exists = getData($stunden_exists)[0];
+
+				if ($stunden_exists->stunden !== number_format($mitarbeiterCategory->stunden, 2)
+					|| ($stunden_exists->anmerkung !== $mitarbeiterCategory->anmerkung)
+				)
+				{
+					$result = $this->_ci->PEPKategorieMitarbeiterModel->update(
+						array($stunden_exists->kategorie_mitarbeiter_id),
+						array(
+							'stunden' => $mitarbeiterCategory->stunden,
+							'anmerkung' => $mitarbeiterCategory->anmerkung,
+							'updatevon' => $this->_uid,
+							'updateamum' => date('Y-m-d H:i:s'),
+						)
+					);
+					if (isError($result))
+						$this->terminateWithJsonError('Fehler beim Speichern');
+				}
+				$this->terminateWithSuccess($mitarbeiterCategory->kategorie_mitarbeiter_id);
+			}
+		}
+
+		/*
+		if (
+			property_exists($mitarbeiterCategory, 'studienjahr') &&
+			property_exists($mitarbeiterCategory, 'stunden') &&
+			property_exists($mitarbeiterCategory, 'kategorie') &&
+			property_exists($mitarbeiterCategory, 'anmerkung')
+		)
+		{
+			$kategorie = $this->_ci->PEPModel->load(array('kategorie_id' => $mitarbeiterCategory->kategorie));
+
+			if (!hasData($kategorie) || isError($kategorie))
+				$this->terminateWithJsonError("Fehler beim Speichern");
+
+			if (is_null($mitarbeiterCategory->kategorie_mitarbeiter_id))
+			{
+				$result = $this->_ci->PEPKategorieMitarbeiterModel->insert(array(
+					'kategorie_id' =>  $mitarbeiterCategory->kategorie,
+					'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
+					'studienjahr_kurzbz' => $mitarbeiterCategory->studienjahr,
+					'stunden' => $mitarbeiterCategory->stunden,
+					'anmerkung' => $mitarbeiterCategory->anmerkung,
+					'insertamum' => date('Y-m-d H:i:s'),
+					'insertvon' => $this->_uid
+				));
+
+				if (isError($result))
+					$this->terminateWithJsonError('Fehler beim Speichern');
+
+				$mitarbeiterCategory->kategorie_mitarbeiter_id = getData($result);
+			}
+			else
+			{
+				$stunden_exists = $this->_ci->PEPKategorieMitarbeiterModel->load(array($mitarbeiterCategory->kategorie_mitarbeiter_id));
+
+				if (!hasData($stunden_exists) || isError($stunden_exists))
+					$this->terminateWithJsonError("Fehler beim Speichern");
+
+				$stunden_exists = getData($stunden_exists)[0];
+
+				if ($stunden_exists->stunden !== number_format($mitarbeiterCategory->stunden, 2)
+					|| ($stunden_exists->anmerkung !== $mitarbeiterCategory->anmerkung)
+				)
+				{
+					$result = $this->_ci->PEPKategorieMitarbeiterModel->update(
+						array($stunden_exists->kategorie_mitarbeiter_id),
+						array(
+							'stunden' => $mitarbeiterCategory->stunden,
+							'anmerkung' => $mitarbeiterCategory->anmerkung,
+							'updatevon' => $this->_uid,
+							'updateamum' => date('Y-m-d H:i:s'),
+						)
+					);
+					if (isError($result))
+						$this->terminateWithJsonError('Fehler beim Speichern');
+				}
+			}
+		}
+		else if (property_exists($mitarbeiterCategory, 'kategorie_mitarbeiter_id') &&
+			property_exists($mitarbeiterCategory, 'delete'))
+		{
+			$stunden_delete = $this->_ci->PEPKategorieMitarbeiterModel->delete(array('kategorie_mitarbeiter_id' => $mitarbeiterCategory->kategorie_mitarbeiter_id));
+
+			if (isError($stunden_delete))
+				$this->terminateWithJsonError('Fehler beim Speichern');
+		}
+
+		/*foreach ($data as $categoryId => $categoryArray)
 		{
 			foreach($categoryArray as $mitarbeiter => $mitarbeiterArray)
 			{
@@ -374,91 +771,36 @@ class PEP extends FHCAPI_Controller
 			}
 
 			$this->outputJsonSuccess("erfolgreich gespeichert");
-		}
+		}*/
 		$returnValue = [];
-		foreach ($data as $mitarbeiter)
-		{
-			foreach ($mitarbeiter as $mitarbeiter_stunden)
-			{
-				if (property_exists($mitarbeiter_stunden, 'reloadStudienjahr') &&
-					property_exists($mitarbeiter_stunden, 'reloadKategorie'))
-				{
-					if (!isset($returnValue[$mitarbeiter_stunden->reloadKategorie]))
-						$returnValue[$mitarbeiter_stunden->reloadKategorie] = $mitarbeiter_stunden->reloadStudienjahr;
-				}
 
-				if (property_exists($mitarbeiter_stunden, 'kategorie') &&
-					property_exists($mitarbeiter_stunden, 'studienjahr') &&
-					property_exists($mitarbeiter_stunden, 'stunden') &&
-					property_exists($mitarbeiter_stunden, 'anmerkung') &&
-					property_exists($mitarbeiter_stunden, 'kategorie_mitarbeiter_id'))
-				{
-					$kategorie = $this->_ci->PEPModel->load(array('kategorie_id' => $mitarbeiter_stunden->kategorie));
-
-					if (!hasData($kategorie) || isError($kategorie))
-						$this->terminateWithJsonError("Fehler beim Speichern");
-
-					if (is_null($mitarbeiter_stunden->kategorie_mitarbeiter_id))
-					{
-						$kategorie = $this->_ci->PEPModel->load(array('kategorie_id' => $mitarbeiter_stunden->kategorie));
-
-						if (!hasData($kategorie) || isError($kategorie))
-							$this->terminateWithJsonError("Fehler beim Speichern");
-
-						$result = $this->_ci->PEPKategorieMitarbeiterModel->insert(array(
-							'kategorie_id' =>  $mitarbeiter_stunden->kategorie,
-							'mitarbeiter_uid' => $mitarbeiter_stunden->uid,
-							'studienjahr_kurzbz' => $mitarbeiter_stunden->studienjahr,
-							'stunden' => $mitarbeiter_stunden->stunden,
-							'anmerkung' => $mitarbeiter_stunden->anmerkung,
-							'insertamum' => date('Y-m-d H:i:s'),
-							'insertvon' => $this->_uid
-						));
-
-						if (isError($result))
-							$this->terminateWithJsonError('Fehler beim Speichern');
-
-						$mitarbeiter_stunden->kategorie_mitarbeiter_id = getData($result);
-					}
-					else
-					{
-						$stunden_exists = $this->_ci->PEPKategorieMitarbeiterModel->load(array($mitarbeiter_stunden->kategorie_mitarbeiter_id));
-
-						if (!hasData($stunden_exists) || isError($stunden_exists))
-							$this->terminateWithJsonError("Fehler beim Speichern");
-
-						$stunden_exists = getData($stunden_exists)[0];
-
-						if ($stunden_exists->stunden !== number_format($mitarbeiter_stunden->stunden, 2)
-							|| ($stunden_exists->anmerkung !== $mitarbeiter_stunden->anmerkung)
-						)
-						{
-							$result = $this->_ci->PEPKategorieMitarbeiterModel->update(
-								array($stunden_exists->kategorie_mitarbeiter_id),
-								array(
-									'stunden' => $mitarbeiter_stunden->stunden,
-									'anmerkung' => $mitarbeiter_stunden->anmerkung
-								)
-							);
-							if (isError($result))
-								$this->terminateWithJsonError('Fehler beim Speichern');
-
-						}
-					}
-				}
-				else if (property_exists($mitarbeiter_stunden, 'kategorie_mitarbeiter_id') &&
-							property_exists($mitarbeiter_stunden, 'delete'))
-				{
-					$stunden_delete = $this->_ci->PEPKategorieMitarbeiterModel->delete(array('kategorie_mitarbeiter_id' => $mitarbeiter_stunden->kategorie_mitarbeiter_id));
-
-					if (isError($stunden_delete))
-						$this->terminateWithJsonError('Fehler beim Speichern');
-				}
-			}
-		}
-		$this->outputJsonSuccess($returnValue);
+		//$this->outputJsonSuccess($returnValue);
 	}
 
+	public function updateAnmerkung()
+	{
+		$data = $this->getPostJson();
+		if ((property_exists($data, 'lehreinheit_id')) &&
+			(property_exists($data, 'anmerkung')) &&
+			(property_exists($data, 'uid'))
+			)
+		{
+			$result = $this->_ci->LehreinheitmitarbeiterModel->update(
+				array(
+					'lehreinheit_id' => $data->lehreinheit_id,
+					'mitarbeiter_uid' => $data->uid
+				),
+				array(
+					'anmerkung' => $data->anmerkung,
+					'updateamum' => date('Y-m-d H:i:s'),
+					'updatevon' => $this->_uid
+				)
+			);
+
+			if (isError($result))
+				$this->terminateWithJsonError('Fehler beim Speichern');
+		}
+	}
 	public function saveLehreinheit()
 	{
 		$data = $this->getPostJson();
@@ -479,7 +821,7 @@ class PEP extends FHCAPI_Controller
 			(property_exists($data->lektor, 'uid')) &&
 			(property_exists($data, 'oldlektor')))
 		{
-			$result = $this->_ci->LehreinheitModel->update(
+			/*$result = $this->_ci->LehreinheitModel->update(
 				array(
 					'lehreinheit_id' => $data->lehreinheit_id
 				),
@@ -495,7 +837,7 @@ class PEP extends FHCAPI_Controller
 			);
 
 			if (isError($result))
-				$this->terminateWithJsonError('Fehler beim Speichern');
+				$this->terminateWithJsonError('Fehler beim Speichern');*/
 
 			$result = $this->_ci->LehreinheitmitarbeiterModel->update(
 				array(
@@ -510,6 +852,29 @@ class PEP extends FHCAPI_Controller
 				)
 			);
 
+			$successUpdated = [];
+			if (!isEmptyArray($data->lehreinheit_ids))
+			{
+				foreach ($data->lehreinheit_ids as $lehreinheit)
+				{
+					$result = $this->_ci->LehreinheitmitarbeiterModel->update(
+						array(
+							'lehreinheit_id' => $lehreinheit->lehreinheit_id,
+							'mitarbeiter_uid' => $lehreinheit->uid
+						),
+						array(
+							'mitarbeiter_uid' => $data->lektor->uid,
+							'updateamum' => date('Y-m-d H:i:s'),
+							'updatevon' => $this->_uid
+						)
+					);
+
+					if (isError($result))
+						$this->terminateWithJsonError('Fehler beim Speichern');
+
+					$successUpdated[] = ['id' => $lehreinheit->row_index];
+				}
+			}
 			if (isError($result))
 				$this->terminateWithJsonError('Fehler beim Speichern');
 
@@ -537,6 +902,7 @@ class PEP extends FHCAPI_Controller
 			$returnData->aktbezeichnung = isset($dvs->aktbezeichnung) ? $dvs->aktbezeichnung : '-';
 			$returnData->updateamum = date('d.m.Y H:i:s');
 			$returnData->anmerkung = $data->anmerkung;
+			$returnData->lehreinheiten_ids = $successUpdated;
 
 			$this->terminateWithSuccess($returnData);
 		}
@@ -552,6 +918,16 @@ class PEP extends FHCAPI_Controller
 					JOIN public.tbl_benutzer USING (uid) 
 				WHERE tbl_benutzer.aktiv
 				ORDER BY nachname";
+
+		$result = $dbModel->execReadOnlyQuery($qry);
+		$this->terminateWithSuccess(hasData($result) ? getData($result) : []);
+	}
+	public function getProjekte()
+	{
+		$dbModel = new DB_Model();
+		$qry = "SELECT DISTINCT(project_id)
+				FROM sync.tbl_sap_projects_timesheets
+				ORDER BY project_id";
 
 		$result = $dbModel->execReadOnlyQuery($qry);
 		$this->terminateWithSuccess(hasData($result) ? getData($result) : []);
