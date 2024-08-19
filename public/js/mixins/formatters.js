@@ -312,7 +312,7 @@ export const formatter = {
 		let value = cell.getValue();
 		if (istGueltig(value) && value !== false)
 		{
-			return "[" + value[0].von + " - " + value[0].bis + "]";
+			return value[0].von + " - " + value[0].bis;
 		}
 		else
 			return "-";

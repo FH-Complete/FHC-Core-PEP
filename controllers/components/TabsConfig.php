@@ -33,21 +33,57 @@ class TabsConfig extends FHCAPI_Controller
 
 	public function get()
 	{
-		$language = $this->_getLanguageIndex();
+		$tabs = array();
+		$this->_getAdministration($tabs);
+		$this->_getProjects($tabs);
 
-		$tabs = array(
-			'start' => array(
-				'title' =>  'Start',
-				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
-				'config' => ['studiensemester' => true]
-			),
-			'lehre' => array(
-				'title' =>  'Lehre',
-				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Lehre.js',
-				'config' => ['studiensemester' => true]
-			)
+		$tabs['start'] = array (
+			'title' =>  'Start',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
+			'config' => ['studiensemester' => true, 'dropdowns' => true]
 		);
 
+		$tabs['lehre'] = array (
+			'title' =>  'Lehre',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Lehre.js',
+			'config' => ['studiensemester' => true, 'dropdowns' => true]
+		);
+
+		$this->_getCategories($tabs);
+		$this->terminateWithSuccess($tabs);
+	}
+
+	private function _getAdministration(&$tabs)
+	{
+		$this->_ci->load->library('PermissionLib');
+
+		if (!$this->_ci->permissionlib->isBerechtigt('admin'))
+			return;
+
+		$tabs['administration'] = array (
+			'title' =>  'Administration',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Administration.js',
+			'config' => ['dropdowns' => false]
+		);
+	}
+
+	private function _getProjects(&$tabs)
+	{
+		$this->_ci->load->library('PermissionLib');
+
+		if (!$this->_ci->permissionlib->isBerechtigt('admin'))
+			return;
+
+		$tabs['syncprojects'] = array (
+			'title' =>  'Projekte',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Project.js',
+			'config' => ['studienjahr' => true, 'dropdowns' => true]
+		);
+
+	}
+	private function _getCategories(&$tabs)
+	{
+		$language = $this->_getLanguageIndex();
 		$this->_ci->PEPModel->addOrder(
 			'sort'
 		);
@@ -72,6 +108,7 @@ class TabsConfig extends FHCAPI_Controller
 				$config = [
 					'category_id' => $category->kategorie_id,
 					'studienjahr' => true,
+					'dropdowns' => true,
 				];
 
 				$tab = [
@@ -83,9 +120,6 @@ class TabsConfig extends FHCAPI_Controller
 				$tabs[$category->bezeichnung] = $tab;
 			}
 		}
-
-		$this->terminateWithSuccess($tabs);
-
 	}
 
 	private function _getLanguageIndex()

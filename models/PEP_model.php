@@ -13,7 +13,31 @@ class PEP_model extends DB_Model
 
 	public function getCategoryData($mitarbeiter_uids, $category_id, $studienjahr)
 	{
+
 		$query = '
+			WITH
+				akt_vertrag AS (
+				SELECT DISTINCT ON(mitarbeiter_uid) oe_kurzbz, mitarbeiter_uid, dienstverhaeltnis_id
+				FROM hr.tbl_dienstverhaeltnis dv
+					JOIN hr.tbl_vertragsart va USING (vertragsart_kurzbz)
+				WHERE (dv.von <= (SELECT max(ende) FROM tbl_studiensemester WHERE tbl_studiensemester.studienjahr_kurzbz = ?) OR dv.von IS NULL)
+					AND (dv.bis >= (SELECT min(start) FROM tbl_studiensemester WHERE tbl_studiensemester.studienjahr_kurzbz = ?) OR dv.bis IS NULL)
+					AND dv.mitarbeiter_uid IN ?
+				ORDER BY mitarbeiter_uid, von DESC
+			),
+				akt_stunden AS (
+					SELECT mitarbeiter_uid,
+						   ( CASE
+								 WHEN akt_vertrag.oe_kurzbz = \'gst\' THEN ROUND(1680/38.5 * wochenstunden, 2)
+								 ELSE ROUND(1700/40 * wochenstunden, 2)
+							   END )  as stunden
+					FROM akt_vertrag
+							 JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
+							 JOIN hr.tbl_vertragsbestandteil_stunden USING (vertragsbestandteil_id)
+					 WHERE (tbl_vertragsbestandteil.von <= (SELECT max(ende) FROM tbl_studiensemester WHERE tbl_studiensemester.studienjahr_kurzbz = ?) OR tbl_vertragsbestandteil.von IS NULL)
+						AND (tbl_vertragsbestandteil.bis >= (SELECT min(start) FROM tbl_studiensemester WHERE tbl_studiensemester.studienjahr_kurzbz = ?) OR tbl_vertragsbestandteil.bis IS NULL)
+						ORDER BY tbl_vertragsbestandteil.von desc NULLS LAST
+				)
 				SELECT
 				ROW_NUMBER() OVER () AS row_index,
 				kategorie_mitarbeiter_id,
@@ -21,11 +45,18 @@ class PEP_model extends DB_Model
 				tbl_person.person_id,
 				tbl_person.vorname,
 				tbl_person.nachname,
-				COALESCE(pkm.stunden, default_pk.default_stunden) AS stunden,
+				/*COALESCE(pkm.stunden, default_pk.default_stunden) AS stunden,*/
+				ROUND
+					(COALESCE(pkm.stunden,
+					CASE WHEN akt_vertrag.oe_kurzbz = \'gst\' THEN default_pk.default_stunden/1680 * akt_stunden.stunden
+					ELSE default_pk.default_stunden/1700 * akt_stunden.stunden END
+				), 2) AS stunden,
 				pkm.anmerkung
 				FROM tbl_mitarbeiter
 					JOIN tbl_benutzer ON tbl_mitarbeiter.mitarbeiter_uid = tbl_benutzer.uid
 					JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
+					LEFT JOIN akt_vertrag ON akt_vertrag.mitarbeiter_uid = tbl_mitarbeiter.mitarbeiter_uid
+					LEFT JOIN akt_stunden ON akt_vertrag.mitarbeiter_uid = akt_stunden.mitarbeiter_uid
 					LEFT JOIN extension.tbl_pep_kategorie_mitarbeiter pkm ON tbl_mitarbeiter.mitarbeiter_uid = pkm.mitarbeiter_uid AND pkm.studienjahr_kurzbz = ? AND pkm.kategorie_id = ?
 					LEFT JOIN extension.tbl_pep_kategorie pk ON pk.kategorie_id = pkm.kategorie_id
 					LEFT JOIN extension.tbl_pep_kategorie_studienjahr default_pk ON
@@ -49,13 +80,44 @@ class PEP_model extends DB_Model
 						)
 				WHERE
 					tbl_mitarbeiter.mitarbeiter_uid IN ?
-				ORDER BY vorname, nachname
+				ORDER BY vorname, nachname, kategorie_mitarbeiter_id
 		';
 
-		return $this->execQuery($query, array($studienjahr, $category_id, $category_id, $studienjahr, $studienjahr, $mitarbeiter_uids));
+		return $this->execQuery($query, array($studienjahr, $studienjahr, $mitarbeiter_uids, $studienjahr, $studienjahr, $studienjahr, $category_id, $category_id, $studienjahr, $studienjahr, $mitarbeiter_uids));
+	}
+
+	public function getProjectData($mitarbeiter_uids, $studienjahr)
+	{
+		$query = '
+			SELECT
+				ROW_NUMBER() OVER () AS row_index,
+				pep_projects_employees_id,
+				timesheetsproject.project_id,
+				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) AS mitarbeiter_uid,
+				SUM(COALESCE(sapprojects.planstunden, 0)) AS summe_planstunden,
+				COALESCE(pepprojects.stunden, 0) AS stunden,
+				SUM(COALESCE(pepprojects.stunden, 0)) OVER (PARTITION BY COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)) AS gesamt_stunden,
+				MAX(CASE
+					WHEN sapprojects.mitarbeiter_uid IS NOT NULL THEN 1
+					ELSE 0
+				END) AS synced
+			FROM sync.tbl_sap_projects_timesheets timesheetsproject
+			LEFT JOIN sync.tbl_projects_employees sapprojects ON timesheetsproject.project_task_id = sapprojects.project_task_id
+			LEFT JOIN extension.tbl_pep_projects_employees pepprojects ON timesheetsproject.project_id = pepprojects.projekt_id
+				AND (sapprojects.mitarbeiter_uid = pepprojects.mitarbeiter_uid OR sapprojects.mitarbeiter_uid IS NULL OR pepprojects.mitarbeiter_uid IS NULL)
+			WHERE
+				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) IN ?
+			GROUP BY
+				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid),
+				pep_projects_employees_id,
+				timesheetsproject.project_id,
+				pepprojects.stunden
+			ORDER BY timesheetsproject.project_id;
+		';
+
+		return $this->execQuery($query, array($mitarbeiter_uids));
 
 	}
-	
 	public function getStundenByMitarbeiter($mitarbeiter, $studiensemester)
 	{
 		$query = 'SELECT
@@ -221,6 +283,7 @@ class PEP_model extends DB_Model
 
 		$query = "
 			SELECT
+			ROW_NUMBER() OVER () AS row_index,
 			(
 				WITH RECURSIVE meine_oes(oe_kurzbz, oe_parent_kurzbz, organisationseinheittyp_kurzbz) as
 				(
@@ -263,9 +326,10 @@ class PEP_model extends DB_Model
 							COALESCE(
 								upper(tbl_studiengang.typ::varchar(1) ||
 										tbl_studiengang.kurzbz) ||
+										'-'||
 										COALESCE(tbl_lehreinheitgruppe.semester::varchar, '') ||
-										COALESCE(tbl_lehreinheitgruppe.verband::varchar, ''),
-										tbl_lehreinheitgruppe.gruppe), ', '
+										COALESCE(tbl_lehreinheitgruppe.verband::varchar, '')||
+										COALESCE(tbl_lehreinheitgruppe.gruppe, '')), ', '
 							)
 						) AS gruppen
 				FROM
@@ -303,7 +367,8 @@ class PEP_model extends DB_Model
 			lv_org.bezeichnung as lv_oe,
 			(
 				SELECT
-					NOT EXISTS(
+					(
+				    (NOT EXISTS(
 						SELECT 1
 						FROM
 							lehre.tbl_stundenplandev as stpl
@@ -321,6 +386,11 @@ class PEP_model extends DB_Model
 								JOIN lehre.tbl_lehrveranstaltung as lehrfach ON(le.lehrfach_id = lehrfach.lehrveranstaltung_id)
 						WHERE stpl.lehreinheit_id = tbl_lehreinheit.lehreinheit_id
 						  AND stpl.mitarbeiter_uid = tbl_mitarbeiter.mitarbeiter_uid
+					)
+					OR 
+						tbl_mitarbeiter.mitarbeiter_uid = '_DummyLektor' 
+					)
+					
 					)
 					AND
 					NOT EXISTS(
@@ -418,7 +488,27 @@ class PEP_model extends DB_Model
 					 ORDER BY vonstsem.start DESC
 					 LIMIT 1
 				), tbl_lehreinheitmitarbeiter.semesterstunden
-			)) ELSE tbl_lehreinheitmitarbeiter.semesterstunden END AS faktorstunden
+			)) ELSE tbl_lehreinheitmitarbeiter.semesterstunden END AS faktorstunden,
+			 (
+			SELECT
+				string_agg(DISTINCT vorname || ' ' || nachname, ', ')
+			FROM lehre.tbl_lehreinheit slehreinheit
+					 JOIN lehre.tbl_lehrveranstaltung slehrfach ON slehreinheit.lehrfach_id = slehrfach.lehrveranstaltung_id
+					 JOIN lehre.tbl_lehreinheitmitarbeiter slehreinheitmitarbeiter USING(lehreinheit_id)
+					 JOIN tbl_mitarbeiter smitarbeiter USING (mitarbeiter_uid)
+					 JOIN tbl_benutzer sbenutzer ON smitarbeiter.mitarbeiter_uid = sbenutzer.uid
+					 JOIN tbl_person sperson ON sbenutzer.person_id = sperson.person_id
+			WHERE slehrfach.lehrveranstaltung_id = tbl_lehrveranstaltung.lehrveranstaltung_id
+			 AND studiensemester_kurzbz = (SELECT studiensemester_kurzbz
+                                        FROM public.tbl_studiensemester
+                                        WHERE ende < (SELECT start FROM public.tbl_studiensemester WHERE tbl_studiensemester.studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz) ORDER BY ende DESC LIMIT 1 OFFSET 1)
+		   ) as vorjahreslektoren,
+			tbl_lehreinheit.raumtyp,
+			tbl_lehreinheit.raumtypalternativ,
+			tbl_lehreinheit.wochenrythmus,
+			tbl_lehreinheit.start_kw,
+			tbl_lehreinheit.stundenblockung,
+			tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz
 		FROM
 			lehre.tbl_lehreinheit
 			JOIN lehre.tbl_lehrveranstaltung USING (lehrveranstaltung_id)
@@ -487,9 +577,13 @@ class PEP_model extends DB_Model
 				lv_org.oe_kurzbz,
 				tbl_lehreinheitmitarbeiter.insertamum,
 				tbl_lehreinheitmitarbeiter.updateamum,
-				tbl_lehreinheitmitarbeiter.anmerkung
+				tbl_lehreinheitmitarbeiter.anmerkung,
+				tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz
 			ORDER BY tbl_lehreinheit.lehrveranstaltung_id
 		";
+
+
+		//TODO dummylektor config
 
 		return $this->execReadOnlyQuery($query, array($studiensemester, $org, $mitarbeiter_uids));
 	}

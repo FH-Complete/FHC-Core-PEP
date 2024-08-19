@@ -20,6 +20,9 @@ $this->load->view('templates/FHC-Header', $includesArray);
 		:studienjahre="<?= htmlspecialchars(json_encode($studienjahre)); ?>"
 		:studiensemestern="<?= htmlspecialchars(json_encode($studiensemestern)); ?>"
 		:organisationen="<?= htmlspecialchars(json_encode($organisationen)); ?>"
+		:var_studienjahr="<?= htmlspecialchars(json_encode($var_studienjahr)); ?>"
+		:var_studiensemester="<?= htmlspecialchars(json_encode($var_studiensemester)); ?>"
+		:var_organisation="<?= htmlspecialchars(json_encode($var_organisation)); ?>"
 
 	></pep-report>
 </div>

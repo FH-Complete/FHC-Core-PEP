@@ -21,12 +21,25 @@ export default {
 			type: Array,
 			required: true
 		},
+		var_studienjahr: {
+			type: String,
+			required: true
+		},
+		var_studiensemester: {
+			type: Array,
+			required: true
+		},
+		var_organisation: {
+			type: String,
+			required: true,
+		},
 		config: {
 			type: Array
 		}
 	},
 	data: function() {
 		return {
+			tabsConfig: null,
 			currentTab: null,
 			tabInstances: [],
 			studiensemester: [],
@@ -34,29 +47,37 @@ export default {
 			modelValue: {
 				config: {},
 				updatedData: {},
+				needReload: false,
 			},
 			selectedStsem: [],
 			selectedStudienjahr: "",
 			loadedStjahr: "",
 			loadedStsem: [],
 			loadedOrg: "",
-			tabsConfig: null,
 			isRecursive: false,
+			loadedVariables: false
 		};
 	},
 
-	created() {
-		this.loadTabConfig();
-		window.addEventListener('beforeunload', (event) => {
+	async created() {
+		await this.loadTabConfig();
+		/*window.addEventListener('beforeunload', (event) => {
 			if (this.checkBeforeLeave())
 			{
 				event.preventDefault();
 			}
-		});
+		});*/
 	},
-	beforeDestroy() {
+	mounted()
+	{
+
+		//this.checkVars();
+		//this.selectedStudienjahr = this.var_studienjahr;
+	},
+
+	/*beforeDestroy() {
 		window.removeEventListener('beforeunload', this.checkBeforeLeave)
-	},
+	},*/
 	components: {
 		CoreNavigationCmpt,
 		CoreFilterCmpt,
@@ -68,26 +89,28 @@ export default {
 	},
 	watch: {
 		selectedOrg: function(newOrg) {
-			this.handleLoad()
+			/*this.handleLoad()*/
 		},
-		selectedStudienjahr: function(newOrg) {
-			this.handleLoad(true)
+		selectedStudienjahr: function() {
+			/*this.handleLoad(true)*/
 		},
 		modelValue: {
 			handler(newValue) {
+
 				if (newValue.loadDataReady)
 				{
 					this.updateTab(this.currentTab, false)
 				}
-				let changedKeys = Object.keys(newValue.updatedData).map(Number);
-				this.customTitle(changedKeys);
+
+				/*let changedKeys = Object.keys(newValue.updatedData).map(Number);
+				this.customTitle(changedKeys);*/
 			},
 			deep: true
 		}
 
 	},
 	methods: {
-		customTitle(tabs)
+		/*customTitle(tabs)
 		{
 			Object.values(this.tabsConfig).forEach(tab => {
 				let category_id = tab.config?.category_id
@@ -105,8 +128,30 @@ export default {
 				}
 
 			});
+		},*/
+
+		changedStudienjahr()
+		{
+			this.handleLoad()
+		},
+		changedOrg()
+		{
+			this.handleLoad()
 		},
 
+		checkVars()
+		{
+			const preselectedSemesters = this.studiensemestern.filter(
+				semester => this.var_studiensemester.includes(semester.studiensemester_kurzbz)
+			);
+
+			this.studiensemester = preselectedSemesters.length > 0 ? preselectedSemesters : [];
+			this.selectedStsem = this.selectedStsem.length === 0 ? this.studiensemester.map(item => item.studiensemester_kurzbz) : this.selectedStsem
+
+			this.selectedOrg = this.selectedOrg || this.var_organisation || "";
+			this.selectedStudienjahr = this.selectedStudienjahr || this.var_studienjahr || "";
+
+		},
 		async loopAllTabs(onlyCategories = false)
 		{
 			this.modelValue.config = {
@@ -149,50 +194,84 @@ export default {
 		},
 		checkStudiensemester ()
 		{
+			this.selectedStsem = this.studiensemester.map(item => item.studiensemester_kurzbz);
+
 			if (this.loadedStsem !== this.selectedStsem)
 				this.handleLoad()
+
+		},
+		async setVariables()
+		{
+			let variables = {
+				'var_studienjahr' : this.selectedStudienjahr,
+				'var_studiensemester' : this.selectedStsem,
+				'var_organisation' : this.selectedOrg
+			}
+			this.$fhcApi.factory.pep.setVar(variables);
 		},
 		handleLoad(onlyCategories)
 		{
-			if (
-				(this.selectedStudienjahr === "" && this.selectedStsem.length === 0) || this.selectedOrg === "")
+			if ((this.selectedStudienjahr === "" && this.selectedStsem.length === 0) || this.selectedOrg === "")
 				return;
-			if (this.checkBeforeLeave()) {
+			/*if (this.checkBeforeLeave()) {
 				if (!confirm('Es gibt ungespeicherte Änderungen. Möchten Sie diese Seite wirklich verlassen?')) {
 					return;
 				}
-			}
+			}*/
 			this.$refs.loader.show();
 			this.resetValues();
-			this.loopAllTabs(onlyCategories).then(() => this.$refs.loader.hide());
+			this.loopAllTabs(onlyCategories)
+				.then(() => this.$refs.loader.hide())
+				.then(() => this.setVariables()); //TODO
 		},
 		async loadTabConfig() {
 			await this.$fhcApi.factory.pep.getConfig()
 				.then(response => {this.tabsConfig = response.data})
 				.then(() => this.updateTab("start", true));
 		},
-		semesterChanged: function (e)
+		/*semesterChanged: function (e)
 		{
 			this.selectedStsem = e.value.map(item => item.studiensemester_kurzbz);
-		},
-		async speichern () {
+		},*/
+		/*async speichern () {
 			await this.$fhcApi.factory.pep.saveMitarbeiter(this.modelValue.updatedData)
 				.then(async () => {
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 					this.resetValues().then(() => this.handleLoad(false));
 			});
-		},
+		},*/
 		async resetValues() {
 			this.modelValue.updatedData = {};
+			this.modelValue.needReload = false;
 		},
+		shouldCheckVars(currentTabConfig) {
+
+			return (currentTabConfig?.studiensemester && this.selectedStsem.length === 0) ||
+				(currentTabConfig?.studienjahr && this.selectedStudienjahr === "") ||
+				this.selectedOrg === "";
+		},
+
 		handleLoadOneTab: function (e)
 		{
 			const currentTabConfig = this.tabsConfig[this.currentTab].config;
+
+			if (this.shouldCheckVars(currentTabConfig))
+			{
+				this.checkVars();
+
+				if (this.shouldCheckVars(currentTabConfig))
+				{
+					return;
+				}
+			}
+
+
 			if ((currentTabConfig?.studiensemester && this.selectedStsem.length === 0) ||
 				(currentTabConfig?.studienjahr && this.selectedStudienjahr === "") ||
 				this.selectedOrg === ""
 			)
-				return;
+				return
+
 
 			this.modelValue.config = {
 				'studienjahr' : this.selectedStudienjahr,
@@ -200,14 +279,23 @@ export default {
 				'org': this.selectedOrg,
 				'recursive': this.isRecursive
 			};
+			this.modelValue.loadDataReady = false;
 
-			this.loadedStjahr =  this.selectedStudienjahr;
+
+			this.loadedStjahr =  this.selectedStudienjahr;//TODO bug fixen
 			this.loadedStsem =  this.selectedStsem;
 			this.loadedOrg =  this.selectedOrg;
 			this.loadedRecursive = this.isRecursive
 
+			let neededData = {
+				'semester': this.selectedStsem,
+				'studienjahr' : this.selectedStudienjahr,
+				'org': this.selectedOrg,
+				'recursive': this.isRecursive
+			}
+
 			this.$refs.loader.show();
-			this.$refs.tabComponent.$refs.current.loadData(this.modelValue.config).then(() => this.$refs.loader.hide());
+			this.$refs.tabComponent.$refs.current.loadData(neededData).then(() => this.$refs.loader.hide());
 		},
 
 		updateTab(newTab, firstRun = false)
@@ -217,7 +305,6 @@ export default {
 			if (firstRun === false)
 			{
 				const tabellenNamen = ["categoryTable", "startTable", "lehreTable"];
-
 				function getTabulatorInstance(refs) {
 					for (const name of tabellenNamen) {
 						if (refs?.[name]?.tabulator) {
@@ -232,9 +319,7 @@ export default {
 				if (tabulatorInstance)
 				{
 					try {
-						tabulatorInstance.setSort( [
-							{column: "vorname", dir:"asc"}
-						])
+						tabulatorInstance.redraw(true)
 					}catch (e) {
 
 					}
@@ -244,19 +329,32 @@ export default {
 		},
 		addTabForReload()
 		{
+
 			let tabInstance = this.$refs.tabComponent.$refs.current
-			if (tabInstance && !this.tabInstances.includes(tabInstance))
+			if (tabInstance && !this.tabInstances.includes(tabInstance) && this.tabsConfig[this.currentTab]?.config?.dropdowns)
 			{
 				this.tabInstances.push(tabInstance);
 				this.handleLoadOneTab();
+
+			}
+			else
+			{
+				if (this.modelValue.needReload === true && tabInstance?.$refs?.startTable)
+				{
+					this.handleLoadOneTab();
+					this.resetValues();
+					console.log("test");
+				}
+
+
 			}
 		},
-		checkBeforeLeave() {
+		/*checkBeforeLeave() {
 			if (Object.keys(this.modelValue.updatedData).length > 0)
 				return true;
 			else
 				return false;
-		},
+		},*/
 
 	},
 
@@ -298,7 +396,7 @@ title="Personaleinsatzplanung"
 					</div>
 				</div>
 				<hr />
-				<div class="row">
+				<div class="row" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.dropdowns">
 					<div class="col-md-12" id="container">
 						<div class="row">
 							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studiensemester">
@@ -309,15 +407,13 @@ title="Personaleinsatzplanung"
 									placeholder="Studiensemester"
 									:hide-selected="true"
 									:selectionLimit="2"
-									@change="semesterChanged" 
 									@hide="checkStudiensemester"
 									class="w-full md:w-80"
 								>
 								</Multiselect>
-								
 							</div>
 							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studienjahr">
-								<select v-model="selectedStudienjahr" class="form-select">
+								<select v-model="selectedStudienjahr" class="form-select" @change="changedStudienjahr">
 									<option value="">Studienjahr</option>
 									<option v-for="studienjahr in studienjahre" :value="studienjahr.studienjahr_kurzbz" >
 										{{ studienjahr.studienjahr_kurzbz }}
@@ -325,7 +421,7 @@ title="Personaleinsatzplanung"
 								</select>
 							</div>
 							<div class="col-md-3">
-								<select v-model="selectedOrg" class="form-select">
+								<select v-model="selectedOrg" class="form-select" @change="changedOrg">
 									<option value="">Abteilung</option>
 									<option v-for="organisation in organisationen" :value="organisation.oe_kurzbz" >
 										[{{ organisation.organisationseinheittyp_kurzbz }}] {{ organisation.bezeichnung }}
@@ -351,7 +447,7 @@ title="Personaleinsatzplanung"
 								</button>
 							</div>
 							<div class="col-md-2">
-								<button @click="speichern" class="form-control btn-default">Speichern</button>
+								<!--<button @click="speichern" class="form-control btn-default">Speichern</button>-->
 								</div>
 								<br/>
 								<br/>

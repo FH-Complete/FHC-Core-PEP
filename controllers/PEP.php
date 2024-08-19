@@ -21,6 +21,8 @@ class PEP extends Auth_Controller
 		$this->_ci = &get_instance();
 		$this->_ci->load->model('organisation/Studienjahr_model', 'StudienjahrModel');
 		$this->_ci->load->model('organisation/Studiensemester_model', 'StudiensemesterModel');
+		$this->_ci->load->model('organisation/Organisationseinheit_model', 'OrganisationseinheitModel');
+		$this->_ci->load->library('VariableLib', array('uid' => getAuthUID()));
 	}
 	
 	// -----------------------------------------------------------------------------------------------------------------
@@ -34,17 +36,17 @@ class PEP extends Auth_Controller
 		$studiensemestern = getData($this->_ci->StudiensemesterModel->load());
 
 		$oeKurzbz = $this->_ci->permissionlib->getOE_isEntitledFor(self::BERECHTIGUNG_KURZBZ);
-		$db_Model = new DB_Model();
-		$organisationen = getData($db_Model->execReadOnlyQuery("SELECT organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz
-											FROM public.tbl_organisationseinheit
-											WHERE oe_kurzbz IN ('". implode("','", $oeKurzbz) . "')
-											ORDER BY organisationseinheittyp_kurzbz
-											"));
+		$this->_ci->OrganisationseinheitModel->addSelect("organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz");
+		$this->_ci->OrganisationseinheitModel->addOrder('organisationseinheittyp_kurzbz');
+		$organisationen = getData($this->_ci->OrganisationseinheitModel->loadWhere("oe_kurzbz IN ('". implode("', '", $oeKurzbz) . "')"));
 
 		$data = [
 			'studienjahre' => $studienjahre,
 			'studiensemestern' => $studiensemestern,
 			'organisationen' => $organisationen,
+			'var_studienjahr' => $this->_ci->variablelib->getVar('pep_studienjahr'),
+			'var_studiensemester' => explode(',', $this->_ci->variablelib->getVar('pep_studiensemester')),
+			'var_organisation' => $this->_ci->variablelib->getVar('pep_abteilung')
 		];
 		$this->load->view('extensions/FHC-Core-PEP/pep.php',
 			$data

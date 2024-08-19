@@ -38,6 +38,7 @@ export default {
 				anmerkung: '',
 				lektor: '',
 				oldlektor: '',
+				lehreinheit_ids: []
 			},
 			raumtypen: {
 				type: Array
@@ -54,15 +55,12 @@ export default {
 
 		}
 	},
-	created() {
-		this.$nextTick(() => {
-			this.theModel = { ...this.modelValue, loadDataReady: true };
-		});
-	},
+
 	computed: {
 		tabulatorOptions()
 		{
 			return {
+				index: "row_index",
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
@@ -120,7 +118,8 @@ export default {
 					{title: 'Nachname', field: 'lektor_nachname', headerFilter: true},
 					{title: 'Hinzugefuegt am', field: 'insertamum', headerFilter: true},
 					{title: 'Updated am', field: 'updateamum', headerFilter: true},
-					{title: 'Anmerkung', field: 'anmerkung', headerFilter: true},
+					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", editor: "textarea", formatter: "textarea"},
+					{title: 'LV Leitung', field: 'lehrfunktion_kurzbz', headerFilter: true, viisble: false},
 					{title: 'Zrm - DV', field: 'vertraege', headerFilter: "input", formatter:"textarea", visible: false},
 					{title: 'Zrm - Stunden/Woche', field: 'wochenstundenstunden', headerFilter: "input", formatter:"textarea", visible: false, hozAlign:"right"},
 					{title: 'Zrm - Stundensatz', field: 'stundensaetze_lehre', headerFilter: "input", visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
@@ -132,8 +131,14 @@ export default {
 					{title: 'Akt - DV', field: 'aktbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Kostenstelle', field: 'aktorgbezeichnung', headerFilter: "input", visible: false},
 					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", visible: false},
+					{title: 'Vorjahres Lektoren', field: 'vorjahreslektoren', headerFilter: "input", visible: true},
 					{title: 'Akt - Stunden', field: 'aktstunden', headerFilter: "input", visible: false, hozAlign:"right"},
 					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', formatter:"textarea", headerFilter: "input", hozAlign:"right"},
+					{title: 'Raumtyp', field: 'raumtyp', headerFilter: "input", visible: false},
+					{title: 'Raumtypalternativ', field: 'raumtypalternativ', headerFilter: "input",visible: false},
+					{title: 'Wochenrythmus', field: 'wochenrythmus', headerFilter: "input", visible: false},
+					{title: 'Start_kw', field: 'start_kw', headerFilter: "input", visible: false},
+					{title: 'Stundenblockung', field: 'stundenblockung', headerFilter: "input", visible: false},
 				],
 				persistenceID: "pep_lehre",
 			}
@@ -149,6 +154,11 @@ export default {
 	},
 
 	methods: {
+
+		tableBuilt(){
+			this.theModel = { ...this.modelValue, loadDataReady: true };
+		},
+
 		newSideMenuEntryHandler: function (payload) {
 			this.appSideMenuEntries = payload;
 		},
@@ -286,15 +296,56 @@ export default {
 				if (!emails.includes(rowData.email))
 					emails.push(rowData.email)
 			})
-
 			window.location.href = `mailto:${emails}`;
+		},
+		assistenzMailButton()
+		{
+			const selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
+			let emails = []
+			let lehreinheiten = []
 
+			selectedRows.forEach(row => {
+				let rowData = row.getData()
+
+				if (!emails.includes(rowData.stg_email))
+					emails.push(rowData.stg_email)
+
+				if (!lehreinheiten.includes(rowData.lehreinheit_id))
+					lehreinheiten.push(rowData.lehreinheit_id)
+			})
+
+			let body = `Lehreinheiten: ${lehreinheiten.join('; ')}`
+			window.location.href = `mailto:${emails}?body=${body}`;
 		},
 		updateLehreinheit()
 		{
+			const selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
+
+			selectedRows.forEach(row => {
+				let rowData = row.getData()
+				this.formData.lehreinheit_ids.push({row_index: rowData.row_index, lehreinheit_id: rowData.lehreinheit_id, uid: rowData.uid})
+			})
 			this.$fhcApi.factory.pep.saveLehreinheit(this.formData)
 				.then(result => result.data)
 				.then(updateData => {
+
+					updateData.lehreinheiten_ids.forEach(row => {
+						this.$refs.lehreTable.tabulator.updateRow(row.id, {
+							'lektor' : updateData.lektor,
+							'vorname' : updateData.vorname,
+							'lektor_nachname' : updateData.nachname,
+							'vertraege' : updateData.vertraege,
+							'wochenstundenstunden' : updateData.wochenstundenstunden,
+							'stundensaetze_lehre' : updateData.stundensaetze_lehre,
+							'aktbezeichnung' : updateData.aktbezeichnung,
+							'aktorgbezeichnung' : updateData.aktorgbezeichnung,
+							'aktparentbezeichnung' : updateData.aktparentbezeichnung,
+							'aktstunden' : updateData.aktstunden,
+							'stundensaetze_lehre_aktuell' : updateData.stundensaetze_lehre_aktuell,
+							'uid' : updateData.uid,
+							'updateamum' : updateData.updateamum,
+						})
+					});
 
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 					this.selectedRow.update({
@@ -320,6 +371,43 @@ export default {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
+		onCellEdited(cell)
+		{
+			let value = cell.getValue();
+			if (!value.trim() || (cell.getOldValue() === value.trim()))
+				return;
+
+			/*let row = cell.getRow();
+
+*/
+			//this.addOrUpdate(data)
+			let data = cell.getRow().getData();
+
+			let updateData = {
+				'anmerkung': value,
+				'uid': data.uid,
+				'lehreinheit_id': data.lehreinheit_id
+			}
+
+			this.updateAnmerkung(updateData);
+
+			/*
+			let row = cell.getRow();
+			this.speichern(row);
+	*/	},
+		updateAnmerkung(data)
+		{
+			this.$fhcApi.factory.pep.updateAnmerkung(data)
+				.then(result => result.data)
+				.then(updateData => {
+
+					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
+
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
 		resetFormData()
 		{
 			this.formData = {
@@ -331,7 +419,8 @@ export default {
 				wochenrythmus: '',
 				anmerkung: '',
 				lektor: '',
-				oldlektor: ''
+				oldlektor: '',
+				lehreinheit_ids: []
 			};
 			this.selectedRow = null;
 		},
@@ -346,9 +435,11 @@ export default {
 						@nw-new-entry="newSideMenuEntryHandler"
 						:table-only=true
 						:hideTopMenu=false
+						:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited}, { event: 'tableBuilt', handler: tableBuilt }]"
 				>
 					<template #actions>
 						<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
+						<button class="btn btn-primary" @click="assistenzMailButton">EMail an Assistenz</button>
 					</template>
 				</core-filter-cmpt>
 				<bs-modal ref="editModal" class="bootstrap-prompt" dialogClass="modal-lg" @hidden-bs-modal="reset">
