@@ -323,6 +323,8 @@ export default {
 
 			selectedRows.forEach(row => {
 				let rowData = row.getData()
+				if (rowData.editable === false)
+					return;
 				this.formData.lehreinheit_ids.push({row_index: rowData.row_index, lehreinheit_id: rowData.lehreinheit_id, uid: rowData.uid})
 			})
 			this.$fhcApi.factory.pep.saveLehreinheit(this.formData)

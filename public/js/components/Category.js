@@ -182,6 +182,7 @@ export default {
 					else
 					{
 						this.loadData(this.theModel.config);
+						this.theModel = { ...this.modelValue, needReload: true };
 						this.$fhcAlert.alertSuccess("Erfolgreich zurückgesetzt")
 
 					}
