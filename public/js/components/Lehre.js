@@ -40,6 +40,14 @@ export default {
 				oldlektor: '',
 				lehreinheit_ids: []
 			},
+			formDataFaktor: {
+				bezeichnung: '',
+				faktor: '',
+				lvstunden: 0,
+				lvstundenfaktor: '',
+				lv_id: ''
+
+			},
 			raumtypen: {
 				type: Array
 			},
@@ -51,7 +59,7 @@ export default {
 			filteredRaumtypen: [],
 			selectedLektor: null,
 			selectedRow: null,
-			modalTitle: 'Änderungen' //TODO phrasen
+			modalTitle: 'Änderungen'
 
 		}
 	},
@@ -106,6 +114,7 @@ export default {
 						},
 					},
 					{title: 'Fakultaet', field: 'fakultaet', headerFilter: true},
+					{title: 'LVID', field: 'lv_id', headerFilter: true},
 					{title: 'STG', field: 'stg_kuerzel', headerFilter: true},
 					{title: 'LV Organisationseinheit', field: 'lv_oe', headerFilter: true, visible: true},
 					{title: 'LV Bezeichnung', field: 'lv_bezeichnung', headerFilter: true},
@@ -120,20 +129,48 @@ export default {
 					{title: 'Updated am', field: 'updateamum', headerFilter: true},
 					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", editor: "textarea", formatter: "textarea"},
 					{title: 'LV Leitung', field: 'lehrfunktion_kurzbz', headerFilter: true, viisble: false},
-					{title: 'Zrm - DV', field: 'vertraege', headerFilter: "input", formatter:"textarea", visible: false},
-					{title: 'Zrm - Stunden/Woche', field: 'wochenstundenstunden', headerFilter: "input", formatter:"textarea", visible: false, hozAlign:"right"},
-					{title: 'Zrm - Stundensatz', field: 'stundensaetze_lehre', headerFilter: "input", visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
 					{title: 'Semesterstunden', field: 'lektor_stunden', headerFilter: true, bottomCalc: "sum", bottomCalcParams:{precision:2},visible: true, hozAlign:"right"},
-					{title: 'Faktorstunden', field: 'faktorstunden', headerFilter: true, visible: true, hozAlign:"right", bottomCalc: "sum", bottomCalcParams:{precision:2}},
+					{title: 'Realstunden', field: 'faktorstunden', headerFilter: true, visible: true, hozAlign:"right", bottomCalc: "sum", bottomCalcParams:{precision:2},
+						formatter: (cell) => {
+							let container = document.createElement('div');
+							container.className = "d-flex gap-2 justify-content-end";
+							let value = document.createElement('span');
+							value.textContent = isNaN(cell.getValue()) || !cell.getValue()  ? '-' : parseFloat(cell.getValue()).toFixed(2);
+							container.append(value);
+							let button = document.createElement('button');
+							button.className = 'btn btn-outline-secondary';
+							button.innerHTML = '<i class="fa fa-edit"></i>';
+							button.addEventListener('click', (event) =>
+								this.editFaktor(cell.getData(), cell.getRow())
+							);
+							container.append(button);
+							return container;
+
+						}
+					},
 					{title: 'Faktor', field: 'faktor', headerFilter: true, visible: true, hozAlign:"right"},
 
 					{title: 'LE Stundensatz', field: 'le_stundensatz', headerFilter: true, hozAlign:"right"},
-					{title: 'Akt - DV', field: 'aktbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
-					{title: 'Akt - Kostenstelle', field: 'aktorgbezeichnung', headerFilter: "input", visible: false},
-					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", visible: false},
+					{title: 'LV-Plan Stunden', field: 'lv_plan_stunden', headerFilter: true, hozAlign:"right"},
+
+
+					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
+					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Zrm - Stundensatz', field: 'zrm_stundensatz_lehre', headerFilter: "input", visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
+
+
+
+					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
+					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Stunden', field: 'akt_stunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Stundensatz - Lehre', field: 'akt_stundensaetze_lehre', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
+
+
+
+
 					{title: 'Vorjahres Lektoren', field: 'vorjahreslektoren', headerFilter: "input", visible: true},
-					{title: 'Akt - Stunden', field: 'aktstunden', headerFilter: "input", visible: false, hozAlign:"right"},
-					{title: 'Akt - Stundensatz - Lehre', field: 'stundensaetze_lehre_aktuell', formatter:"textarea", headerFilter: "input", hozAlign:"right"},
 					{title: 'Raumtyp', field: 'raumtyp', headerFilter: "input", visible: false},
 					{title: 'Raumtypalternativ', field: 'raumtypalternativ', headerFilter: "input",visible: false},
 					{title: 'Wochenrythmus', field: 'wochenrythmus', headerFilter: "input", visible: false},
@@ -141,6 +178,43 @@ export default {
 					{title: 'Stundenblockung', field: 'stundenblockung', headerFilter: "input", visible: false},
 				],
 				persistenceID: "pep_lehre",
+			}
+		},
+		faktorTabulatorOptions() {
+			return {
+				maxHeight: "100%",
+				layout: 'fitDataStretch',
+				placeholder: "Keine Daten verfügbar",
+				columns: [
+					{title: 'Lektor*in', field: 'kurzbz'},
+					{title: 'Vorname', field: 'vorname'},
+					{title: 'Nachname', field: 'nachname'},
+					{title: 'Faktor', field: 'faktor', hozAlign: "right",
+						formatter: (cell) => {
+							return this.formDataFaktor.faktor
+						}
+					},
+					{
+						title: 'Semesterstunden',
+						field: 'semesterstunden',
+						hozAlign: "right",
+
+					},
+					{
+						title: 'Realstunden',
+						field: 'faktorstunden',
+						hozAlign: "right",
+						formatter: (cell) => {
+							let data = cell.getData();
+							let realstunden = parseFloat(data.semesterstunden * this.formDataFaktor.faktor).toFixed(2)
+							if (data.vertrag !== 'echterdv')
+							{
+								realstunden = data.semesterstunden + " (" + realstunden + ")"
+							}
+							return realstunden
+						}
+					},
+				],
 			}
 		},
 		theModel: {
@@ -159,7 +233,8 @@ export default {
 			this.theModel = { ...this.modelValue, loadDataReady: true };
 		},
 
-		newSideMenuEntryHandler: function (payload) {
+		newSideMenuEntryHandler: function (payload)
+		{
 			this.appSideMenuEntries = payload;
 		},
 		async loadData(data) {
@@ -173,6 +248,40 @@ export default {
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
+		},
+		recalcFaktor: function()
+		{
+			let stundenfaktor = this.formDataFaktor.lvstundenfaktor;
+			let stunden = this.formDataFaktor.lvstunden;
+			let faktor = this.formDataFaktor.faktor;
+
+			if (!stunden)
+				return;
+			let newFaktor = stundenfaktor/stunden
+
+			this.formDataFaktor.faktor = parseFloat(newFaktor).toFixed(2);
+			this.$refs.faktorTable.tabulator.redraw(true)
+
+		},
+		editFaktor(data, row)
+		{
+			this.getLehreinheiten(data.lv_id)
+		},
+		getLehreinheiten(lv_id)
+		{
+			let data = {
+				'lehrveranstaltung_id': lv_id,
+				'studiensemester': this.studiensemester
+			}
+
+			this.$fhcApi.factory.pep.getLehreinheiten(data)
+				.then(result => result.data)
+				.then(result => {
+					this.prefillFaktorModal(result)
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				})
 		},
 		editLehreinheit(data, row)
 		{
@@ -198,11 +307,13 @@ export default {
 		prefillLehreinheitModal(data)
 		{
 			this.formData.lehreinheit_id = data.lehreinheit_id;
-			this.formData.raumtyp = data.raumtyp;
+			this.formData.faktorstunden = data.faktorstunden;
+
+/*			this.formData.raumtyp = data.raumtyp;
 			this.formData.raumtypalternativ = data.raumtypalternativ;
 			this.formData.start_kw = data.start_kw;
 			this.formData.stundenblockung = data.stundenblockung;
-			this.formData.wochenrythmus = data.wochenrythmus;
+			this.formData.wochenrythmus = data.wochenrythmus;*/
 			this.formData.anmerkung = data.anmerkung;
 			this.formData.oldlektor = data.mitarbeiter_uid;
 			this.formData.studiensemester = this.studiensemester;
@@ -233,6 +344,20 @@ export default {
 				}
 			}
 			this.$refs.editModal.show();
+		},
+		prefillFaktorModal(data)
+		{
+			this.formDataFaktor = {
+				bezeichnung: data[0].bezeichnung,
+				lvstunden: data[0].lvstunden,
+				faktor: parseFloat(data[0].faktor).toFixed(2),
+				lvstundenfaktor: data[0].faktor * data[0].lvstunden,
+				lv_id: data[0].lehrveranstaltung_id,
+				semester: this.studiensemester
+			}
+
+			this.$refs.faktorTable.tabulator.setData(data);
+			this.$refs.faktorModal.show();
 		},
 		getRaumtypen() {
 			this.$fhcApi.factory.pep.getRaumtypen()
@@ -336,14 +461,15 @@ export default {
 							'lektor' : updateData.lektor,
 							'vorname' : updateData.vorname,
 							'lektor_nachname' : updateData.nachname,
-							'vertraege' : updateData.vertraege,
-							'wochenstundenstunden' : updateData.wochenstundenstunden,
-							'stundensaetze_lehre' : updateData.stundensaetze_lehre,
-							'aktbezeichnung' : updateData.aktbezeichnung,
-							'aktorgbezeichnung' : updateData.aktorgbezeichnung,
-							'aktparentbezeichnung' : updateData.aktparentbezeichnung,
-							'aktstunden' : updateData.aktstunden,
-							'stundensaetze_lehre_aktuell' : updateData.stundensaetze_lehre_aktuell,
+							'zrm_vertraege' : updateData.zrm_vertraege,
+							'zrm_wochenstunden' : updateData.zrm_wochenstunden,
+							'zrm_jahresstunden' : updateData.zrm_jahresstunden,
+							'le_stundensatz' : updateData.le_stundensatz,
+							'bezeichnung' : updateData.bezeichnung,
+							'akt_orgbezeichnung' : updateData.akt_orgbezeichnung,
+							'akt_parentbezeichnung' : updateData.akt_parentbezeichnung,
+							'akt_stunden' : updateData.akt_stunden,
+							'akt_stundensaetze_lehre' : updateData.akt_stundensaetze_lehre,
 							'uid' : updateData.uid,
 							'updateamum' : updateData.updateamum,
 						})
@@ -354,14 +480,15 @@ export default {
 							'lektor' : updateData.lektor,
 							'vorname' : updateData.vorname,
 							'lektor_nachname' : updateData.nachname,
-							'vertraege' : updateData.vertraege,
-							'wochenstundenstunden' : updateData.wochenstundenstunden,
-							'stundensaetze_lehre' : updateData.stundensaetze_lehre,
-							'aktbezeichnung' : updateData.aktbezeichnung,
-							'aktorgbezeichnung' : updateData.aktorgbezeichnung,
-							'aktparentbezeichnung' : updateData.aktparentbezeichnung,
-							'aktstunden' : updateData.aktstunden,
-							'stundensaetze_lehre_aktuell' : updateData.stundensaetze_lehre_aktuell,
+							'zrm_vertraege' : updateData.zrm_vertraege,
+							'zrm_wochenstunden' : updateData.zrm_wochenstunden,
+							'zrm_jahresstunden' : updateData.zrm_jahresstunden,
+							'le_stundensatz' : updateData.le_stundensatz,
+							'bezeichnung' : updateData.bezeichnung,
+							'akt_orgbezeichnung' : updateData.akt_orgbezeichnung,
+							'akt_parentbezeichnung' : updateData.akt_parentbezeichnung,
+							'akt_stunden' : updateData.akt_stunden,
+							'akt_stundensaetze_lehre' : updateData.akt_stundensaetze_lehre,
 							'uid' : updateData.uid,
 							'anmerkung' : updateData.anmerkung,
 							'updateamum' : updateData.updateamum,
@@ -373,16 +500,23 @@ export default {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
+		updateFaktor()
+		{
+			this.$fhcApi.factory.pep.updateFaktor(this.formDataFaktor)
+				.then(result => result.data)
+				.then(updateData => {
+					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
 		onCellEdited(cell)
 		{
 			let value = cell.getValue();
 			if (!value.trim() || (cell.getOldValue() === value.trim()))
 				return;
 
-			/*let row = cell.getRow();
-
-*/
-			//this.addOrUpdate(data)
 			let data = cell.getRow().getData();
 
 			let updateData = {
@@ -392,11 +526,7 @@ export default {
 			}
 
 			this.updateAnmerkung(updateData);
-
-			/*
-			let row = cell.getRow();
-			this.speichern(row);
-	*/	},
+		},
 		updateAnmerkung(data)
 		{
 			this.$fhcApi.factory.pep.updateAnmerkung(data)
@@ -526,6 +656,47 @@ export default {
 					</template>
 					<template #footer>
 						<button type="button" class="btn btn-primary" @click="updateLehreinheit">{{ $p.t('ui', 'speichern') }}</button>
+					</template>
+				</bs-modal>
+
+				<bs-modal ref="faktorModal" class="bootstrap-prompt" dialogClass="modal-xl" @hidden-bs-modal="reset">
+					<template #title>{{ modalTitle }} - {{ formDataFaktor.bezeichnung }}</template>
+						<div class="row row-cols-3">
+							<div class="col">
+								<form-input
+									label="Faktor"
+									v-model="formDataFaktor.faktor"
+									readonly
+								></form-input>
+							</div>
+							<div class="col">
+								<form-input
+									v-model="formDataFaktor.lvstunden"
+									label="Stunden"
+									readonly
+								>
+								</form-input>
+							</div>
+							<div class="col">
+								<form-input
+									v-model="formDataFaktor.lvstundenfaktor"
+									label="Realstunden"
+									type="number"
+									@change="recalcFaktor"
+								>
+								</form-input>
+							</div>
+							
+						</div>
+						<core-filter-cmpt
+							ref="faktorTable"
+							:tabulator-options="faktorTabulatorOptions"
+							:table-only=true
+							:hideTopMenu=false
+							:sideMenu=false
+						/>
+					<template #footer>
+						<button type="button" class="btn btn-primary" @click="updateFaktor">{{ $p.t('ui', 'speichern') }}</button>
 					</template>
 				</bs-modal>
 			</template>

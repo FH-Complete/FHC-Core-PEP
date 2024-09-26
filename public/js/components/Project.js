@@ -23,7 +23,9 @@ export default {
 				lektor: '',
 				sapprojekte: '',
 				stunden: '',
-				anmerkung: ''
+				anmerkung: '',
+				von: '',
+				bis: '',
 			},
 			studienjahr: null,
 			rowCount: 0,
@@ -35,7 +37,14 @@ export default {
 			},
 			filteredLektor: [],
 			filteredProjekte: [],
-			loadedData: {}
+			loadedData: {},
+			filteredDates: {
+				studienjahr: '',
+				von: '',
+				bis: ''
+			},
+			columnsToMark: ['summe_planstunden', 'stunden']
+
 		}
 	},
 	mounted() {
@@ -50,16 +59,45 @@ export default {
 				layout: 'fitDataStretch',
 				selectable: false,
 				placeholder: "Keine Daten verfügbar",
+				rowFormatter: (row) =>
+				{
+					if (row.getElement().classList.contains("tabulator-calcs"))
+						return;
+					let data = row.getData();
+					let children = row.getElement().childNodes;
+					let columns = row.getTable().getColumns();
+					if (data.stunden === null && data.summe_planstunden !== null)
+					{
+
+						this.columnsToMark.forEach((spaltenName) => {
+							let column = columns.find(col => col.getField() === spaltenName);
+							if (column) {
+								let cellElement = row.getCell(column).getElement();
+								cellElement.classList.add("highlight-warning");
+							}
+						});
+					}
+					else if (data.stunden !== null && data.summe_planstunden === null)
+					{
+						this.columnsToMark.forEach((spaltenName) => {
+							let column = columns.find(col => col.getField() === spaltenName);
+							if (column) {
+								let cellElement = row.getCell(column).getElement();
+								cellElement.classList.add("highlight-info");
+							}
+						});
+					}
+				},
 				columns: [
 					{
 						title: 'Aktionen',
 						field: 'actions',
 						width: 100,
 						formatter: (cell, formatterParams, onRendered) => {
+
 							let container = document.createElement('div');
 							container.className = "d-flex gap-2";
-							if (
-								(cell.getData().pep_projects_employees_id))
+							if ((cell.getData().pep_projects_employees_id))
 							{
 								let deleteButton = document.createElement('button');
 								deleteButton.className = 'btn btn-outline-secondary';
@@ -73,10 +111,11 @@ export default {
 							return container;
 						},
 					},
-					{title: 'Projekt', field: 'project_id', headerFilter: true},
+					{title: 'Projekt - ID', field: 'project_id', headerFilter: true},
+					{title: 'Projekt - Name', field: 'name', headerFilter: true},
 					{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true},
-					/*{title: 'Vorname', field: 'vorname', headerFilter: true},
-					{title: 'Nachname', field: 'nachname', headerFilter: true},*/
+					{title: 'Vorname', field: 'vorname', headerFilter: true},
+					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'SAP - Stunden', field: 'summe_planstunden', headerFilter: true},
 					{
 						title: 'PEP - Stunden',
@@ -85,37 +124,26 @@ export default {
 						editor: "number",
 						bottomCalcParams: {precision: 2},
 						bottomCalc: "sum",
+						cellEdited: (cell) => {
+							this.stundenEdited(cell);
+						},
 						hozAlign: "right",
-
+						negativeSign: false,
 						formatter: function (cell, formatterParams, onRendered)
 						{
-							var value = cell.getValue();
-							if (value === null || isNaN(value) || value === "")
-							{
-								return parseFloat(0).toFixed(2);
-							}
-
+							let value = cell.getValue();
+							if (value === null)
+								return;
+							if (value === "")
+								return null;
 							if (!isNaN(value))
-							{
-								value = parseFloat(value).toFixed(2);
-								return value;
-							}
-						},
-						cellEdited: function (cell)
-						{
-							var value = cell.getValue();
-							if (value && !isNaN(value) && value > 0)
-							{
-								return (parseFloat(value).toFixed(2));
-							}
-							else
-							{
-								return (parseFloat(0).toFixed(2));
-							}
+								return parseFloat(value).toFixed(2);
 						},
 						validator: ["numeric", {
 							type: function(cell, value, parameters)
 							{
+								if (value === "")
+									return true;
 								if (isNaN(value))
 									return false;
 
@@ -123,14 +151,29 @@ export default {
 								if (value.toFixed(2) != value)
 									return false;
 
-								if (value > 999.99 || value < 0)
+								if (value > 9999.99 || value < 0)
 									return false;
 
 								return true;
 							},
-						}]
+						},
+						]
 					},
-					{title: 'PEP - Gesamtstunden/Projekt', field: 'gesamt_stunden', headerFilter: true, visible: false},
+					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", visible: true, editor: "textarea",
+						formatter: "textarea",
+						cellEdited: (cell) => {
+							this.anmerkungEdited(cell);
+						},
+					},
+					{title: 'Startdatum', field: 'start_date', headerFilter: true, visible: false},
+					{title: 'Enddatum', field: 'end_date', headerFilter: true, visible: false},
+					{title: 'Projektlaufzeit in Monaten', field: 'laufzeit', headerFilter: true},
+					{title: 'Verbrauchte Zeit in Monaten', field: 'verbrauchte_zeit', headerFilter: true},
+					{title: 'Restlaufzeit in Monaten', field: 'restlaufzeit', headerFilter: true},
+					{title: 'Status', field: 'status', headerFilter: true},
+					{title: 'Erster Stichtag (01.01)', field: 'erster', headerFilter: true},
+					{title: 'Zweiter Stichtag (01.06)', field: 'zweiter', headerFilter: true},
+					{title: 'Aktuelle Stunden', field: 'aktuellestunden', headerFilter: true},
 				],
 				persistenceID: "pep_project"
 			}
@@ -149,6 +192,7 @@ export default {
 		tableBuilt(){
 			this.theModel = { ...this.modelValue, loadDataReady: true };
 		},
+
 
 		getProjekte() {
 			this.$fhcApi.factory.pep.getProjekte()
@@ -179,23 +223,43 @@ export default {
 				return fullName.includes(query) || reverseFullName.includes(query) || lektor.uid.toLowerCase().includes(query);
 			}).map(lektor => ({
 				label: `${lektor.nachname} ${lektor.vorname} (${lektor.uid})`,
-				uid: lektor.uid
+				uid: lektor.uid,
 			}));
 		},
 		searchProjekt(event)
 		{
 			const query = event.query.toLowerCase().trim();
-			this.filteredProjekte = this.sapprojekte.filter(projekt => {
-				return projekt.project_id.toLowerCase().includes(query);
-			}).map(projekt => ({
-				label: `${projekt.project_id}`,
-				project_id: projekt.project_id
-			}));
+			this.filteredProjekte = this.sapprojekte
+				.filter(projekt => {
+					const projektstart = new Date(projekt.start_date);
+					const projektende = projekt.end_date && new Date(projekt.end_date)
+					const studienjahrvon = new Date(this.filteredDates.von);
+					const studienjahrbis = new Date(this.filteredDates.bis);
+					return (projektstart <= studienjahrbis || projektstart === null) && (projektende >= studienjahrvon || projektende === null);
+				})
+				.filter(projekt => {
+					return projekt.project_id.toLowerCase().includes(query);
+				}).map(projekt => ({
+					label: `${projekt.project_id}`,
+					project_id: projekt.project_id,
+					von: projekt.start_date,
+					bis: projekt.end_date
+				}));
+		},
+		fillDates(selectedProject)
+		{
+			this.formData.von = selectedProject.value.von && this.formatDate(selectedProject.value.von);
+			this.formData.bis = selectedProject.value.bis && this.formatDate(selectedProject.value.bis);
+		},
+		formatDate(date)
+		{
+			let von = date.split(' ')[0];
+			const [year, month, day] = von.split('-');
+			return `${day}.${month}.${year}`;
 		},
 
 		async loadData(data)
 		{
-
 			this.loadedData = data;
 			await this.$fhcApi.factory.pep.getProjects(data)
 				.then(response => {
@@ -204,61 +268,63 @@ export default {
 					{
 						this.rowCount =  this.$refs.projectTable.tabulator.getRows().length;
 					}
-
 				})
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
 
-		async onCellEdited(cell)
+		stundenEdited(cell)
 		{
 			let value = cell.getValue();
-
-			if ((value === "" || value === "0" || value == 0) && (cell.getOldValue() === null || cell.getOldValue() == 0)
-				|| (value == cell.getOldValue())
-			)
-				return;
 			let row = cell.getRow();
-			let rowData = row.getData()
 
+			if (parseFloat(value).toFixed(2) === parseFloat(cell.getOldValue()).toFixed(2))
+				return;
+			else if (cell.getOldValue() === null && value === "")
+				value = null;
+			else if (value === "")
+				value = 0
+
+			this.updateStunden(row)
+
+		},
+		anmerkungEdited(cell)
+		{
+			let value = cell.getValue();
+			let row = cell.getRow();
+
+			if (value === cell.getOldValue())
+				return;
+
+			this.updateStunden(row)
+
+		},
+		async updateStunden(row)
+		{
+			let rowData = row.getData()
 			let data = {
 				'project_id': rowData.project_id,
 				'uid': rowData.mitarbeiter_uid,
 				'id': rowData.pep_projects_employees_id,
-				'stunden': value
+				'anmerkung': rowData.anmerkung,
+				'stunden': rowData.stunden,
+				'studienjahr': this.theModel.config.studienjahr
 			}
+
 			await this.$fhcApi.factory.pep.updateProjectStunden(data).then(response => {
 				if (!response.data)
 					this.$fhcAlert.alertWarning("Fehler beim Löschen")
 				{
-					console.log(response.data);
-
 					this.$refs.projectTable.tabulator.updateRow(row.getIndex(), {
-						'stunden' : value,
+
 						'pep_projects_employees_id': response.data
 					})
+					this.theModel = { ...this.modelValue, needReload: true };
+					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert")
 					row.reformat();
 				}
 			});
-		},
-
-
-		duplicateRow(cell)
-		{
-			let row = cell.getRow()
-			let rowData = row.getData();
-
-			let newData = { ...rowData };
-
-			this.rowCount++;
-			newData.row_index = this.rowCount;
-
-			this.$refs.projectTable.tabulator.addRow(newData, false, cell.getRow());
-			let newRow = this.$refs.projectTable.tabulator.getRow(newData.row_index);
-			this.speichern(newRow)
-
-
 		},
 		async deleteRow(cell)
 		{
@@ -272,30 +338,43 @@ export default {
 				'uid': uid
 			}
 
-			console.log(postData);
 			await this.$fhcApi.factory.pep.deleteProjectStunden(postData)
 				.then(response => {
 					if (!response.data)
 						this.$fhcAlert.alertWarning("Fehler beim Löschen")
 					{
-						if (data.synced === 0)
+						if (data.summe_planstunden === null)
 							row.delete()
 						else
 						{
 							this.$refs.projectTable.tabulator.updateRow(row.getIndex(), {
-								'stunden' : 0,
+								'stunden' : null,
 								'pep_projects_employees_id': null
 							})
 
 							row.reformat();
 						}
-
+						this.theModel = { ...this.modelValue, needReload: true };
 					}
 				});
 		},
 
-		addData()
+		async addData()
 		{
+			if (this.filteredDates.studienjahr !== this.theModel.config.studienjahr)
+			{
+				let data = {'studienjahr' : this.theModel.config.studienjahr};
+				await this.$fhcApi.factory.pep.getStartAndEnd(data)
+					.then(result => result.data)
+					.then(result => {
+						this.filteredDates.von = result.start;
+						this.filteredDates.bis = result.ende;
+						this.filteredDates.studienjahr = result.studienjahr_kurzbz;
+					})
+					.catch(error => {
+						this.$fhcAlert.handleSystemError(error);
+					});
+			}
 			this.$refs.newModal.show();
 		},
 
@@ -311,13 +390,19 @@ export default {
 				'project' : this.formData.sapprojekte.project_id,
 				'stunden' : this.formData.stunden,
 				'anmerkung' : this.formData.anmerkung,
+				'studienjahr': this.theModel.config.studienjahr,
+				'org': this.theModel.config.org
 			}
-
 			this.$fhcApi.factory.pep.addProjectStunden(data)
 				.then(result => result.data)
-				.then(() => this.loadData(this.loadedData))
-				.then(() => this.reset())
+				.then(result => {
+					if (result === true)
+						return this.$fhcAlert.alertWarning("Mitarbeiter ist bereits dem Projekt zugeordnet!");
+					this.$refs.projectTable.tabulator.addRow(result, false)
 
+				})
+				.then(() => this.reset())
+				.then(() => this.theModel = { ...this.modelValue, needReload: true })
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
@@ -330,7 +415,7 @@ export default {
 				<core-filter-cmpt
 					ref="projectTable"
 					:tabulator-options="tabulatorOptions"
-					:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited }, { event: 'tableBuilt', handler: tableBuilt }]"
+					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }]"
 					:table-only=true
 					:side-menu="false"
 					:hideTopMenu=false
@@ -361,10 +446,27 @@ export default {
 									field="label"
 									placeholder="Projekt auswählen"
 									@complete="searchProjekt"
+									@item-select="fillDates"
 									:label="Projekt"
 								></form-input>
 							</div>
-							
+						</div>
+						<br />
+						<div class="row row-cols-2">
+							<div class="col">
+								<form-input
+									placeholder="Projektstart"
+									v-model="formData.von"
+									readonly
+								></form-input>
+							</div>
+							<div class="col">
+								<form-input
+									placeholder="Projektende"
+									v-model="formData.bis"
+									readonly
+								></form-input>
+							</div>
 						</div>
 						<hr />
 						<div class="row row-cols-2">

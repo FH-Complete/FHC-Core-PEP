@@ -33,3 +33,24 @@
 	border-color: #f5c2c7 !important;
 	transition: background-color 0.5s ease-in-out;
 }
+
+.highlight-warning {
+	color: #856404 !important;
+	background-color: #fff3cd !important;
+	border-color: #ffeeba !important;
+	transition: background-color 0.5s ease-in-out;
+}
+
+.highlight-info {
+	color: #0c5460 !important;
+	background-color: #d1ecf1 !important;
+	border-color: #bee5eb !important;
+	transition: background-color 0.5s ease-in-out;
+}
+
+#resetHoursButton{
+	opacity: 0.5
+}
+#resetHoursButton:hover{
+	opacity: 1.0
+}

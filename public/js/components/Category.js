@@ -1,5 +1,4 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
-import {CoreRESTClient} from '../../../../js/RESTClient.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 
 export default {
@@ -21,9 +20,9 @@ export default {
 		}
 	},
 	mounted() {
-		this.$nextTick(() => {
+		/*this.$nextTick(() => {
 			this.theModel = { ...this.modelValue, loadDataReady: true };
-		});
+		});*/
 	},
 	computed: {
 		tabulatorOptions() {
@@ -74,11 +73,11 @@ export default {
 					{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true, visible:false},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
-					{title: 'Zrm - DV', field: 'vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
-					{title: 'Zrm - Stunden/Woche', field: 'wochenstundenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
-					{title: 'Zrm - Stunden/Jahr', field: 'jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
-					{title: 'Akt - Kostenstelle', field: 'aktorgbezeichnung', headerFilter: "input", formatter: "textarea"},
-					{title: 'Akt - Kostenstelle - Parent', field: 'aktparentbezeichnung', headerFilter: "input", formatter: "textarea"},
+					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
+					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea"},
+					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea"},
 					{
 						title: 'Stunden',
 						field: 'stunden',
@@ -124,7 +123,7 @@ export default {
 								if (value.toFixed(2) != value)
 									return false;
 
-								if (value > 999.99 || value < 0)
+								if (value > 9999.99 || value < 0)
 									return false;
 
 								return true;
@@ -168,11 +167,13 @@ export default {
 				});
 		},
 
-		zuruecksetzen()
+		async resetHours()
 		{
 			if (this.$refs.categoryTable.tabulator.getRows().length == 0)
 				return;
 			this.theModel.config.category_id = this.config.category_id
+			if (await this.$fhcAlert.confirmDelete() === false)
+				return;
 			this.$fhcApi.factory.pep.stundenzuruecksetzen(this.theModel.config)
 				.then(response => {
 					if (response.data === true)
@@ -184,7 +185,6 @@ export default {
 						this.loadData(this.theModel.config);
 						this.theModel = { ...this.modelValue, needReload: true };
 						this.$fhcAlert.alertSuccess("Erfolgreich zurückgesetzt")
-
 					}
 				}).catch(error => {
 					this.$fhcAlert.handleSystemError(error);
@@ -194,16 +194,11 @@ export default {
 		onCellEdited(cell)
 		{
 			let value = cell.getValue();
-			console.log(value);
-			console.log(cell.getOldValue());
 			if ((value === "" || value === "0" || value == 0) && (cell.getOldValue() === null || cell.getOldValue() == 0)
 				|| (value == cell.getOldValue())
 			)
 				return;
-			/*let row = cell.getRow();
-			let data = cell.getRow().getData();
-*/
-			//this.addOrUpdate(data)
+
 			let row = cell.getRow();
 			this.speichern(row);
 		},
@@ -222,13 +217,14 @@ export default {
 					if (data.kategorie_mitarbeiter_id === null)
 					{
 						row.update({
-							kategorie_mitarbeiter_id: response.data
+							kategorie_mitarbeiter_id: response.data,
 						})
 						row.reformat();
 					}
 					else if (remove)
 					{
 						response.data.row_index = oldindex;
+						response.data.delete = false;
 						row.update(response.data)
 					}
 
@@ -247,52 +243,7 @@ export default {
 					}
 					this.theModel = { ...this.modelValue, needReload: true };
 				});
-				/*.then(async () => {
-					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
-				});*/
 		},
-		async addOrUpdate(data, newEntry = false)
-		{
-			let uid = data.mitarbeiter_uid;
-			let dataUpdate = {
-				studienjahr: this.theModel.config.studienjahr,
-				kategorie: this.config.category_id,
-				kategorie_mitarbeiter_id: data.kategorie_mitarbeiter_id,
-				stunden: data.stunden,
-				anmerkung: data.anmerkung,
-				newentry: newEntry,
-				uid: uid
-			};
-
-		//	await this.speichern(dataUpdate)
-			/*let newValue = { ...this.theModel.updatedData };
-			let uid = data.mitarbeiter_uid;
-			let index = data.row_index;
-
-			if (!newValue[this.config.category_id])
-				newValue[this.config.category_id] = {}
-
-			if (!newValue[this.config.category_id][uid])
-				newValue[this.config.category_id][uid] = {}
-
-			if (!newValue[this.config.category_id][uid][index])
-				newValue[this.config.category_id][uid][index] = {}
-
-			newValue[this.config.category_id][uid][index] = {
-				kategorie: this.config.category_id,
-				studienjahr: this.theModel.config.studienjahr,
-				kategorie_mitarbeiter_id: data.kategorie_mitarbeiter_id,
-				stunden: data.stunden,
-				anmerkung: data.anmerkung,
-				newentry: newEntry,
-				uid: uid,
-				reloadStudienjahr: this.studienjahr,
-				reloadKategorie: this.config.category_id,
-			}
-
-			this.theModel.updatedData = newValue;
-	*/	},
-
 		duplicateRow(cell)
 		{
 			let row = cell.getRow()
@@ -319,15 +270,7 @@ export default {
 				this.$refs.categoryTable.tabulator.addRow(newData, false, cell.getRow());
 				let newRow = this.$refs.categoryTable.tabulator.getRow(newData.row_index);
 				this.speichern(newRow)
-			}/*this.addOrUpdate(newRowData, true).then(() =>
-			{
-				if (rowData.kategorie_mitarbeiter_id === null)
-				{
-					row.update({newentry: true})
-					row.reformat();
-					this.addOrUpdate(rowData, true);
-				}
-			});*/
+			}
 		},
 		deleteRow(cell)
 		{
@@ -351,6 +294,7 @@ export default {
 						row.update({
 							kategorie_mitarbeiter_id: null,
 							newentry: false,
+							delete: false
 						})
 
 						setTimeout(function(){
@@ -362,59 +306,12 @@ export default {
 					}
 					else
 					{
-
 						setTimeout(function(){
 							row.delete();
 						}, 200);
-
-
 					}
-
 				}
 			)
-
-
-
-			/*
-			if (this.theModel.updatedData?.[this.config.category_id]?.[uid]?.[index])
-			{
-				if (counts === 0)
-				{
-					row.update({newentry: false})
-					row.reformat();
-					row.getElement().classList.remove('disabled-row')
-				}
-				else
-					row.delete();
-
-
-				delete this.theModel.updatedData[this.config.category_id][uid][index];
-
-				if (Object.keys(this.theModel.updatedData[this.config.category_id][uid]).length === 0)
-					delete this.theModel.updatedData[this.config.category_id][uid]
-
-				if (Object.keys(this.theModel.updatedData[this.config.category_id]).length === 0)
-					delete this.theModel.updatedData[this.config.category_id]
-
-			}
-			else
-			{
-				if (!this.theModel.updatedData[this.config.category_id])
-					this.theModel.updatedData[this.config.category_id] = {}
-
-				if (!this.theModel.updatedData[this.config.category_id][uid])
-					this.theModel.updatedData[this.config.category_id][uid] = {}
-
-				if (!this.theModel.updatedData[this.config.category_id][uid][index])
-					this.theModel.updatedData[this.config.category_id][uid][index] = {}
-
-				this.theModel.updatedData[this.config.category_id][uid][index] = {
-					kategorie_mitarbeiter_id: data.kategorie_mitarbeiter_id,
-					delete: true,
-					reloadStudienjahr: this.studienjahr,
-					reloadKategorie: this.config.category_id
-				};
-			}*/
 		},
 		uidCount(uid)
 		{
@@ -428,6 +325,10 @@ export default {
 			}
 			return count;
 		},
+		tableBuilt()
+		{
+			this.theModel = { ...this.modelValue, loadDataReady: true }
+		}
 	},
 	template: `
 		<core-base-layout>
@@ -436,13 +337,12 @@ export default {
 				<core-filter-cmpt
 					ref="categoryTable"
 					:tabulator-options="tabulatorOptions"
-					:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited }]"
+					:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited }, { event: 'tableBuilt', handler: tableBuilt }]"
 					:table-only=true
 					:side-menu="false"
 					:hideTopMenu=false>
 					<template #actions>
-					
-						<button class="btn btn-primary" @click="zuruecksetzen">Stunden zuruecksetzen</button>
+						<button class="btn btn-danger btn-sm" @click="resetHours" id="resetHoursButton">Stunden zurücksetzen</button>
 					</template>
 				</core-filter-cmpt>
 			</template>

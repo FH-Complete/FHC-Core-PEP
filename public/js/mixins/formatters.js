@@ -307,15 +307,27 @@ export const formatter = {
 		}
 		return parseFloat(value).toFixed(formatterParams.precision);
 	},
+	checkStunden: function(cell, formatterParams, onRendered)
+	{
+		let value = cell.getValue();
+		return parseFloat(value).toFixed(formatterParams.precision);
+	},
 	karenzFormatter: function(cell, formatterParams, onRendered)
 	{
 		let value = cell.getValue();
-		if (istGueltig(value) && value !== false)
+		var row = cell.getRow().getData();
+		if (value === false)
 		{
-			return value[0].von + " - " + value[0].bis;
+			return row.karenzvon + " - " + row?.karenzbis;
 		}
 		else
-			return "-";
+			return '-';
+		/*if (istGueltig(value) && value !== false)
+		{
+			return value[0].karenzvon + " - " + value[0].karenzbis;
+		}
+		else
+			return "-";*/
 	},
 
 	berechneSumme: function(cell, formatterParams, onRendered)
@@ -353,7 +365,49 @@ export const formatter = {
 			cell.getElement().classList.add('text-success');
 		return calcsum;
 	},
+	berechneSummeVerplant: function(cell, formatterParams, onRendered)
+	{
+		var row = cell.getRow().getData();
 
+		let summe = 0;
+		var prefix = "studiensemester_";
+
+		for (var key in row)
+		{
+			if (row.hasOwnProperty(key) && key.startsWith(prefix))
+			{
+				var wert = row[key];
+				if (!isNaN(parseFloat(wert)))
+				{
+					summe += parseFloat(wert);
+				}
+			}
+		}
+		let calcsum = parseFloat(summe).toFixed(2);
+		return calcsum;
+	},
+	berechneSummeBottomVerplant: function(values, data, calcParams)
+	{
+		let bottomsum = 0;
+		var prefix = "studiensemester_";
+		data.forEach((row) => {
+			let summe = 0;
+			for (var key in row)
+			{
+				if (row.hasOwnProperty(key) && key.startsWith(prefix))
+				{
+					var wert = row[key];
+					if (!isNaN(parseFloat(wert)))
+					{
+						summe += parseFloat(wert);
+					}
+				}
+			}
+			bottomsum += summe;
+		});
+
+		return parseFloat(bottomsum).toFixed(2);
+	},
 	berechneSummeBottom: function(values, data, calcParams)
 	{
 		let bottomsum = 0;

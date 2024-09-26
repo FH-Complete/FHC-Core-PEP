@@ -43,7 +43,9 @@ export default {
 			currentTab: null,
 			tabInstances: [],
 			studiensemester: [],
+			studiensemester_readonly: [],
 			selectedOrg: "",
+			selectedOrg_readonly: "",
 			modelValue: {
 				config: {},
 				updatedData: {},
@@ -51,154 +53,226 @@ export default {
 			},
 			selectedStsem: [],
 			selectedStudienjahr: "",
-			loadedStjahr: "",
-			loadedStsem: [],
-			loadedOrg: "",
-			isRecursive: false,
-			loadedVariables: false
+			loadedData: {
+				studienjahr: "",
+				semester: [],
+				org: "",
+				recursive: false,
+				variables: false
+			},
+			isRecursive: false
 		};
 	},
-
 	async created() {
-		await this.loadTabConfig();
-		/*window.addEventListener('beforeunload', (event) => {
-			if (this.checkBeforeLeave())
+		await this.loadTabConfig()
+			.then(() => this.checkVars());
+	},
+	computed: {
+
+		currentStudiensemester: {
+			get()
 			{
-				event.preventDefault();
+				return this.tabsConfig[this.currentTab]?.config?.reload ? this.studiensemester : this.studiensemester_readonly;
+			},
+			set(value)
+			{
+				if (this.tabsConfig[this.currentTab]?.config?.reload)
+					this.studiensemester = value;
+				else
+					this.studiensemester_readonly = value
 			}
-		});*/
-	},
-	mounted()
-	{
+		},
 
-		//this.checkVars();
-		//this.selectedStudienjahr = this.var_studienjahr;
-	},
+		currentOrg: {
+			get()
+			{
+				return this.tabsConfig[this.currentTab]?.config?.reload
+					? this.selectedOrg
+					: this.selectedOrg_readonly;
+			},
+			set(value)
+			{
+				if (this.tabsConfig[this.currentTab]?.config?.reload) {
+					this.selectedOrg = value;
+				} else {
+					this.selectedOrg_readonly = value;
+				}
+			}
+		},
 
-	/*beforeDestroy() {
-		window.removeEventListener('beforeunload', this.checkBeforeLeave)
-	},*/
+	},
 	components: {
-		CoreNavigationCmpt,
-		CoreFilterCmpt,
 		FhcTabs,
+		CoreNavigationCmpt,
 		Multiselect: primevue.multiselect,
 		FhcLoader,
 		FormInput,
 		BaseLayout
 	},
 	watch: {
-		selectedOrg: function(newOrg) {
-			/*this.handleLoad()*/
-		},
-		selectedStudienjahr: function() {
-			/*this.handleLoad(true)*/
-		},
 		modelValue: {
 			handler(newValue) {
-
-				if (newValue.loadDataReady)
+				if (newValue.loadDataReady && this.tabsConfig[this.currentTab]?.config?.reload)
 				{
-					this.updateTab(this.currentTab, false)
+					this.modelValue.loadDataReady = false;
+					this.collectTab()
+						.then(() => this.loadOneTab())
 				}
-
-				/*let changedKeys = Object.keys(newValue.updatedData).map(Number);
-				this.customTitle(changedKeys);*/
 			},
 			deep: true
-		}
+		},
 
 	},
 	methods: {
-		/*customTitle(tabs)
+		async checkVars()
 		{
-			Object.values(this.tabsConfig).forEach(tab => {
-				let category_id = tab.config?.category_id
+			this.currentStudiensemester = this.currentStudiensemester.length === 0 && this.tabsConfig[this.currentTab]?.config?.reload === true
+				? this.studiensemestern.filter(semester => this.var_studiensemester.includes(semester.studiensemester_kurzbz))
+				: this.studiensemestern.filter(semester => this.currentStudiensemester.map(item => item.studiensemester_kurzbz).includes(semester.studiensemester_kurzbz));
 
-				let title = tab.title
-				if (tabs.includes(category_id))
-				{
-					if (title.includes('*'))
-						return;
-					tab.title += '*';
-				}
-				else if (title.includes('*'))
-				{
-					tab.title = title.replace('*', '')
-				}
+			this.selectedStsem = this.currentStudiensemester.map(item => item.studiensemester_kurzbz);
 
-			});
-		},*/
 
+			this.currentOrg = (this.tabsConfig[this.currentTab]?.config?.reload === true)
+				? ((this.currentOrg && this.currentOrg.length > 0) ? this.currentOrg : (this.var_organisation || ""))
+				: (this.currentOrg || "");
+
+			this.selectedStudienjahr = this.selectedStudienjahr || this.var_studienjahr || "";
+
+			this.loadedData = {
+				studienjahr: this.selectedStudienjahr,
+				semester: this.selectedStsem,
+				org: this.currentOrg,
+				recursive: this.isRecursive,
+			};
+
+			this.modelValue.config = {
+				studienjahr: this.selectedStudienjahr,
+				semester: this.selectedStsem,
+				org: this.currentOrg,
+				recursive: this.isRecursive,
+			}
+		},
+		async loadTabConfig() {
+			await this.$fhcApi.factory.pep.getConfig()
+				.then(response => {this.tabsConfig = response.data})
+				.then(() => this.updateTab("start"))
+		},
+		async collectTab()
+		{
+			let tabInstance = this.$refs.tabComponent.$refs.current
+			if (tabInstance && !this.tabInstances.includes(tabInstance) &&
+				this.tabsConfig[this.currentTab]?.config?.reload
+			)
+			{
+				this.tabInstances.push(tabInstance);
+			}
+		},
+		async loadOneTab()
+		{
+			await this.checkVars();
+			const currentTabConfig = this.tabsConfig[this.currentTab].config;
+
+			if (this.checkForLoad(currentTabConfig) === false)
+				return;
+
+			let request = {...this.loadedData};
+
+			if (currentTabConfig.studienjahr === undefined)
+				delete(request.studienjahr)
+			if (currentTabConfig.studiensemester === undefined)
+				delete(request.semester)
+
+			this.$refs.loader.show();
+			this.$refs.tabComponent.$refs.current.loadData(request).then(() => this.$refs.loader.hide());
+		},
 		changedStudienjahr()
 		{
-			this.handleLoad()
+			this.setVariables()
+				.then(() => this.checkVars())
+				.then(() => this.reloadTabs(['studienjahr']))
 		},
 		changedOrg()
 		{
-			this.handleLoad()
-		},
-
-		checkVars()
-		{
-			const preselectedSemesters = this.studiensemestern.filter(
-				semester => this.var_studiensemester.includes(semester.studiensemester_kurzbz)
-			);
-
-			this.studiensemester = preselectedSemesters.length > 0 ? preselectedSemesters : [];
-			this.selectedStsem = this.selectedStsem.length === 0 ? this.studiensemester.map(item => item.studiensemester_kurzbz) : this.selectedStsem
-
-			this.selectedOrg = this.selectedOrg || this.var_organisation || "";
-			this.selectedStudienjahr = this.selectedStudienjahr || this.var_studienjahr || "";
-
-		},
-		async loopAllTabs(onlyCategories = false)
-		{
-			this.modelValue.config = {
-				'studienjahr' : this.selectedStudienjahr,
-				'semester': this.selectedStsem,
-				'org': this.selectedOrg,
-				'recursive': this.isRecursive
-			};
-
-			this.loadedStjahr =  this.selectedStudienjahr;
-			this.loadedStsem =  this.selectedStsem;
-			this.loadedOrg =  this.selectedOrg;
-			this.loadedRecursive = this.isRecursive
-
-			let data = {
-				'org': this.selectedOrg,
-				'recursive': this.isRecursive
+			if (this.tabsConfig[this.currentTab]?.config?.reload === false)
+			{
+				this.loadOneTab()
 			}
+			else
+			{
+				this.setVariables()
+					.then(() => this.checkVars())
+					.then(() => this.reloadTabs(['studiensemester', 'studienjahr']))
+			}
+		},
+		checkStudiensemester ()
+		{
 
+
+			this.selectedStsem = (this.currentStudiensemester || []).map(item => item.studiensemester_kurzbz);
+
+			if (this.tabsConfig[this.currentTab]?.config?.reload === false)
+			{
+				this.loadOneTab()
+			}
+			else
+			{
+				this.setVariables()
+					.then(() => this.checkVars())
+					.then(() => this.reloadTabs(['studiensemester']))
+			}
+		},
+		async reloadTabs(needChange)
+		{
+			const currentTabConfig = this.tabsConfig[this.currentTab].config;
+			if (this.checkForLoad(currentTabConfig) === false)
+				return;
+			this.$refs.loader.show();
+
+			await this.loopTabs(needChange)
+				.then(() => this.$refs.loader.hide())
+		},
+		async loopTabs(needChange)
+		{
 			for (const tabInstance of Object.values(this.tabInstances))
 			{
 				let tabInstanceConfig = tabInstance.config;
 				if (tabInstance && tabInstance.loadData)
 				{
-					if (onlyCategories && !tabInstanceConfig?.studienjahr)
+					let request = {...this.loadedData};
+
+					if (tabInstanceConfig.studienjahr === undefined)
+						delete(request.studienjahr)
+					if (tabInstanceConfig.studiensemester === undefined)
+						delete(request.semester)
+
+					if (needChange.includes('studienjahr') &&
+						!needChange.includes('studiensemester') &&
+						request.studienjahr === undefined)
+						continue;
+					else if (needChange.includes('studiensemester') &&
+						!needChange.includes('studienjahr') &&
+						request.semester === undefined)
 						continue;
 
-					if (tabInstanceConfig?.studiensemester && this.loadedStsem.length === 0)
-						continue;
-					else
-						data.semester = this.loadedStsem;
-
-					if (tabInstanceConfig?.studienjahr && this.loadedStjahr === "")
-						continue;
-					else
-						data.studienjahr = this.loadedStjahr;
-					await tabInstance.loadData(data);
+					await tabInstance.loadData(request);
 				}
 			}
 		},
-		checkStudiensemester ()
+		checkForLoad(currentTabConfig)
 		{
-			this.selectedStsem = this.studiensemester.map(item => item.studiensemester_kurzbz);
+			if ((currentTabConfig?.studiensemester && this.loadedData.semester?.length === 0) ||
+				(currentTabConfig?.studienjahr && this.loadedData.studienjahr.selectedStudienjahr === "") ||
+				this.loadedData.org === ""
+			)
+				return false;
+		},
+		updateTab(newTab, firstRun = false)
+		{
+			this.currentTab = newTab;
 
-			if (this.loadedStsem !== this.selectedStsem)
-				this.handleLoad()
-
+			if (this.currentTab === 'start' && this.modelValue.needReload === true)
+				this.loadOneTab().then(() =>  this.modelValue.needReload = false)
 		},
 		async setVariables()
 		{
@@ -209,157 +283,14 @@ export default {
 			}
 			this.$fhcApi.factory.pep.setVar(variables);
 		},
-		handleLoad(onlyCategories)
+		shouldCheckVars(currentTabConfig)
 		{
-			if ((this.selectedStudienjahr === "" && this.selectedStsem.length === 0) || this.selectedOrg === "")
-				return;
-			/*if (this.checkBeforeLeave()) {
-				if (!confirm('Es gibt ungespeicherte Änderungen. Möchten Sie diese Seite wirklich verlassen?')) {
-					return;
-				}
-			}*/
-			this.$refs.loader.show();
-			this.resetValues();
-			this.loopAllTabs(onlyCategories)
-				.then(() => this.$refs.loader.hide())
-				.then(() => this.setVariables()); //TODO
+			return (currentTabConfig?.studiensemester && this.loadedData.semester.length === 0) ||
+				(currentTabConfig?.studienjahr && this.loadedData.studienjahr === "") ||
+				this.loadedData.org === "";
 		},
-		async loadTabConfig() {
-			await this.$fhcApi.factory.pep.getConfig()
-				.then(response => {this.tabsConfig = response.data})
-				.then(() => this.updateTab("start", true));
-		},
-		/*semesterChanged: function (e)
-		{
-			this.selectedStsem = e.value.map(item => item.studiensemester_kurzbz);
-		},*/
-		/*async speichern () {
-			await this.$fhcApi.factory.pep.saveMitarbeiter(this.modelValue.updatedData)
-				.then(async () => {
-					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
-					this.resetValues().then(() => this.handleLoad(false));
-			});
-		},*/
-		async resetValues() {
-			this.modelValue.updatedData = {};
-			this.modelValue.needReload = false;
-		},
-		shouldCheckVars(currentTabConfig) {
-
-			return (currentTabConfig?.studiensemester && this.selectedStsem.length === 0) ||
-				(currentTabConfig?.studienjahr && this.selectedStudienjahr === "") ||
-				this.selectedOrg === "";
-		},
-
-		handleLoadOneTab: function (e)
-		{
-			const currentTabConfig = this.tabsConfig[this.currentTab].config;
-
-			if (this.shouldCheckVars(currentTabConfig))
-			{
-				this.checkVars();
-
-				if (this.shouldCheckVars(currentTabConfig))
-				{
-					return;
-				}
-			}
-
-
-			if ((currentTabConfig?.studiensemester && this.selectedStsem.length === 0) ||
-				(currentTabConfig?.studienjahr && this.selectedStudienjahr === "") ||
-				this.selectedOrg === ""
-			)
-				return
-
-
-			this.modelValue.config = {
-				'studienjahr' : this.selectedStudienjahr,
-				'semester': this.selectedStsem,
-				'org': this.selectedOrg,
-				'recursive': this.isRecursive
-			};
-			this.modelValue.loadDataReady = false;
-
-
-			this.loadedStjahr =  this.selectedStudienjahr;//TODO bug fixen
-			this.loadedStsem =  this.selectedStsem;
-			this.loadedOrg =  this.selectedOrg;
-			this.loadedRecursive = this.isRecursive
-
-			let neededData = {
-				'semester': this.selectedStsem,
-				'studienjahr' : this.selectedStudienjahr,
-				'org': this.selectedOrg,
-				'recursive': this.isRecursive
-			}
-
-			this.$refs.loader.show();
-			this.$refs.tabComponent.$refs.current.loadData(neededData).then(() => this.$refs.loader.hide());
-		},
-
-		updateTab(newTab, firstRun = false)
-		{
-			this.currentTab = newTab;
-
-			if (firstRun === false)
-			{
-				const tabellenNamen = ["categoryTable", "startTable", "lehreTable"];
-				function getTabulatorInstance(refs) {
-					for (const name of tabellenNamen) {
-						if (refs?.[name]?.tabulator) {
-							return refs[name].tabulator;
-						}
-					}
-					return null;
-				}
-
-				const tabulatorInstance = getTabulatorInstance(this.$refs.tabComponent?.$refs?.current?.$refs);
-
-				if (tabulatorInstance)
-				{
-					try {
-						tabulatorInstance.redraw(true)
-					}catch (e) {
-
-					}
-				}
-				this.addTabForReload()
-			}
-		},
-		addTabForReload()
-		{
-
-			let tabInstance = this.$refs.tabComponent.$refs.current
-			if (tabInstance && !this.tabInstances.includes(tabInstance) && this.tabsConfig[this.currentTab]?.config?.dropdowns)
-			{
-				this.tabInstances.push(tabInstance);
-				this.handleLoadOneTab();
-
-			}
-			else
-			{
-				if (this.modelValue.needReload === true && tabInstance?.$refs?.startTable)
-				{
-					this.handleLoadOneTab();
-					this.resetValues();
-					console.log("test");
-				}
-
-
-			}
-		},
-		/*checkBeforeLeave() {
-			if (Object.keys(this.modelValue.updatedData).length > 0)
-				return true;
-			else
-				return false;
-		},*/
-
 	},
-
 	template: `
-
 	<core-navigation-cmpt 
 		v-bind:add-side-menu-entries="sideMenuEntries"
 		v-bind:add-header-menu-entries="headerMenuEntries"
@@ -401,7 +332,7 @@ title="Personaleinsatzplanung"
 						<div class="row">
 							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studiensemester">
 								<Multiselect
-									v-model="studiensemester"
+									v-model="currentStudiensemester"
 									option-label="studiensemester_kurzbz" 
 									:options="studiensemestern"
 									placeholder="Studiensemester"
@@ -421,7 +352,7 @@ title="Personaleinsatzplanung"
 								</select>
 							</div>
 							<div class="col-md-3">
-								<select v-model="selectedOrg" class="form-select" @change="changedOrg">
+								<select v-model="currentOrg" class="form-select" @change="changedOrg">
 									<option value="">Abteilung</option>
 									<option v-for="organisation in organisationen" :value="organisation.oe_kurzbz" >
 										[{{ organisation.organisationseinheittyp_kurzbz }}] {{ organisation.bezeichnung }}
@@ -442,7 +373,7 @@ title="Personaleinsatzplanung"
 								</div>
 							</div>
 							<div class="col-md-1">
-								<button class="btn btn-outline-secondary" aria-label="Reload" @click="handleLoad(false)">
+								<button class="btn btn-outline-secondary" aria-label="Reload" @click="loadOneTab">
 									<span class="fa-solid fa-rotate-right" aria-hidden="true"></span>
 								</button>
 							</div>

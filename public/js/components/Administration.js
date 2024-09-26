@@ -20,7 +20,7 @@ export default {
 	mounted() {
 		this.$fhcApi.factory.pep.getCategories()
 			.then(response => {
-				this.$refs.administrationTable.tabulator.setData(response.data)
+				this.$refs.administrationTable.tabulator.setData(response.data.categories)
 			})
 			.catch(error => {
 				this.$fhcAlert.handleSystemError(error);
@@ -69,13 +69,6 @@ export default {
 		vorruecken() {
 
 			let rows = this.$refs.administrationTable.tabulator.getSelectedRows();
-
-			/*if (rows.length === 0 ||
-				!this.fromSelectedStudienjahr ||
-				!this.toSelectedStudienjahr ||
-				!this.selectedOrganisation
-			)
-				this.$fhcAlert.alertWarning("Bitte alle Felder ausfüllen!");*/
 
 			let data = {
 				'fromStudienjahr' : this.fromSelectedStudienjahr,
@@ -166,7 +159,6 @@ export default {
 						<div class="d-flex gap-2 align-items-baseline">
 							<button class="btn btn-primary" @click="vorruecken">Vorrücken</button>
 						</div>
-									
 					</template>
 				</core-filter-cmpt>
 			</template>

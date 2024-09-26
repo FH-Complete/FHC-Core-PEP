@@ -19,7 +19,6 @@ class TabsConfig extends FHCAPI_Controller
 		);
 		$this->_ci = &get_instance();
 
-		// Loads phrases system
 		$this->_ci->loadPhrases(
 			array(
 				'global',
@@ -29,27 +28,36 @@ class TabsConfig extends FHCAPI_Controller
 		);
 
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_model', 'PEPModel');
+		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
 	}
 
 	public function get()
 	{
 		$tabs = array();
 		$this->_getAdministration($tabs);
-		$this->_getProjects($tabs);
 
 		$tabs['start'] = array (
 			'title' =>  'Start',
 			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
-			'config' => ['studiensemester' => true, 'dropdowns' => true]
+			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true]
 		);
 
 		$tabs['lehre'] = array (
 			'title' =>  'Lehre',
 			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Lehre.js',
-			'config' => ['studiensemester' => true, 'dropdowns' => true]
+			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true]
 		);
 
+		if ($this->_ci->config->item('enable_projects') === true)
+			$this->_getProjects($tabs);
+
 		$this->_getCategories($tabs);
+
+		$tabs['vergleich'] = array (
+			'title' =>  'Vergleichen',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
+			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => false]
+		);
 		$this->terminateWithSuccess($tabs);
 	}
 
@@ -63,7 +71,7 @@ class TabsConfig extends FHCAPI_Controller
 		$tabs['administration'] = array (
 			'title' =>  'Administration',
 			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Administration.js',
-			'config' => ['dropdowns' => false]
+			'config' => ['dropdowns' => false, 'reload' => false]
 		);
 	}
 
@@ -77,12 +85,13 @@ class TabsConfig extends FHCAPI_Controller
 		$tabs['syncprojects'] = array (
 			'title' =>  'Projekte',
 			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Project.js',
-			'config' => ['studienjahr' => true, 'dropdowns' => true]
+			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true]
 		);
 
 	}
 	private function _getCategories(&$tabs)
 	{
+
 		$language = $this->_getLanguageIndex();
 		$this->_ci->PEPModel->addOrder(
 			'sort'
@@ -109,6 +118,7 @@ class TabsConfig extends FHCAPI_Controller
 					'category_id' => $category->kategorie_id,
 					'studienjahr' => true,
 					'dropdowns' => true,
+					'reload' => true
 				];
 
 				$tab = [
