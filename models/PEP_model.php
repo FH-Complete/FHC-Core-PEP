@@ -42,7 +42,8 @@ class PEP_model extends DB_Model
 					 uid,
 					 projekt_kurzbz,
 					 dates.ende,
-					 (EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden
+					 (EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden,
+					 tbl_zeitaufzeichnung.ende as zeitaufzeichnungende
 				 FROM campus.tbl_zeitaufzeichnung JOIN semester_datum dates ON tbl_zeitaufzeichnung.start >= dates.start
 			 ),
 			 ersterstichtag AS (
@@ -51,7 +52,7 @@ class PEP_model extends DB_Model
 					 projekt_kurzbz,
 					 uid
 				 FROM zeiterfassung
-				 WHERE ende <= date_trunc('year', ende) + INTERVAL '0' DAY
+				 WHERE zeitaufzeichnungende <= date_trunc('year', ende) + INTERVAL '0' DAY
 				 GROUP BY projekt_kurzbz, uid
 			 ),
 			 zweiterstichtag AS (
@@ -60,7 +61,7 @@ class PEP_model extends DB_Model
 					 projekt_kurzbz,
 					 uid
 				 FROM zeiterfassung
-				 WHERE ende <= date_trunc('year', ende) + INTERVAL '5 month'
+				 WHERE zeitaufzeichnungende <= date_trunc('year', ende) + INTERVAL '5 month'
 				 GROUP BY projekt_kurzbz, uid
 			 ),
 			 aktuell AS (
@@ -908,7 +909,6 @@ class PEP_model extends DB_Model
 	}
 	private function _getAktuelleDaten()
 	{
-
 		$caseStatements = $this->_getJahresstunden();
 
 		return "aktVertrag AS (

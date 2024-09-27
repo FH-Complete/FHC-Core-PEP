@@ -64,6 +64,8 @@ export default {
 		};
 	},
 	async created() {
+		await this.$p.loadCategory(['ui']);
+
 		await this.loadTabConfig()
 			.then(() => this.checkVars());
 	},

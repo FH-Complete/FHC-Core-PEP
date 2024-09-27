@@ -134,7 +134,7 @@ export default {
 						formatter: "textarea"
 					},
 				],
-				persistenceID: "pep_kategorie_" + this.config.category_id
+				persistenceID: "2024_09_26_pep_kategorie_" + this.config.category_id
 			}
 		},
 		theModel: {

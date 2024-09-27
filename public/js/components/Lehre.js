@@ -177,7 +177,7 @@ export default {
 					{title: 'Start_kw', field: 'start_kw', headerFilter: "input", visible: false},
 					{title: 'Stundenblockung', field: 'stundenblockung', headerFilter: "input", visible: false},
 				],
-				persistenceID: "pep_lehre",
+				persistenceID: "2024_09_26_pep_lehre",
 			}
 		},
 		faktorTabulatorOptions() {
@@ -648,7 +648,7 @@ export default {
 								<form-input
 									v-model="formData.anmerkung"
 									name="raumtypalternativ"
-									:label="$p.t('lehre', 'infoandepl/kfl')"
+									:label="$p.t('ui', 'infoandepl/kfl')"
 								>
 								</form-input>
 							</div>

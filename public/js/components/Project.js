@@ -175,7 +175,7 @@ export default {
 					{title: 'Zweiter Stichtag (01.06)', field: 'zweiter', headerFilter: true},
 					{title: 'Aktuelle Stunden', field: 'aktuellestunden', headerFilter: true},
 				],
-				persistenceID: "pep_project"
+				persistenceID: "2024_09_26_pep_project"
 			}
 		},
 		theModel: {
@@ -404,7 +404,7 @@ export default {
 				.then(() => this.reset())
 				.then(() => this.theModel = { ...this.modelValue, needReload: true })
 				.catch(error => {
-					this.$fhcAlert.handleSystemError(error);
+					this.$fhcAlert.handleSystemError((error));
 				});
 		}
 

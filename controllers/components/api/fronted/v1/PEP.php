@@ -59,7 +59,13 @@ class PEP extends FHCAPI_Controller
 
 		$this->_ci->load->library('AuthLib');
 		$this->_ci->load->library('PermissionLib');
+		$this->_ci->load->library('PhrasesLib');
 
+		$this->loadPhrases(
+			array(
+				'ui'
+			)
+		);
 		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
 		$this->_setAuthUID();
 
@@ -117,7 +123,7 @@ class PEP extends FHCAPI_Controller
 		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
 		$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
 		if (!hasData($studiensemestern))
-			$this->terminateWithJsonError("Fehler beim Lesen");
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
 
 		$studiensemester = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
 
@@ -156,7 +162,7 @@ class PEP extends FHCAPI_Controller
 		$recursive = $this->_ci->input->get('recursive');
 
 		if (isEmptyString($org) || (isEmptyString($studienjahr) && isEmptyString($studiensemester)))
-			$this->terminateWithJsonError('Bitte alle Felder ausfüllen');
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
 		if (isEmptyArray($studiensemester))
 		{
@@ -164,7 +170,7 @@ class PEP extends FHCAPI_Controller
 			$this->_ci->StudiensemesterModel->addOrder('start');
 			$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
 			if (!hasData($studiensemestern))
-				$this->terminateWithJsonError("Fehler beim Lesen");
+				$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
 			$studiensemester = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
 		}
 
@@ -282,7 +288,7 @@ class PEP extends FHCAPI_Controller
 		foreach (getData($dienstverhaeltnisse) as $mitarbeiter)
 		{
 			$mitarbeiterInfos[$mitarbeiter->mitarbeiter_uid] = (object) [
-				'zrm_vertraege' => isset($mitarbeiter->vertraege) ? $mitarbeiter->zrm_vertraege : '-',
+				'zrm_vertraege' => isset($mitarbeiter->zrm_vertraege) ? $mitarbeiter->zrm_vertraege : '-',
 				'zrm_wochenstunden' => isset($mitarbeiter->zrm_wochenstunden) ? $mitarbeiter->zrm_wochenstunden : '-',
 				'zrm_jahresstunden' => isset($mitarbeiter->zrm_jahresstunden) ? $mitarbeiter->zrm_jahresstunden : '-',
 				'zrm_stundensatz_lehre' => isset($mitarbeiter->zrm_stundensatz_lehre) ? $mitarbeiter->zrm_stundensatz_lehre : '-',
@@ -302,6 +308,7 @@ class PEP extends FHCAPI_Controller
 			$info = isset($mitarbeiterInfos[$mitarbeiter->uid]) ? $mitarbeiterInfos[$mitarbeiter->uid] : new stdClass();
 			$mitarbeiterData->zrm_vertraege = $info->zrm_vertraege;
 			$mitarbeiterData->zrm_wochenstunden = $info->zrm_wochenstunden;
+			$mitarbeiterData->zrm_jahresstunden = $info->zrm_jahresstunden;
 			$mitarbeiterData->zrm_stundensatz_lehre = $info->zrm_stundensatz_lehre;
 
 			$mitarbeiterData->akt_bezeichnung = $info->akt_bezeichnung;
@@ -358,7 +365,7 @@ class PEP extends FHCAPI_Controller
 		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
 		$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
 		if (!hasData($studiensemestern))
-			$this->terminateWithJsonError("Fehler beim Lesen");
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
 
 		$studiensemestern = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
 
@@ -419,7 +426,7 @@ class PEP extends FHCAPI_Controller
 		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
 		$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
 		if (!hasData($studiensemestern))
-			$this->terminateWithJsonError("Fehler beim Lesen");
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
 
 		$studiensemestern = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
 		$mitarbeiter_uids = $this->_getMitarbeiterUids($org, $studiensemestern , $recursive === "true");
@@ -522,7 +529,7 @@ class PEP extends FHCAPI_Controller
 		if (!in_array($data->lektor, $mitarbeiteruids) &&
 			!hasData($this->_ci->PEPModel->isProjectAssignedToOrganization($data->org, $data->project)))
 		{
-			$this->terminateWithJsonError('Projekt und Mitarbeiter nicht der OE zugeordnet!');
+			$this->terminateWithError($this->p->t('ui', 'maprojohneoe'), self::ERROR_TYPE_GENERAL);
 		}
 
 		if ((property_exists($data, 'lektor')) &&
@@ -550,7 +557,7 @@ class PEP extends FHCAPI_Controller
 			));
 
 			if (isError($result))
-				$this->terminateWithJsonError('Fehler beim Speichern');
+				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 
 			$result = $this->_ci->PEPModel->getProjectRow($data->studienjahr, $result->retval);
 
@@ -631,14 +638,26 @@ class PEP extends FHCAPI_Controller
 			(property_exists($data, 'faktor')) &&
 			(property_exists($data, 'semester')))
 		{
-			$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
+			$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz, start');
 			$this->_ci->StudiensemesterModel->addOrder('start', 'DESC');
 			$this->_ci->StudiensemesterModel->addLimit(1);
 			$studiensemester = $this->_ci->StudiensemesterModel->loadWhere("studiensemester_kurzbz IN ('". implode("', '", $data->semester) . "')");
 			if (isError($studiensemester) || !hasData($studiensemester))
-				$this->terminateWithJsonError("Error");
+				$this->terminateWithError($studiensemester, self::ERROR_TYPE_GENERAL);
 
-			$studiensemester = getData($studiensemester)[0]->studiensemester_kurzbz;
+			$studiensemester = getData($studiensemester)[0];
+
+			$actSemester = $this->_ci->StudiensemesterModel->getAktOrNextSemester();
+
+			if (isError($actSemester) || !hasData($actSemester))
+				$this->terminateWithError($studiensemester, self::ERROR_TYPE_GENERAL);
+
+			$actSemester = getData($actSemester)[0];
+
+			if ($studiensemester->start < $actSemester->start)
+				$this->terminateWithError("Realstunden können nicht für die Vergangenheit geändert werden", self::ERROR_TYPE_GENERAL);
+
+			$studiensemester = $studiensemester->studiensemester_kurzbz;
 
 			$exists = $this->_ci->LehrveranstaltungFaktorModel->loadWhere(array('studiensemester_kurzbz_von' => $studiensemester, 'lehrveranstaltung_id' => $data->lv_id));
 
@@ -670,14 +689,14 @@ class PEP extends FHCAPI_Controller
 							LEFT JOIN public.tbl_studiensemester bisstem
 								ON tbl_lehrveranstaltung_faktor.studiensemester_kurzbz_bis = bisstem.studiensemester_kurzbz
 						WHERE lehrveranstaltung_id = ?
-							AND (bisstem.ende >= (
-								SELECT start
-								FROM public.tbl_studiensemester
-								WHERE studiensemester_kurzbz = ?
-							)
-							OR bisstem.ende IS NULL
-							)
-						ORDER BY vonstsem.start DESC";
+						  AND vonstsem.start < (
+							SELECT start
+							FROM public.tbl_studiensemester
+							WHERE studiensemester_kurzbz = ?
+						)
+						AND bisstem IS NULL
+						ORDER BY vonstsem.start DESC
+						LIMIT 1";
 
 				$exists = $dbModel->execReadOnlyQuery($qry, array($data->lv_id, $studiensemester));
 
@@ -737,7 +756,7 @@ class PEP extends FHCAPI_Controller
 			));
 
 			if (isError($result))
-				$this->terminateWithJsonError('Fehler beim Speichern');
+				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 
 			$mitarbeiterCategory->kategorie_mitarbeiter_id = getData($result);
 			$this->terminateWithSuccess($mitarbeiterCategory->kategorie_mitarbeiter_id);
@@ -749,7 +768,7 @@ class PEP extends FHCAPI_Controller
 				$stunden_delete = $this->_ci->PEPKategorieMitarbeiterModel->delete(array('kategorie_mitarbeiter_id' => $mitarbeiterCategory->kategorie_mitarbeiter_id));
 
 				if (isError($stunden_delete))
-					$this->terminateWithJsonError('Fehler beim Speichern');
+					$this->terminateWithError($stunden_delete, self::ERROR_TYPE_GENERAL);
 
 				$categoryData = $this->_ci->PEPModel->getCategoryData([$mitarbeiterCategory->mitarbeiter_uid],  $mitarbeiterCategory->kategorie, $mitarbeiterCategory->studienjahr);
 
@@ -760,7 +779,7 @@ class PEP extends FHCAPI_Controller
 				$stunden_exists = $this->_ci->PEPKategorieMitarbeiterModel->load(array($mitarbeiterCategory->kategorie_mitarbeiter_id));
 
 				if (!hasData($stunden_exists) || isError($stunden_exists))
-					$this->terminateWithJsonError("Fehler beim Speichern");
+					$this->terminateWithError($stunden_exists, self::ERROR_TYPE_GENERAL);
 
 				$stunden_exists = getData($stunden_exists)[0];
 
@@ -778,7 +797,7 @@ class PEP extends FHCAPI_Controller
 						)
 					);
 					if (isError($result))
-						$this->terminateWithJsonError('Fehler beim Speichern');
+						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 				}
 				$this->terminateWithSuccess($mitarbeiterCategory->kategorie_mitarbeiter_id);
 			}
@@ -806,7 +825,7 @@ class PEP extends FHCAPI_Controller
 			);
 
 			if (isError($result))
-				$this->terminateWithJsonError('Fehler beim Speichern');
+				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 		}
 	}
 	public function saveLehreinheit()
@@ -814,7 +833,7 @@ class PEP extends FHCAPI_Controller
 		$data = $this->getPostJson();
 
 		if (!property_exists($data, 'studiensemester'))
-			$this->terminateWithJsonError('Fehler beim Speichern');
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
 		if ((property_exists($data, 'raumtyp')) &&
 			(property_exists($data->raumtyp, 'raumtyp_kurzbz')) &&
@@ -845,7 +864,7 @@ class PEP extends FHCAPI_Controller
 			);
 
 			if (isError($result))
-				$this->terminateWithJsonError('Fehler beim Speichern');*/
+				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);;*/
 
 			$result = $this->_ci->LehreinheitmitarbeiterModel->update(
 				array(
@@ -878,13 +897,13 @@ class PEP extends FHCAPI_Controller
 					);
 
 					if (isError($result))
-						$this->terminateWithJsonError('Fehler beim Speichern');
+						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 
 					$successUpdated[] = ['id' => $lehreinheit->row_index];
 				}
 			}
 			if (isError($result))
-				$this->terminateWithJsonError('Fehler beim Speichern');
+				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 
 			$this->_ci->PersonModel->addSelect('vorname, nachname, kurzbz as lektor, uid');
 			$this->_ci->PersonModel->addJoin('public.tbl_benutzer', 'person_id');
@@ -918,7 +937,7 @@ class PEP extends FHCAPI_Controller
 			$this->terminateWithSuccess($returnData);
 		}
 		else
-			$this->terminateWithJsonError('Fehler beim Speichern');
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 	}
 
 	public function getLektoren()
@@ -966,13 +985,13 @@ class PEP extends FHCAPI_Controller
 		$lehrveranstaltung_id = $this->_ci->input->get('lehrveranstaltung_id');
 
 		if (isEmptyString($lehreinheit_id))
-			$this->terminateWithJsonError('Error');
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
 		$this->_ci->LehreinheitModel->addJoin('lehre.tbl_lehreinheitmitarbeiter', 'lehreinheit_id', 'LEFT');
 		$lehreinheit = $this->_ci->LehreinheitModel->loadWhere(array('lehreinheit_id' => $lehreinheit_id, 'mitarbeiter_uid' => $mitarbeiter_uid));
 
 		if (!hasData($lehreinheit))
-			$this->terminateWithJsonError('Fehler beim Laden');
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
 		$this->terminateWithSuccess(hasData($lehreinheit) ? getData($lehreinheit)[0] : []);
 	}
@@ -1011,7 +1030,7 @@ class PEP extends FHCAPI_Controller
 		$studiensemester = $this->_ci->input->get('studiensemester');
 
 		if (isEmptyString($lehrveranstaltung_id) || isEmptyArray($studiensemester))
-			$this->terminateWithJsonError('Error');
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
 		$dbModel = new DB_Model();
 
