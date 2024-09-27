@@ -1,0 +1,1 @@
+INSERT INTO system.tbl_app (app) VALUES ('pep') ON CONFLICT (app) DO NOTHING;

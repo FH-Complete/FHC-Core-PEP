@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS extension.tbl_pep_projects_employees
     projekt_id                  varchar(42) NOT NULL,
     mitarbeiter_uid             varchar(32) NOT NULL,
     studienjahr_kurzbz          character varying(16) NOT NULL,
-    stunden                     numeric(5,2) NOT NULL,
+    stunden                     numeric(6,2) NOT NULL,
     anmerkung                   text,
     insertamum                  timestamp without time zone DEFAULT now(),
     insertvon                   varchar (32),

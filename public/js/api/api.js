@@ -5,6 +5,11 @@ export default {
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getStart'
 		return this.$fhcApi.get(url, data, {timeout: 10000})
 	},
+	getStudiensemester(data)
+	{
+		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getStudiensemester'
+		return this.$fhcApi.get(url, data, {timeout: 10000})
+	},
 	getCategories()
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getCategories'
@@ -50,7 +55,6 @@ export default {
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getLehre'
 		return this.$fhcApi.get(url, data, {timeout: 10000});
 	},
-
 	setVar(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/setVariables'
@@ -64,7 +68,11 @@ export default {
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getLehreinheit'
 		return this.$fhcApi.get(url, data);
-
+	},
+	getLehreinheiten(data)
+	{
+		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getLehreinheiten'
+		return this.$fhcApi.get(url, data);
 	},
 	getRaumtypen()
 	{
@@ -81,11 +89,15 @@ export default {
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getProjekte'
 		return this.$fhcApi.get(url, {timeout: 10000});
 	},
+	getStartAndEnd(data)
+	{
+		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getStartAndEnd'
+		return this.$fhcApi.get(url, data);
+	},
 	saveLehreinheit(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/saveLehreinheit'
 		return this.$fhcApi.post(url, data, {timeout: 10000});
-
 	},
 	addProjectStunden(data)
 	{
@@ -97,16 +109,19 @@ export default {
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/updateProjectStunden'
 		return this.$fhcApi.post(url, data, {timeout: 10000});
 	},
+	updateFaktor(data)
+	{
+		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/updateFaktor'
+		return this.$fhcApi.post(url, data, {timeout: 10000});
+	},
 	updateAnmerkung(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/updateAnmerkung'
 		return this.$fhcApi.post(url, data, {timeout: 10000});
-
 	},
 	deleteProjectStunden(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/deleteProjectStunden'
 		return this.$fhcApi.post(url, data, {timeout: 10000});
-
 	},
 };
