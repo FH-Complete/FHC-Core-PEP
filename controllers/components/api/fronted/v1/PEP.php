@@ -81,13 +81,17 @@ class PEP extends FHCAPI_Controller
 		$categoryColumns = $this->_ci->PEPModel->load();
 
 		if (hasData($categoryColumns))
+		{
 			$columns['categories'] = getData($categoryColumns);
+			$columns['mode']['categories'] = $this->_ci->config->item('category_columns');
+		}
 
 		$columns['lehrauftraege'] = true;
 
 		if ($this->_ci->config->item('enable_projects') === true)
 		{
 			$columns['projects'] = true;
+			$columns['mode']['projects'] = $this->_ci->config->item('projects_columns');
 		}
 
 		$this->terminateWithSuccess($columns);
@@ -121,6 +125,7 @@ class PEP extends FHCAPI_Controller
 	{
 		$studienjahr = $this->_ci->input->get('studienjahr');
 		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
+		$this->_ci->StudiensemesterModel->addOrder('start');
 		$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
 		if (!hasData($studiensemestern))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
@@ -160,6 +165,7 @@ class PEP extends FHCAPI_Controller
 		$studienjahr = $this->_ci->input->get('studienjahr');
 		$studiensemester = $this->_ci->input->get('semester');
 		$recursive = $this->_ci->input->get('recursive');
+		$oldSemester = $this->_ci->input->get('oldSemester') === "true";
 
 		if (isEmptyString($org) || (isEmptyString($studienjahr) && isEmptyString($studiensemester)))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
@@ -178,88 +184,154 @@ class PEP extends FHCAPI_Controller
 		$mitarbeiterDataArray = array();
 		$allMitarbeiter = $this->_ci->PEPModel->_getDVs($allMitarbeiterUid, (isEmptyString($studienjahr) ? null : $studienjahr), isEmptyString($studienjahr) ? $studiensemester : null);
 
+		$projectColumnsStudiensemester = $this->_ci->config->item('projects_columns') === 'studiensemester';
+		$categoriesColumnsStudiensemester = $this->_ci->config->item('category_columns') === 'studiensemester';
+
 		foreach (getData($allMitarbeiter) as $mitarbeiter)
 		{
 			$mitarbeiterData = $mitarbeiter;
 
-			if (isset($mitarbeiter->zrm_jahresstunden))
-				$mitarbeiterData->summe = $this->_getJahresstunden($mitarbeiter->zrm_jahresstunden, count($studiensemester));
 
 			$mitarbeiterData->karenz = isEmptyString($mitarbeiter->karenzvon);
-			$ststemDV = $this->_ci->PEPModel->getDVForSemester($mitarbeiter->uid, $studiensemester);
 
+			$this->getLehrauftraegeEachStudiensemester($mitarbeiterData, $studiensemester, $oldSemester);
+			$this->getColumnsEachStudiensemester($mitarbeiterData, $studiensemester, $projectColumnsStudiensemester, $categoriesColumnsStudiensemester);
+			$this->getColumnsEachStudienjahr($mitarbeiterData, $studienjahr, !$projectColumnsStudiensemester, !$categoriesColumnsStudiensemester);
+			$mitarbeiterData->summe = $mitarbeiter->zrm_jahresstunden;
 
-			foreach ($studiensemester as $key => $ststem)
-			{
-				$lehrauftragsstunden = [];
-				$lvstunden = 0;
-
-				$keyname = "studiensemester_" . $key . "_lehrauftrag";
-
-				if (hasData($ststemDV))
-				{
-					$allVertraege = getData($ststemDV);
-
-					/*$ststemDVForCurrentSemester = array_filter($allVertraege, function($dv) use ($ststem) {
-
-						return $dv->studiensemester_kurzbz === $ststem;
-					});*/
-
-					$ststemDVForCurrentSemester = [];
-					foreach ($allVertraege as $dv) {
-						if ($dv->studiensemester_kurzbz === $ststem) {
-							$ststemDVForCurrentSemester[$dv->studiensemester_kurzbz] = $dv;
-						}
-					}
-
-					if (isset($ststemDVForCurrentSemester[$ststem]->vertragsart_kurzbz))
-					{
-
-						if (($ststemDVForCurrentSemester[$ststem]->vertragsart_kurzbz) === 'echterdv')
-						{
-
-							$lehrauftragsstunden =  $this->_ci->PEPModel->getLehrauftraegeStundenWithFaktor($mitarbeiter->uid, $ststem);
-
-							$kategorien = $this->_ci->PEPModel->getCategoryStundenByMitarbeiter($mitarbeiter->uid, $ststem);
-
-							if (hasData($kategorien))
-							{
-								foreach(getData($kategorien) as $kategorie)
-								{
-									$categorykeyname = "studiensemester_" . $key . "_kategorie_" . $kategorie->kategorie_id;
-									$mitarbeiterData->$categorykeyname = ($kategorie->stunden / 2);;
-								}
-							}
-						}
-						else
-						{
-							$lehrauftragsstunden =  $this->_ci->PEPModel->getLehrauftraegeStundenWithoutFaktor($mitarbeiter->uid, $ststem);
-						}
-
-						$this->getProjectStunden($mitarbeiterData, $mitarbeiter->uid, $key, $ststem);
-					}
-				}
-				$lvstunden = hasData($lehrauftragsstunden) ? getData($lehrauftragsstunden)[0]->stunden : $lvstunden;
-
-				$mitarbeiterData->$keyname = $lvstunden;
-
-			}
 			$mitarbeiterDataArray[] = $mitarbeiterData;
 		}
 
 		$this->terminateWithSuccess($mitarbeiterDataArray);
 	}
 
-	private function getProjectStunden(&$mitarbeiterData, $uid, $key, $ststem)
+	private function getColumnsEachStudienjahr(&$mitarbeiterData, $studienjahr, $projects = false, $categories = false)
 	{
+		if ($projects)
+			$this->getProjectStundenByYear($mitarbeiterData, $mitarbeiterData->uid, $studienjahr);
 
-		if ($this->_ci->config->item('enable_projects'))
+		if ($categories)
 		{
 
+			$kategorien = $this->_ci->PEPModel->getCategoryStundenByMitarbeiter($mitarbeiterData->uid, null, $studienjahr);
+			if (hasData($kategorien))
+			{
+				foreach(getData($kategorien) as $kategorie)
+				{
+					$categorykeyname = "studiensemester_kategorie_" . $kategorie->kategorie_id;
+					$mitarbeiterData->$categorykeyname = ($kategorie->stunden);;
+				}
+			}
+		}
+	}
+	private function getLehrauftraegeEachStudiensemester(&$mitarbeiterData, $studiensemester, $oldSemester = false)
+	{
+		if ($oldSemester)
+		{
+			$studiensemester = array_map(function($item) {
+				if (strpos($item, 'SS') === 0) {
+					$jahr = substr($item, -4) - 1;
+					return "SS" . $jahr;
+				}
+				return $item;
+			}, $studiensemester);
+		}
+
+		$ststemDV = $this->_ci->PEPModel->getDVForSemester($mitarbeiterData->uid, $studiensemester);
+
+		foreach ($studiensemester as $key => $ststem)
+		{
+			$lehrauftragsstunden = [];
+			$lvstunden = 0;
+			$keyname = "studiensemester_" . $key . "_lehrauftrag";
+
+			if (hasData($ststemDV))
+			{
+				$allVertraege = getData($ststemDV);
+
+				$ststemDVForCurrentSemester = [];
+				foreach ($allVertraege as $dv)
+				{
+					if ($dv->studiensemester_kurzbz === $ststem)
+					{
+						$ststemDVForCurrentSemester[$dv->studiensemester_kurzbz] = $dv;
+					}
+				}
+
+				if (isset($ststemDVForCurrentSemester[$ststem]->vertragsart_kurzbz))
+				{
+					if (($ststemDVForCurrentSemester[$ststem]->vertragsart_kurzbz) === 'echterdv')
+					{
+						$lehrauftragsstunden = $this->_ci->PEPModel->getLehrauftraegeStundenWithFaktor($mitarbeiterData->uid, $ststem);
+					}
+					else
+					{
+						$lehrauftragsstunden = $this->_ci->PEPModel->getLehrauftraegeStundenWithoutFaktor($mitarbeiterData->uid, $ststem);
+					}
+				}
+			}
+			$lvstunden = hasData($lehrauftragsstunden) ? getData($lehrauftragsstunden)[0]->stunden : $lvstunden;
+
+			$mitarbeiterData->$keyname = $lvstunden;
+		}
+	}
+	private function getColumnsEachStudiensemester(&$mitarbeiterData, $studiensemester, $projects = false, $categories = false)
+	{
+		$ststemDV = $this->_ci->PEPModel->getDVForSemester($mitarbeiterData->uid, $studiensemester);
+
+		foreach ($studiensemester as $key => $ststem)
+		{
+			if (hasData($ststemDV))
+			{
+				$allVertraege = getData($ststemDV);
+
+				$ststemDVForCurrentSemester = [];
+				foreach ($allVertraege as $dv)
+				{
+					if ($dv->studiensemester_kurzbz === $ststem)
+					{
+						$ststemDVForCurrentSemester[$dv->studiensemester_kurzbz] = $dv;
+					}
+				}
+				if ($categories)
+				{
+					$kategorien = $this->_ci->PEPModel->getCategoryStundenByMitarbeiter($mitarbeiterData->uid, $ststem);
+					if (hasData($kategorien))
+					{
+						foreach(getData($kategorien) as $kategorie)
+						{
+							$categorykeyname = "studiensemester_" . $key . "_kategorie_" . $kategorie->kategorie_id;
+							$mitarbeiterData->$categorykeyname = ($kategorie->stunden / 2);;
+						}
+					}
+				}
+
+				if ($projects)
+				{
+					$this->getProjectStundenBySemester($mitarbeiterData, $mitarbeiterData->uid, $key, $ststem);
+				}
+			}
+		}
+	}
+	private function getProjectStundenBySemester(&$mitarbeiterData, $uid, $key, $ststem)
+	{
+		if ($this->_ci->config->item('enable_projects'))
+		{
 			$projectstunden = 0;
 			$keyproject = "studiensemester_" . $key . "_project";
 			$projects =  $this->_ci->PEPModel->getProjectStundenByEmployee($uid, $ststem);
 			$projectstunden = hasData($projects) ? getData($projects)[0]->stunden/2 : $projectstunden;
+			$mitarbeiterData->$keyproject = $projectstunden;
+		}
+	}
+	private function getProjectStundenByYear(&$mitarbeiterData, $uid, $studienjahr)
+	{
+		if ($this->_ci->config->item('enable_projects'))
+		{
+			$projectstunden = 0;
+			$keyproject = "studiensemester_project";
+			$projects =  $this->_ci->PEPModel->getProjectStundenByEmployee($uid, null, $studienjahr);
+			$projectstunden = hasData($projects) ? getData($projects)[0]->stunden : $projectstunden;
 			$mitarbeiterData->$keyproject = $projectstunden;
 		}
 	}
@@ -430,8 +502,9 @@ class PEP extends FHCAPI_Controller
 
 		$studiensemestern = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
 		$mitarbeiter_uids = $this->_getMitarbeiterUids($org, $studiensemestern , $recursive === "true");
+
 		$projectsData = $this->_ci->PEPModel->getProjectData($mitarbeiter_uids, $studienjahr, $org);
-		$this->terminateWithSuccess(getData($projectsData));
+		$this->terminateWithSuccess(hasData($projectsData) ? getData($projectsData) : array());
 	}
 
 	public function stundenzuruecksetzen()
@@ -960,7 +1033,7 @@ class PEP extends FHCAPI_Controller
 		$projects = implode('\', \'', $projects);
 		$dbModel = new DB_Model();
 		$qry = "
-			SELECT DISTINCT(project_id), start_date, end_date
+			SELECT DISTINCT(project_id), start_date, end_date, name
 				FROM sync.tbl_sap_projects_timesheets
 				WHERE project_task_id IS NULL
 				AND project_id ilike any (array['$projects'])
@@ -1032,12 +1105,23 @@ class PEP extends FHCAPI_Controller
 		if (isEmptyString($lehrveranstaltung_id) || isEmptyArray($studiensemester))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
+		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz, start');
+		$this->_ci->StudiensemesterModel->addOrder('start', 'DESC');
+		$this->_ci->StudiensemesterModel->addLimit(1);
+		$updateStudiensemester = $this->_ci->StudiensemesterModel->loadWhere("studiensemester_kurzbz IN ('". implode("', '", $studiensemester) . "')");
+		if (isError($updateStudiensemester) || !hasData($updateStudiensemester))
+			$this->terminateWithError($updateStudiensemester, self::ERROR_TYPE_GENERAL);
+
+		$updateStudiensemester = getData($updateStudiensemester)[0];
+		$updateStudiensemester = $updateStudiensemester->studiensemester_kurzbz;
+
 		$dbModel = new DB_Model();
 
 		$qry = "
 			SELECT tbl_lehrveranstaltung.bezeichnung,
-					tbl_lehrveranstaltung.las as lvstunden,
+					SUM(tbl_lehreinheitmitarbeiter.semesterstunden) OVER () AS lvstunden,
 					tbl_lehreinheitmitarbeiter.semesterstunden,
+					? as updateStudiensemester,
 					(SELECT faktor
 						FROM lehre.tbl_lehrveranstaltung_faktor
 								 LEFT JOIN public.tbl_studiensemester vonstsem
@@ -1088,7 +1172,8 @@ class PEP extends FHCAPI_Controller
 			GROUP BY tbl_lehreinheit.lehreinheit_id, tbl_lehrveranstaltung.bezeichnung, las,  tbl_lehreinheitmitarbeiter.semesterstunden, tbl_mitarbeiter.kurzbz, vorname,
 					nachname, tbl_lehrveranstaltung.lehrveranstaltung_id, tbl_mitarbeiter.mitarbeiter_uid
 		";
-		$result = $dbModel->execReadOnlyQuery($qry, array($lehrveranstaltung_id, $studiensemester, $studiensemester, $lehrveranstaltung_id, $studiensemester));
+
+		$result = $dbModel->execReadOnlyQuery($qry, array($updateStudiensemester, $lehrveranstaltung_id, $studiensemester, $studiensemester, $lehrveranstaltung_id, $studiensemester));
 		$this->terminateWithSuccess(hasData($result) ? getData($result) : []);
 	}
 

@@ -53,11 +53,15 @@ class TabsConfig extends FHCAPI_Controller
 
 		$this->_getCategories($tabs);
 
-		$tabs['vergleich'] = array (
-			'title' =>  'Vergleichen',
-			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
-			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => false]
-		);
+		if ($this->_ci->config->item('enable_compare_tab') === true)
+		{
+			$tabs['vergleich'] = array (
+				'title' =>  'Vergleichen',
+				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Vergleichen.js',
+				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => false]
+			);
+		}
+
 		$this->terminateWithSuccess($tabs);
 	}
 

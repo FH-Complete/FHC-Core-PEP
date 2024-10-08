@@ -3,6 +3,15 @@
 // if set to true, projects will be shown
 $config['enable_projects'] = true;
 
+// if set to true, compare tab will be shown
+$config['enable_compare_tab'] = false;
+
+// determines whether projects on the Start tab are displayed by "studienjahr" (study year) or "studiensemester" (study semester)
+$config['projects_columns'] = 'studienjahr';
+
+// determines whether categories on the Start tab are displayed by "studienjahr" (study year) or "studiensemester" (study semester)
+$config['category_columns'] = 'studienjahr';
+
 // determines which employees are displayed based on their assigned function types
 $config['relevant_function_types'] = array();
 

@@ -45,7 +45,8 @@ export default {
 				faktor: '',
 				lvstunden: 0,
 				lvstundenfaktor: '',
-				lv_id: ''
+				lv_id: '',
+				updatestudiensemester: ''
 
 			},
 			raumtypen: {
@@ -241,9 +242,14 @@ export default {
 			this.studiensemester = this.theModel.config.semester;
 			await this.$fhcApi.factory.pep.getLehre(data)
 				.then(response => {
-					this.$refs.lehreTable.tabulator.setData(response.data);
+
 					if (response.data.length === 0)
+					{
 						this.$fhcAlert.alertInfo("Lehre: Keine Daten vorhanden");
+						this.$refs.lehreTable.tabulator.setData([]);
+					}
+					else
+						this.$refs.lehreTable.tabulator.setData(response.data);
 				})
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
@@ -349,6 +355,7 @@ export default {
 		{
 			this.formDataFaktor = {
 				bezeichnung: data[0].bezeichnung,
+				updatestudiensemester: data[0].updatestudiensemester,
 				lvstunden: data[0].lvstunden,
 				faktor: parseFloat(data[0].faktor).toFixed(2),
 				lvstundenfaktor: data[0].faktor * data[0].lvstunden,
@@ -661,7 +668,14 @@ export default {
 
 				<bs-modal ref="faktorModal" class="bootstrap-prompt" dialogClass="modal-xl" @hidden-bs-modal="reset">
 					<template #title>{{ modalTitle }} - {{ formDataFaktor.bezeichnung }}</template>
-						<div class="row row-cols-3">
+						<div class="row row-cols-4">
+							<div class="col">
+								<form-input
+									label="Gültig ab"
+									v-model="formDataFaktor.updatestudiensemester"
+									readonly
+								></form-input>
+							</div>
 							<div class="col">
 								<form-input
 									label="Faktor"

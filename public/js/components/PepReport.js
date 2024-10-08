@@ -85,6 +85,18 @@ export default {
 			}
 		},
 
+		filteredStudiensemestern()
+		{
+			if (this.currentStudiensemester.length === 0) {
+				return this.studiensemestern;
+			}
+
+			const selectedStudienjahr = this.currentStudiensemester[0].studienjahr_kurzbz;
+
+			return this.studiensemestern.filter(
+				(semester) => semester.studienjahr_kurzbz === selectedStudienjahr
+			);
+		},
 		currentOrg: {
 			get()
 			{
@@ -204,13 +216,11 @@ export default {
 			{
 				this.setVariables()
 					.then(() => this.checkVars())
-					.then(() => this.reloadTabs(['studiensemester', 'studienjahr']))
+					.then(() => this.reloadTabs(['org']))
 			}
 		},
 		checkStudiensemester ()
 		{
-
-
 			this.selectedStsem = (this.currentStudiensemester || []).map(item => item.studiensemester_kurzbz);
 
 			if (this.tabsConfig[this.currentTab]?.config?.reload === false)
@@ -250,13 +260,15 @@ export default {
 
 					if (needChange.includes('studienjahr') &&
 						!needChange.includes('studiensemester') &&
-						request.studienjahr === undefined)
+						(request.studienjahr === undefined || request.studienjahr === ""))
 						continue;
 					else if (needChange.includes('studiensemester') &&
 						!needChange.includes('studienjahr') &&
-						request.semester === undefined)
+						(request.semester === undefined || request.semester?.length === 0))
 						continue;
-
+					else if ((needChange.includes('org') && tabInstanceConfig.studienjahr !== undefined && request.studienjahr === "") ||
+						(needChange.includes('org') && tabInstanceConfig.studiensemester !== undefined && request.semester?.length === 0))
+						continue;
 					await tabInstance.loadData(request);
 				}
 			}
@@ -264,12 +276,12 @@ export default {
 		checkForLoad(currentTabConfig)
 		{
 			if ((currentTabConfig?.studiensemester && this.loadedData.semester?.length === 0) ||
-				(currentTabConfig?.studienjahr && this.loadedData.studienjahr.selectedStudienjahr === "") ||
+				(currentTabConfig?.studienjahr && this.loadedData.studienjahr === "") ||
 				this.loadedData.org === ""
 			)
 				return false;
 		},
-		updateTab(newTab, firstRun = false)
+		updateTab(newTab)
 		{
 			this.currentTab = newTab;
 
@@ -284,12 +296,6 @@ export default {
 				'var_organisation' : this.selectedOrg
 			}
 			this.$fhcApi.factory.pep.setVar(variables);
-		},
-		shouldCheckVars(currentTabConfig)
-		{
-			return (currentTabConfig?.studiensemester && this.loadedData.semester.length === 0) ||
-				(currentTabConfig?.studienjahr && this.loadedData.studienjahr === "") ||
-				this.loadedData.org === "";
 		},
 	},
 	template: `
@@ -336,17 +342,17 @@ title="Personaleinsatzplanung"
 								<Multiselect
 									v-model="currentStudiensemester"
 									option-label="studiensemester_kurzbz" 
-									:options="studiensemestern"
+									:options="filteredStudiensemestern"
 									placeholder="Studiensemester"
 									:hide-selected="true"
 									:selectionLimit="2"
 									@hide="checkStudiensemester"
-									class="w-full md:w-80"
+									class="timeAuswahl"
 								>
 								</Multiselect>
 							</div>
 							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studienjahr">
-								<select v-model="selectedStudienjahr" class="form-select" @change="changedStudienjahr">
+								<select v-model="selectedStudienjahr" class="form-select timeAuswahl" @change="changedStudienjahr">
 									<option value="">Studienjahr</option>
 									<option v-for="studienjahr in studienjahre" :value="studienjahr.studienjahr_kurzbz" >
 										{{ studienjahr.studienjahr_kurzbz }}

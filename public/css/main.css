@@ -54,3 +54,7 @@
 #resetHoursButton:hover{
 	opacity: 1.0
 }
+
+.timeAuswahl{
+	width: -webkit-fill-available !important;
+}
