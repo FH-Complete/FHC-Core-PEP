@@ -310,7 +310,7 @@ export const formatter = {
 	checkStunden: function(cell, formatterParams, onRendered)
 	{
 		let value = cell.getValue();
-		return (isNaN(value) || value === undefined)? '-' : parseFloat(value).toFixed(formatterParams.precision);
+		return (isNaN(value) || value === undefined || value === null) ? '-' : parseFloat(value).toFixed(formatterParams.precision);
 	},
 	karenzFormatter: function(cell, formatterParams, onRendered)
 	{
@@ -322,12 +322,6 @@ export const formatter = {
 		}
 		else
 			return '-';
-		/*if (istGueltig(value) && value !== false)
-		{
-			return value[0].karenzvon + " - " + value[0].karenzbis;
-		}
-		else
-			return "-";*/
 	},
 
 	berechneSumme: function(cell, formatterParams, onRendered)

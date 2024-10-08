@@ -70,7 +70,7 @@ class PEP_model extends DB_Model
 					 projekt_kurzbz,
 					 uid
 				 FROM zeiterfassung
-				 WHERE ende <= CURRENT_DATE
+				 WHERE zeitaufzeichnungende <= CURRENT_DATE
 				 GROUP BY projekt_kurzbz, uid
 			 )
 			SELECT
@@ -86,8 +86,9 @@ class PEP_model extends DB_Model
 				EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) AS laufzeit,
 				EXTRACT(YEAR FROM age(CURRENT_DATE, MIN(timesheetsprojectinfos.start_date))) * 12 +
 				EXTRACT(MONTH FROM age(CURRENT_DATE, MIN(timesheetsprojectinfos.start_date))) AS verbrauchte_zeit,
-				EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
-				EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) AS restlaufzeit,
+				ROUND(EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
+				EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE))  +
+				EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) / 30.0) AS restlaufzeit,
 				pepprojects.stunden AS stunden,
 				pepprojects.anmerkung,
 				tbl_sap_projects_status.description as status,
@@ -95,8 +96,11 @@ class PEP_model extends DB_Model
 				ROUND(zweiterstichtag.gearbeitete_stunden, 2) as zweiter,
 				ROUND(aktuell.gearbeitete_stunden, 2) as aktuellestunden,
 				person.vorname,
-				person.nachname
-			FROM semester_datum as dates, sync.tbl_sap_projects_timesheets timesheetsproject
+				person.nachname,
+				STRING_AGG(DISTINCT leitungsperson.vorname || ' ' || leitungsperson.nachname,  E'\n') as leitung,
+				tbl_sap_projects_status_intern.description as status_sap_intern
+			FROM semester_datum as dates, 
+				sync.tbl_sap_projects_timesheets timesheetsproject
 				LEFT JOIN sync.tbl_projects_employees sapprojects ON timesheetsproject.project_task_id = sapprojects.project_task_id
 				LEFT JOIN extension.tbl_pep_projects_employees pepprojects ON timesheetsproject.project_id = pepprojects.projekt_id
 					AND (sapprojects.mitarbeiter_uid = pepprojects.mitarbeiter_uid OR sapprojects.mitarbeiter_uid IS NULL OR pepprojects.mitarbeiter_uid IS NULL)
@@ -113,6 +117,12 @@ class PEP_model extends DB_Model
 				LEFT JOIN ersterstichtag ON tbl_projekt.projekt_kurzbz = ersterstichtag.projekt_kurzbz AND ersterstichtag.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 				LEFT JOIN zweiterstichtag ON tbl_projekt.projekt_kurzbz = zweiterstichtag.projekt_kurzbz AND zweiterstichtag.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 				LEFT JOIN aktuell ON tbl_projekt.projekt_kurzbz = aktuell.projekt_kurzbz AND aktuell.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
+
+				JOIN tbl_benutzer leitungsbenutzer ON timesheetsprojectinfos.project_leader = leitungsbenutzer.uid
+				JOIN public.tbl_person leitungsperson ON leitungsbenutzer.person_id = leitungsperson.person_id
+				LEFT JOIN sync.tbl_sap_projects_status_intern 
+				ON NULLIF(timesheetsprojectinfos.custom_fields->>'Status_KUT', '')::numeric = tbl_sap_projects_status_intern.status
+
 			WHERE
 				" . $where ."
 			GROUP BY
@@ -129,7 +139,8 @@ class PEP_model extends DB_Model
 				ersterstichtag.gearbeitete_stunden,
 				zweiterstichtag.gearbeitete_stunden,
 				aktuell.gearbeitete_stunden,
-				tbl_sap_projects_status.description
+				tbl_sap_projects_status.description,
+				tbl_sap_projects_status_intern.description
 			ORDER BY timesheetsproject.project_id;
 		";
 
@@ -172,28 +183,91 @@ class PEP_model extends DB_Model
 				FROM oes
 				GROUP BY oe_kurzbz)";
 	}
-	public function getCategoryStundenByMitarbeiter($mitarbeiter, $studiensemester)
+
+	public function getCategoryStundenByMitarbeiter($mitarbeiter, $studiensemester = null, $studienjahr = null)
 	{
+		$dates =  (is_null($studienjahr)) ? $studiensemester : $studienjahr;
 
 		foreach ($this->config->item('annual_hours') as $case)
 		{
 			$caseStatements[] = "WHEN zv.oe_kurzbz ='" . $case['condition'] . "' THEN pks.default_stunden/" . $case['base_value'] . " * zv.einzelnejahresstunden";
 		};
 
+
+		$params = [];
 		$query = "
 			". $this->_getStartCTE() .",
-			". $this->_getStudiensemesterDates() .",
+			". (is_null($studienjahr) ? $this->_getStudiensemesterDates() : $this->_getStudienjahrDates()) .",
 			". $this->_getZeitraumDaten() . "
 				SELECT
 					pk.kategorie_id,
 					pk.bezeichnung,
 					pk.bezeichnung_mehrsprachig,
-					ROUND (COALESCE(SUM(pkm.stunden),
+					CASE WHEN zv.relevante_vertragsart = 'echterdv' THEN (
+						ROUND (COALESCE(SUM(pkm.stunden),
 							  CASE ". implode(" ", $caseStatements) . " END
-								, 2)) AS stunden,
+								, 2))
+					) END AS stunden,
+					
 					COALESCE(pkm.mitarbeiter_uid, pk.insertvon) AS mitarbeiter_uid,
-					COALESCE(pkm.studienjahr_kurzbz, pks.gueltig_ab_studienjahr) AS studiensemester_kurzbz
-				FROM extension.tbl_pep_kategorie pk
+					COALESCE(pkm.studienjahr_kurzbz, pks.gueltig_ab_studienjahr) AS studiensemester_kurzbz";
+
+		if (is_null($studienjahr))
+			$this->getCategoryStundenBySemester($query, $params, $dates, $mitarbeiter);
+		else
+			$this->getCategoryStundenByJahr($query, $params, $dates, $mitarbeiter);
+
+
+		$query .= "	GROUP BY
+					pk.kategorie_id,
+					pk.bezeichnung,
+					pk.bezeichnung_mehrsprachig,
+					pks.default_stunden,
+					pkm.mitarbeiter_uid,
+					pk.insertvon,
+					pks.gueltig_ab_studienjahr,
+					zv.oe_kurzbz,
+					zv.einzelnejahresstunden,
+					pkm.studienjahr_kurzbz, relevante_vertragsart";
+
+		return $this->execQuery($query, $params);
+	}
+
+	private function getCategoryStundenByJahr(&$query, &$params, $dates, $mitarbeiter)
+	{
+
+		$query .= "
+			FROM extension.tbl_pep_kategorie pk
+					LEFT JOIN extension.tbl_pep_kategorie_studienjahr pks USING(kategorie_id)
+					LEFT JOIN
+						extension.tbl_pep_kategorie_mitarbeiter pkm
+						ON pk.kategorie_id = pkm.kategorie_id
+						AND pkm.studienjahr_kurzbz = ?
+							AND pkm.mitarbeiter_uid = ?
+					LEFT JOIN zeitraumVertrag zv ON zv.mitarbeiter_uid = ? AND zv.rn = 1
+				WHERE
+					(pks.gueltig_ab_studienjahr IN (
+						SELECT tbl_studiensemester.studienjahr_kurzbz
+						FROM tbl_studiensemester
+						WHERE tbl_studiensemester.start <= (SELECT MAX(ende) FROM tbl_studiensemester startstudiensemester WHERE startstudiensemester.studienjahr_kurzbz = ?)
+					)
+					AND
+					(
+						pks.gueltig_bis_studienjahr IN (
+							SELECT tbl_studiensemester.studienjahr_kurzbz
+							FROM tbl_studiensemester
+							WHERE tbl_studiensemester.ende >= (SELECT MIN(start) FROM tbl_studiensemester bisstudiensemester WHERE bisstudiensemester.studienjahr_kurzbz = ?)
+						)
+						OR
+							gueltig_bis_studienjahr IS NULL
+					))
+					OR (pkm.mitarbeiter_uid = ? AND pkm.studienjahr_kurzbz = ?)";
+		$params = array($dates, $dates, $mitarbeiter, $mitarbeiter, $dates, $dates, $mitarbeiter, $dates);
+	}
+	private function getCategoryStundenBySemester(&$query, &$params, $dates, $mitarbeiter)
+	{
+		$query .= "
+			FROM extension.tbl_pep_kategorie pk
 					LEFT JOIN extension.tbl_pep_kategorie_studienjahr pks USING(kategorie_id)
 					LEFT JOIN
 						extension.tbl_pep_kategorie_mitarbeiter pkm
@@ -217,19 +291,8 @@ class PEP_model extends DB_Model
 						OR
 							gueltig_bis_studienjahr IS NULL
 					))
-					OR (pkm.mitarbeiter_uid = ? AND pkm.studienjahr_kurzbz = (SELECT studienjahr_kurzbz FROM tbl_studiensemester WHERE studiensemester_kurzbz = ?))
-				GROUP BY
-					pk.kategorie_id,
-					pk.bezeichnung,
-					pk.bezeichnung_mehrsprachig,
-					pks.default_stunden,
-					pkm.mitarbeiter_uid,
-					pk.insertvon,
-					pks.gueltig_ab_studienjahr,
-					zv.oe_kurzbz,
-					zv.einzelnejahresstunden,
-					pkm.studienjahr_kurzbz";
-		return $this->execQuery($query, array(array($studiensemester), $studiensemester, $mitarbeiter, $mitarbeiter, $studiensemester, $studiensemester, $mitarbeiter, $studiensemester));
+					OR (pkm.mitarbeiter_uid = ? AND pkm.studienjahr_kurzbz = (SELECT studienjahr_kurzbz FROM tbl_studiensemester WHERE studiensemester_kurzbz = ?))";
+		$params = array(array($dates), $dates, $mitarbeiter, $mitarbeiter, $dates, $dates, $mitarbeiter, $dates);
 	}
 
 
@@ -707,15 +770,22 @@ class PEP_model extends DB_Model
 	}
 
 
-	public function getProjectStundenByEmployee($uid, $studiensemester)
+	public function getProjectStundenByEmployee($uid, $studiensemester, $studienjahr = null)
 	{
+		$timeslot = is_null($studienjahr) ?  $studiensemester : $studienjahr;
 		$query = "
-			SELECT SUM(stunden) as stunden
+			SELECT COALESCE(SUM(stunden)::int, 0) as stunden
 			FROM extension.tbl_pep_projects_employees
 			WHERE 
-				studienjahr_kurzbz = (SELECT tbl_studiensemester.studienjahr_kurzbz FROM tbl_studiensemester WHERE studiensemester_kurzbz = ?) AND mitarbeiter_uid = ?
+				mitarbeiter_uid = ? AND studienjahr_kurzbz = 
 		";
-		return $this->execReadOnlyQuery($query, array($studiensemester, $uid));
+
+		if (!is_null($studienjahr))
+			$query .= " ?";
+		else
+			$query .= " (SELECT tbl_studiensemester.studienjahr_kurzbz FROM tbl_studiensemester WHERE studiensemester_kurzbz = ?)";
+
+		return $this->execReadOnlyQuery($query, array($uid, $timeslot));
 	}
 
 	public function getDVForSemester($uid, $studiensemester)
@@ -732,7 +802,7 @@ class PEP_model extends DB_Model
 					dv.mitarbeiter_uid,
 					va.vertragsart_kurzbz,
 					sd.studiensemester_kurzbz,
-					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid, sd.studiensemester_kurzbz ORDER BY dv.von DESC) AS rn
+					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid, sd.studiensemester_kurzbz ORDER BY dv.bis NULLS FIRST, dv.von DESC) AS rn
 				FROM hr.tbl_dienstverhaeltnis dv
 				JOIN hr.tbl_vertragsart va USING (vertragsart_kurzbz)
 				RIGHT JOIN semester_daten sd ON 
@@ -769,7 +839,7 @@ class PEP_model extends DB_Model
 				akt_lehre_stundensatz AS (
 						SELECT stundensatz,
 								uid,
-								ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_von DESC) AS rn
+								ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_bis NULLS FIRST, gueltig_von DESC) AS rn
 						FROM hr.tbl_stundensatz
 						JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
 						AND (tbl_stundensatz.gueltig_von <= NOW() OR tbl_stundensatz.gueltig_von IS NULL)
@@ -780,7 +850,7 @@ class PEP_model extends DB_Model
 					 SELECT
 						 ARRAY_TO_STRING(ARRAY_AGG(stundensatz) OVER (PARTITION BY uid), E'\n') AS stunden,
 							uid,
-							ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_von DESC) AS rn
+							ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_bis NULLS FIRST, gueltig_von DESC) AS rn
 					 FROM hr.tbl_stundensatz
 					JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
 						AND tbl_stundensatz.stundensatztyp = 'lehre'
@@ -792,7 +862,7 @@ class PEP_model extends DB_Model
 				karenz AS (
 					SELECT hr.tbl_vertragsbestandteil.*,
 						dv.mitarbeiter_uid,
-						ROW_NUMBER() OVER (PARTITION BY mitarbeiter_uid ORDER BY tbl_vertragsbestandteil.von DESC) AS rn
+						ROW_NUMBER() OVER (PARTITION BY mitarbeiter_uid ORDER BY tbl_vertragsbestandteil.bis NULLS FIRST, tbl_vertragsbestandteil.von DESC) AS rn
 					FROM hr.tbl_dienstverhaeltnis dv
 						JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
 					WHERE (tbl_vertragsbestandteil.von <= NOW() OR tbl_vertragsbestandteil.von > NOW())
@@ -921,7 +991,7 @@ class PEP_model extends DB_Model
 					funktion.parentbezeichnung,
 					stunden.wochenstunden AS wochenstunden,
 					CASE ". implode(" ", $caseStatements) . " END as jahresstunden,
-					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC) AS rn
+					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.bis NULLS FIRST, dv.von DESC) AS rn
 				FROM hr.tbl_dienstverhaeltnis dv
 					JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
 					LEFT JOIN (
@@ -991,7 +1061,7 @@ class PEP_model extends DB_Model
 						(
 							CASE ". implode(" ", $caseStatements) . " END
 						) as einzelnejahresstunden,
-						 ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC) AS rn
+						 ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.bis NULLS FIRST, dv.von DESC) AS rn
 					 FROM hr.tbl_dienstverhaeltnis dv
 							  JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
 							  LEFT JOIN (

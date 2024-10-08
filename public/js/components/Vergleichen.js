@@ -1,45 +1,13 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {formatter} from "../mixins/formatters";
-import FhcLoader from '../../../../js/components/Loader.js';
 
 
 export default {
-	name: "Start",
-	props: {
-		config: null,
-		modelValue: {
-			type: Object,
-			required: true
-		},
-	},
+	name: "Vergleich",
 	components: {
 		CoreFilterCmpt,
-		CoreBaseLayout,
-		FhcLoader
-	},
-	watch: {
-		loadedData: {
-			handler(newValue) {
-
-				console.log(newValue);
-				if (newValue.oldSemester)
-				{
-					this.oldStudiensemester = this.semester
-						.filter(item => item.startsWith("SS"))
-						.map(item => {
-							const jahr = parseInt(item.slice(-4)) - 1;
-							return `<span style="color: red"> (SS${jahr})</span>`;
-						});
-				}
-				else
-				{
-					this.oldStudiensemester = "";
-				}
-			},
-			deep: true
-		},
-
+		CoreBaseLayout
 	},
 	data()
 	{
@@ -49,8 +17,6 @@ export default {
 			semester: [],
 			projectsConfig: {},
 			loadedData: {},
-			oldStudiensemester: "",
-			isOldSemesterLoaded: false
 		}
 	},
 
@@ -73,17 +39,8 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_09_26_pep_start",
+				persistenceID: "2024_09_26_pep_vergleich",
 				columns: [
-					{
-						formatter: 'rowSelection',
-						titleFormatter: 'rowSelection',
-						titleFormatterParams: {
-							rowRange: "active"
-						},
-						headerSort: false,
-						width: 70
-					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
@@ -119,38 +76,14 @@ export default {
 				],
 			}
 		},
-		theModel: {
-			get() {
-				return this.modelValue;
-			},
-			set(value) {
-				this.$emit('update:modelValue', value);
-			}
-		}
 	},
 	methods: {
 		async loadData(data)
 		{
-			if (this.loadedData.studienjahr !== data.studienjahr)
-				await this.loadStudiensemester(data.studienjahr)
-			data.oldSemester = this.loadedData.oldSemester;
-			this.loadedData = data;
+			await this.loadColumns(data.semester);
 			await this.$fhcApi.factory.pep.getStart(data)
 				.then(response => {
-					this.$refs?.startTable.tabulator.setData(response.data)
-				})
-				.catch(error => {
-					this.$fhcAlert.handleSystemError(error);
-				});
-		},
-		async loadStudiensemester(studienjahr)
-		{
-			let data = {
-				'studienjahr': studienjahr
-			}
-			await this.$fhcApi.factory.pep.getStudiensemester(data)
-				.then(response => {
-					this.semester = response.data
+					this.$refs?.vergleichTable.tabulator.setData(response.data)
 				})
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
@@ -158,7 +91,7 @@ export default {
 		},
 		loadColumns(semester)
 		{
-			const tabulatorInstance = this.$refs?.startTable.tabulator;
+			const tabulatorInstance = this.$refs?.vergleichTable.tabulator;
 
 			if (this.columnsConfig.lehrauftraege) {
 				semester.forEach((studiensemester, index) => {
@@ -198,34 +131,22 @@ export default {
 				});
 			}
 		},
-		createColumns(configKey, titlePrefix, formatter, mode = 'studiensemester', category = null)
+		async createColumns(configKey, titlePrefix, formatter, mode = 'studiensemester', category = null)
 		{
-			if (mode === 'studiensemester')
-			{
-				for (let i = 0; i < 2; i++) {
-					let semester = i === 0 ? 'WS' : 'SS';
+			for (let i = 0; i < 2; i++) {
+				let semester = i === 0 ? 'WS' : 'SS';
 
-					const fieldKey = category
-						? `studiensemester_${i}_kategorie_${category.kategorie_id}`
-						: `studiensemester_${i}_${configKey}`;
-
-					const title = `${titlePrefix} ${semester}`;
-					this.addColumn(title, fieldKey, formatter);
-				}
-			}
-			else
-			{
 				const fieldKey = category
-					? `studiensemester_kategorie_${category.kategorie_id}`
-					: `studiensemester_${configKey}`;
+					? `studiensemester_${i}_kategorie_${category.kategorie_id}`
+					: `studiensemester_${i}_${configKey}`;
 
-				const title = `${titlePrefix}`;
+				const title = `${titlePrefix} ${semester}`;
 				this.addColumn(title, fieldKey, formatter);
 			}
 		},
 		addColumn(title, fieldKey, formatter)
 		{
-			const tabulatorInstance = this.$refs?.startTable.tabulator;
+			const tabulatorInstance = this.$refs?.vergleichTable.tabulator;
 			const newColumn = {
 				title: title,
 				field: fieldKey,
@@ -239,34 +160,11 @@ export default {
 			};
 			tabulatorInstance.addColumn(newColumn, true, "summe");
 		},
-		getOldSemester(e) {
-			this.isOldSemesterLoaded = !this.isOldSemesterLoaded;
-			this.loadedData = {...this.loadedData, oldSemester: this.isOldSemesterLoaded}
-
-			this.$refs.loader.show();
-			this.loadData(this.loadedData).then(() => {this.$refs.loader.hide();});
-		},
 		addColumns()
 		{
 			if (this.columnsConfig.lehrauftraege)
 			{
 				this.createColumns('lehrauftrag', 'Lehraufträge', formatter.checkLehrauftraegeStunden);
-				/*.then(() => {
-					var column = this.$refs?.startTable.tabulator.getColumn('studiensemester_1_lehrauftrag');
-					if (column)
-					{
-						let oldTitle = column.getDefinition().title;
-						const newTitle = `${oldTitle} <input id='select-old-ss' type='checkbox' title='altes Sommersemester laden'>`;
-						let elements = document.getElementsByClassName('tabulator-col-title');
-						const matchingElement = Array.from(elements).find(element => element.textContent.includes(oldTitle));
-						matchingElement.innerHTML = newTitle;
-						const checkbox = document.getElementById("select-old-ss");
-						if (checkbox)
-						{
-							checkbox.addEventListener("click", this.getOldSemester);
-						}
-					}
-				});*/
 			}
 
 			if (this.columnsConfig.projects)
@@ -303,15 +201,9 @@ export default {
 	template: `
 		<core-base-layout>
 			<template #main>
-			<h5>{{$p.t('lehre', 'studiensemester')}}: {{semester?.join(', ')}} 
-				<button class="btn btn-outline-secondary btn-sm" @click="getOldSemester" title="Betrifft nur die Spalte 'Lehraufträge SS'">
-					<i :class="isOldSemesterLoaded ? 'fas fa-redo' : 'fa fa-history'"></i>
-					{{isOldSemesterLoaded ? 'Ausgewähltes SS laden' : 'Vorheriges SS laden'}}
-				</button> 
-				<span v-html="oldStudiensemester"></span>
-			</h5>
+			<h5>{{$p.t('lehre', 'studiensemester')}}: {{semester?.join(', ')}}</h5>
 				<core-filter-cmpt
-					ref="startTable"
+					ref="vergleichTable"
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }]"
 					:table-only=true
@@ -322,6 +214,5 @@ export default {
 				</core-filter-cmpt>
 			</template>
 		</core-base-layout>
-		<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 	`
 };

@@ -113,10 +113,11 @@ export default {
 					},
 					{title: 'Projekt - ID', field: 'project_id', headerFilter: true},
 					{title: 'Projekt - Name', field: 'name', headerFilter: true},
+					{title: 'Verantwortlicher lt. SAP', field: 'leitung', formatter:"textarea", headerFilter: "input"},
 					{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
-					{title: 'SAP - Stunden', field: 'summe_planstunden', headerFilter: true},
+					{title: 'Gesamtplanstunden lt. SAP', field: 'summe_planstunden', headerFilter: true},
 					{
 						title: 'PEP - Stunden',
 						field: 'stunden',
@@ -170,7 +171,8 @@ export default {
 					{title: 'Projektlaufzeit in Monaten', field: 'laufzeit', headerFilter: true},
 					{title: 'Verbrauchte Zeit in Monaten', field: 'verbrauchte_zeit', headerFilter: true},
 					{title: 'Restlaufzeit in Monaten', field: 'restlaufzeit', headerFilter: true},
-					{title: 'Status', field: 'status', headerFilter: true},
+					{title: 'Status lt. SAP', field: 'status', headerFilter: true},
+					{title: 'Status intern', field: 'status_sap_intern', headerFilter: true},
 					{title: 'Erster Stichtag (01.01)', field: 'erster', headerFilter: true},
 					{title: 'Zweiter Stichtag (01.06)', field: 'zweiter', headerFilter: true},
 					{title: 'Aktuelle Stunden', field: 'aktuellestunden', headerFilter: true},
@@ -238,9 +240,9 @@ export default {
 					return (projektstart <= studienjahrbis || projektstart === null) && (projektende >= studienjahrvon || projektende === null);
 				})
 				.filter(projekt => {
-					return projekt.project_id.toLowerCase().includes(query);
+					return projekt.project_id.toLowerCase().includes(query) || projekt.name.toLowerCase().includes(query);
 				}).map(projekt => ({
-					label: `${projekt.project_id}`,
+					label: `${projekt.project_id} (${projekt.name})`,
 					project_id: projekt.project_id,
 					von: projekt.start_date,
 					bis: projekt.end_date
@@ -263,7 +265,13 @@ export default {
 			this.loadedData = data;
 			await this.$fhcApi.factory.pep.getProjects(data)
 				.then(response => {
-					this.$refs.projectTable.tabulator.setData(response.data);
+					if (response.data.length === 0)
+					{
+						this.$fhcAlert.alertInfo("Projekte: Keine Daten vorhanden");
+						this.$refs.projectTable.tabulator.setData([]);
+					}
+					else
+						this.$refs.projectTable.tabulator.setData(response.data);
 					if (!this.rowCount)
 					{
 						this.rowCount =  this.$refs.projectTable.tabulator.getRows().length;
@@ -315,14 +323,14 @@ export default {
 			await this.$fhcApi.factory.pep.updateProjectStunden(data).then(response => {
 				if (!response.data)
 					this.$fhcAlert.alertWarning("Fehler beim Löschen")
+				else
 				{
-					this.$refs.projectTable.tabulator.updateRow(row.getIndex(), {
-
-						'pep_projects_employees_id': response.data
+					row.update({'pep_projects_employees_id': response.data}).then(() => {
+						row.reformat()
 					})
+
 					this.theModel = { ...this.modelValue, needReload: true };
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert")
-					row.reformat();
 				}
 			});
 		},
@@ -347,12 +355,19 @@ export default {
 							row.delete()
 						else
 						{
-							this.$refs.projectTable.tabulator.updateRow(row.getIndex(), {
+							row.update({
 								'stunden' : null,
-								'pep_projects_employees_id': null
+								'pep_projects_employees_id' : null,
+								'anmerkung': null
 							})
+							.then(() => {
+								row.reformat()
+							})
+							.then(() => {
+								this.$fhcAlert.alertSuccess("Erfolgreich gespeichert")
+							});
 
-							row.reformat();
+
 						}
 						this.theModel = { ...this.modelValue, needReload: true };
 					}
@@ -398,8 +413,22 @@ export default {
 				.then(result => {
 					if (result === true)
 						return this.$fhcAlert.alertWarning("Mitarbeiter ist bereits dem Projekt zugeordnet!");
-					this.$refs.projectTable.tabulator.addRow(result, false)
 
+					const existingRows = this.$refs.projectTable.tabulator.getRows();
+					const existingRow = existingRows.find(row => {
+						const rowData = row.getData();
+						return rowData.mitarbeiter_uid === result.mitarbeiter_uid && rowData.project_id === result.project_id;
+					});
+
+					if (existingRow)
+					{
+						existingRow.update({ ...existingRow.getData(), ...result });
+						existingRow.reformat();
+					}
+					else
+					{
+						this.$refs.projectTable.tabulator.addRow(result, false);
+					}
 				})
 				.then(() => this.reset())
 				.then(() => this.theModel = { ...this.modelValue, needReload: true })
