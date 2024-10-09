@@ -19,11 +19,6 @@ export default {
 			rowCount: {},
 		}
 	},
-	mounted() {
-		/*this.$nextTick(() => {
-			this.theModel = { ...this.modelValue, loadDataReady: true };
-		});*/
-	},
 	computed: {
 		tabulatorOptions() {
 			return {
@@ -134,7 +129,7 @@ export default {
 						formatter: "textarea"
 					},
 				],
-				persistenceID: "2024_09_26_pep_kategorie_" + this.config.category_id
+				persistenceID: "2024_10_09_pep_kategorie_" + this.config.category_id
 			}
 		},
 		theModel: {

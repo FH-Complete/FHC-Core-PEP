@@ -178,7 +178,7 @@ export default {
 					{title: 'Start_kw', field: 'start_kw', headerFilter: "input", visible: false},
 					{title: 'Stundenblockung', field: 'stundenblockung', headerFilter: "input", visible: false},
 				],
-				persistenceID: "2024_09_26_pep_lehre",
+				persistenceID: "2024_10_09_pep_lehre",
 			}
 		},
 		faktorTabulatorOptions() {
