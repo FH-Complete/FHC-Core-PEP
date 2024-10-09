@@ -177,7 +177,7 @@ export default {
 					{title: 'Zweiter Stichtag (01.06)', field: 'zweiter', headerFilter: true},
 					{title: 'Aktuelle Stunden', field: 'aktuellestunden', headerFilter: true},
 				],
-				persistenceID: "2024_09_26_pep_project"
+				persistenceID: "2024_10_09_pep_project"
 			}
 		},
 		theModel: {

@@ -60,7 +60,7 @@ export default {
 					{title: 'ID', field: 'kategorie_id'},
 					{title: 'Kategorie', field: 'beschreibung'},
 				],
-				persistenceID: "2024_09_26_pep_kategorie_administration"
+				persistenceID: "2024_10_09_pep_kategorie_administration"
 			}
 		},
 	},

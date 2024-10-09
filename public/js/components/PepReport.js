@@ -284,9 +284,32 @@ export default {
 		updateTab(newTab)
 		{
 			this.currentTab = newTab;
-
 			if (this.currentTab === 'start' && this.modelValue.needReload === true)
 				this.loadOneTab().then(() =>  this.modelValue.needReload = false)
+			else
+				this.redrawTabulator();
+		},
+		//TODO (david) andere läsung finden
+		//INFO: beim wechseln zwischen den tabs bleibt der inhalt ansonsten leer
+		redrawTabulator()
+		{
+			let tabInstance = this.$refs.tabComponent?.$refs?.current?.$refs
+			if (tabInstance !== undefined)
+			{
+				const tableRefs = Object.keys(tabInstance)
+					.filter(refName => refName.endsWith('Table'))
+					.map(refName => tabInstance[refName]);
+
+				tableRefs.forEach(table => {
+					if (table && table.tabulator) {
+						try {
+							table.tabulator.redraw(true);
+						} catch (error) {
+
+						}
+					}
+				});
+			}
 		},
 		async setVariables()
 		{

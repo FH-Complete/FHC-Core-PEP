@@ -39,7 +39,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_09_26_pep_vergleich",
+				persistenceID: "2024_10_09_pep_vergleich",
 				columns: [
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
