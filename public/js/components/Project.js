@@ -176,8 +176,12 @@ export default {
 					{title: 'Erster Stichtag (01.01)', field: 'erster', headerFilter: true},
 					{title: 'Zweiter Stichtag (01.06)', field: 'zweiter', headerFilter: true},
 					{title: 'Aktuelle Stunden', field: 'aktuellestunden', headerFilter: true},
+					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
+					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+
 				],
-				persistenceID: "2024_10_09_pep_project"
+				persistenceID: "2024_10_16s_pep_project"
 			}
 		},
 		theModel: {

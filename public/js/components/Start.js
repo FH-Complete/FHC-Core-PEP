@@ -22,7 +22,6 @@ export default {
 		loadedData: {
 			handler(newValue) {
 
-				console.log(newValue);
 				if (newValue.oldSemester)
 				{
 					this.oldStudiensemester = this.semester
