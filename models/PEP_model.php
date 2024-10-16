@@ -36,6 +36,7 @@ class PEP_model extends DB_Model
 	{
 		$query = "
 			". $this->_getStartCTE() . ",
+			". $this->_getAktuelleDaten() .",
 			". $this->_getStudienjahrDates() .",
 			zeiterfassung AS (
 				 SELECT
@@ -95,6 +96,9 @@ class PEP_model extends DB_Model
 				ROUND(ersterstichtag.gearbeitete_stunden, 2) as erster,
 				ROUND(zweiterstichtag.gearbeitete_stunden, 2) as zweiter,
 				ROUND(aktuell.gearbeitete_stunden, 2) as aktuellestunden,
+				av.orgbezeichnung as akt_orgbezeichnung,
+				av.parentbezeichnung as akt_parentbezeichnung,
+				av.bezeichnung as akt_bezeichnung,
 				person.vorname,
 				person.nachname,
 				STRING_AGG(DISTINCT leitungsperson.vorname || ' ' || leitungsperson.nachname,  E'\n') as leitung,
@@ -107,6 +111,7 @@ class PEP_model extends DB_Model
 					AND pepprojects.studienjahr_kurzbz = ?
 				JOIN public.tbl_mitarbeiter mitarbeiter ON 
 					(mitarbeiter.mitarbeiter_uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid))
+				LEFT JOIN aktVertrag av ON av.mitarbeiter_uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) AND av.rn = 1
 				JOIN public.tbl_benutzer benutzer ON mitarbeiter.mitarbeiter_uid = benutzer.uid
 				JOIN public.tbl_person person ON benutzer.person_id = person.person_id
 				LEFT JOIN sync.tbl_sap_projects_timesheets timesheetsprojectinfos ON timesheetsproject.project_id = timesheetsprojectinfos.project_id AND timesheetsprojectinfos.project_task_id IS NULL
@@ -129,6 +134,10 @@ class PEP_model extends DB_Model
 				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid),
 				person.vorname,
 				person.nachname,
+				av.oe_kurzbz,
+				av.orgbezeichnung,
+				av.parentbezeichnung,
+				av.bezeichnung,
 				dates.start,
 				dates.ende,
 				pep_projects_employees_id,
@@ -881,6 +890,7 @@ class PEP_model extends DB_Model
 				zv.alle_vertraege as zrm_vertraege,
 				zv.wochenstunden as zrm_wochenstunden,
 				zv.jahresstunden as zrm_jahresstunden,
+				zv.einzelnejahresstunden as zrm_einzeljahresstunden,
 				lehre_stundensatz.stunden as zrm_stundensatz_lehre,
 				av.oe_kurzbz,
 				av.orgbezeichnung as akt_orgbezeichnung,

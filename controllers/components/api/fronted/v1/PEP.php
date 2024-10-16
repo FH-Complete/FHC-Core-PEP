@@ -197,7 +197,7 @@ class PEP extends FHCAPI_Controller
 			$this->getLehrauftraegeEachStudiensemester($mitarbeiterData, $studiensemester, $oldSemester);
 			$this->getColumnsEachStudiensemester($mitarbeiterData, $studiensemester, $projectColumnsStudiensemester, $categoriesColumnsStudiensemester);
 			$this->getColumnsEachStudienjahr($mitarbeiterData, $studienjahr, !$projectColumnsStudiensemester, !$categoriesColumnsStudiensemester);
-			$mitarbeiterData->summe = $mitarbeiter->zrm_jahresstunden;
+			$mitarbeiterData->summe = $mitarbeiter->zrm_einzeljahresstunden;
 
 			$mitarbeiterDataArray[] = $mitarbeiterData;
 		}
