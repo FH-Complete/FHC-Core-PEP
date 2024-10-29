@@ -103,13 +103,13 @@ class PEP_model extends DB_Model
 				person.nachname,
 				STRING_AGG(DISTINCT leitungsperson.vorname || ' ' || leitungsperson.nachname,  E'\n') as leitung,
 				tbl_sap_projects_status_intern.description as status_sap_intern
-			FROM semester_datum as dates, 
+			FROM semester_datum as dates,
 				sync.tbl_sap_projects_timesheets timesheetsproject
 				LEFT JOIN sync.tbl_projects_employees sapprojects ON timesheetsproject.project_task_id = sapprojects.project_task_id
 				LEFT JOIN extension.tbl_pep_projects_employees pepprojects ON timesheetsproject.project_id = pepprojects.projekt_id
 					AND (sapprojects.mitarbeiter_uid = pepprojects.mitarbeiter_uid OR sapprojects.mitarbeiter_uid IS NULL OR pepprojects.mitarbeiter_uid IS NULL)
 					AND pepprojects.studienjahr_kurzbz = ?
-				JOIN public.tbl_mitarbeiter mitarbeiter ON 
+				JOIN public.tbl_mitarbeiter mitarbeiter ON
 					(mitarbeiter.mitarbeiter_uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid))
 				LEFT JOIN aktVertrag av ON av.mitarbeiter_uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) AND av.rn = 1
 				JOIN public.tbl_benutzer benutzer ON mitarbeiter.mitarbeiter_uid = benutzer.uid
@@ -125,7 +125,7 @@ class PEP_model extends DB_Model
 
 				JOIN tbl_benutzer leitungsbenutzer ON timesheetsprojectinfos.project_leader = leitungsbenutzer.uid
 				JOIN public.tbl_person leitungsperson ON leitungsbenutzer.person_id = leitungsperson.person_id
-				LEFT JOIN sync.tbl_sap_projects_status_intern 
+				LEFT JOIN sync.tbl_sap_projects_status_intern
 				ON NULLIF(timesheetsprojectinfos.custom_fields->>'Status_KUT', '')::numeric = tbl_sap_projects_status_intern.status
 
 			WHERE
@@ -179,9 +179,9 @@ class PEP_model extends DB_Model
 						   oe_parent_kurzbz
 					FROM PUBLIC.tbl_organisationseinheit
 					WHERE oe_kurzbz = ?
-			
+
 					UNION ALL
-			
+
 					SELECT o.oe_kurzbz,
 						   o.oe_parent_kurzbz
 					FROM PUBLIC.tbl_organisationseinheit o,
@@ -217,7 +217,7 @@ class PEP_model extends DB_Model
 							  CASE ". implode(" ", $caseStatements) . " END
 								, 2))
 					) END AS stunden,
-					
+
 					COALESCE(pkm.mitarbeiter_uid, pk.insertvon) AS mitarbeiter_uid,
 					COALESCE(pkm.studienjahr_kurzbz, pks.gueltig_ab_studienjahr) AS studiensemester_kurzbz";
 
@@ -329,7 +329,7 @@ class PEP_model extends DB_Model
 	public function updateStundenForMitarbeiter($studienjahr, $kategorie, $stunden, $mitarbeiter_uid, $anmerkung)
 	{
 		$query = 'UPDATE extension.tbl_pep_kategorie_mitarbeiter
-					SET stunden = ?, 
+					SET stunden = ?,
 						anmerkung = ?,
 						updateamum = now(),
 						updatevon = ?
@@ -352,7 +352,7 @@ class PEP_model extends DB_Model
 
 		$query = "SELECT
 					DISTINCT (ma.uid)
-					
+
 				FROM campus.vw_mitarbeiter ma
 				JOIN hr.tbl_dienstverhaeltnis dv ON ma.uid = dv.mitarbeiter_uid
 				JOIN hr.tbl_vertragsart vertragsart USING(vertragsart_kurzbz)
@@ -519,9 +519,9 @@ class PEP_model extends DB_Model
 					 AND (
 						SELECT now() <= start
 						FROM tbl_studiensemester
-						WHERE studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz               
+						WHERE studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz
 					)
-			) as editable, 
+			) as editable,
 			(tbl_benutzer.uid || '@".DOMAIN."') AS email,
 			CASE WHEN zv.relevante_vertragsart = 'echterdv' THEN (
 				SELECT faktor
@@ -548,7 +548,7 @@ class PEP_model extends DB_Model
 				ORDER BY vonstsem.start DESC
 				LIMIT 1
 			) ELSE 0 END as faktor,
-			CASE WHEN zv.relevante_vertragsart = 'echterdv' 
+			CASE WHEN zv.relevante_vertragsart = 'echterdv'
 			THEN (COALESCE(
 				(
 					 SELECT
@@ -627,9 +627,9 @@ class PEP_model extends DB_Model
 								oe_parent_kurzbz
 						FROM PUBLIC.tbl_organisationseinheit
 						WHERE oe_kurzbz = ?
-	
+
 						UNION ALL
-	
+
 						SELECT o.oe_kurzbz,
 								o.oe_parent_kurzbz
 						FROM PUBLIC.tbl_organisationseinheit o,
@@ -749,11 +749,11 @@ class PEP_model extends DB_Model
 	public function getLehrauftraegeStundenWithoutFaktor($uid, $studiensemester)
 	{
 		$query = "SELECT COALESCE(SUM(tbl_lehreinheitmitarbeiter.semesterstunden), 0) as stunden
-					FROM lehre.tbl_lehreinheitmitarbeiter 
+					FROM lehre.tbl_lehreinheitmitarbeiter
 					JOIN lehre.tbl_lehreinheit USING(lehreinheit_id)
 					JOIN lehre.tbl_lehrveranstaltung USING(lehrveranstaltung_id)
 					WHERE studiensemester_kurzbz = ?
-						AND mitarbeiter_uid = ? 
+						AND mitarbeiter_uid = ?
 		";
 		return $this->execReadOnlyQuery($query, array($studiensemester, $uid));
 	}
@@ -785,8 +785,8 @@ class PEP_model extends DB_Model
 		$query = "
 			SELECT COALESCE(SUM(stunden)::int, 0) as stunden
 			FROM extension.tbl_pep_projects_employees
-			WHERE 
-				mitarbeiter_uid = ? AND studienjahr_kurzbz = 
+			WHERE
+				mitarbeiter_uid = ? AND studienjahr_kurzbz =
 		";
 
 		if (!is_null($studienjahr))
@@ -800,21 +800,21 @@ class PEP_model extends DB_Model
 	public function getDVForSemester($uid, $studiensemester)
 	{
 		$query = "
-			
+
 				WITH semester_daten AS (
 					SELECT studiensemester_kurzbz, start, ende
 					FROM public.tbl_studiensemester
 					WHERE studiensemester_kurzbz IN ?
 			),
 			semester_combined AS (
-				SELECT 
+				SELECT
 					dv.mitarbeiter_uid,
 					va.vertragsart_kurzbz,
 					sd.studiensemester_kurzbz,
 					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid, sd.studiensemester_kurzbz ORDER BY dv.bis NULLS FIRST, dv.von DESC) AS rn
 				FROM hr.tbl_dienstverhaeltnis dv
 				JOIN hr.tbl_vertragsart va USING (vertragsart_kurzbz)
-				RIGHT JOIN semester_daten sd ON 
+				RIGHT JOIN semester_daten sd ON
 					(dv.von <= sd.ende OR dv.von IS NULL)
 					AND (dv.bis >= sd.start OR dv.bis IS NULL)
 					AND dv.mitarbeiter_uid = ?
@@ -842,9 +842,9 @@ class PEP_model extends DB_Model
 
 		$qry = "
 			". $this->_getStartCTE() .",
-			". $this->_getAktuelleDaten() . ", 
+			". $this->_getAktuelleDaten() . ",
 			". (is_null($studienjahr) ? $this->_getStudiensemesterDates() : $this->_getStudienjahrDates()) .",
-			". $this->_getZeitraumDaten() . ", 
+			". $this->_getZeitraumDaten() . ",
 				akt_lehre_stundensatz AS (
 						SELECT stundensatz,
 								uid,
@@ -982,7 +982,7 @@ class PEP_model extends DB_Model
 	{
 		foreach ($this->config->item('annual_hours') as $case)
 		{
-			$caseStatements[] = "WHEN dv.oe_kurzbz = '" . $case['condition'] . "' THEN ROUND(". $case['base_value'] . "/" . $case['hour_divisor'] . "* stunden.wochenstunden, 2)";
+			$caseStatements[] = "WHEN dv.oe_kurzbz = '" . $case['condition'] . "' THEN ROUND(". $case['base_value'] . "/" . number_format($case['hour_divisor'],2,'.','') . "* stunden.wochenstunden, 2)";
 		}
 
 		return $caseStatements;
@@ -1052,7 +1052,7 @@ class PEP_model extends DB_Model
 	{
 		$caseStatements = $this->_getJahresstunden();
 
-		return " 
+		return "
 				 zeitraumVertrag AS (
 					 SELECT
 						 dv.dienstverhaeltnis_id,
