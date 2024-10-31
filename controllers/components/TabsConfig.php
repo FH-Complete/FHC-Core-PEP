@@ -83,7 +83,7 @@ class TabsConfig extends FHCAPI_Controller
 	{
 		$this->_ci->load->library('PermissionLib');
 
-		if (!$this->_ci->permissionlib->isBerechtigt('admin'))
+		if (!$this->_ci->permissionlib->isBerechtigt(self::DEFAULT_PERMISSION))
 			return;
 
 		$tabs['syncprojects'] = array (
