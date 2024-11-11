@@ -3,6 +3,8 @@ import {CoreRESTClient} from '../../../../js/RESTClient.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import BsModal from '../../../../js/components/Bootstrap/Modal.js';
 import FormInput from "../../../../js/components/Form/Input.js";
+import Tag from '../../../../js/components/Tag/Tag.js';
+
 
 import {formatter} from "../mixins/formatters";
 
@@ -13,7 +15,8 @@ export default {
 		CoreFilterCmpt,
 		BsModal,
 		FormInput,
-		CoreBaseLayout
+		CoreBaseLayout,
+		Tag
 	},
 	props: {
 		config: null,
@@ -60,8 +63,8 @@ export default {
 			filteredRaumtypen: [],
 			selectedLektor: null,
 			selectedRow: null,
-			modalTitle: 'Änderungen'
-
+			modalTitle: 'Änderungen',
+			selectedColumnValues: [],
 		}
 	},
 
@@ -82,6 +85,33 @@ export default {
 						},
 						headerSort: false,
 						width: 70
+					},
+					{
+						title: 'Tags',
+						field: 'tags',
+						tooltip: false,
+						headerFilter: true,
+						formatter: (cell) => {
+							let tags = cell.getValue();
+							let container = document.createElement('div');
+							container.className = "d-flex gap-1";
+							JSON.parse(tags).forEach(tag => {
+								if (tag === null)
+									return;
+								let tagElement = document.createElement('span');
+								tagElement.innerText = tag.beschreibung;
+								tagElement.title = tag.notiz;
+								tagElement.className = tag.style;
+								if (tag.done)
+									tagElement.className += " tag-done"
+
+								container.appendChild(tagElement);
+								tagElement.addEventListener('click', (event) => {
+									this.$refs.tagComponent.editTag(tag.id);
+								});
+							});
+							return container;
+						}
 					},
 					{
 						title: 'Aktionen',
@@ -150,27 +180,17 @@ export default {
 						}
 					},
 					{title: 'Faktor', field: 'faktor', headerFilter: true, visible: true, hozAlign:"right"},
-
 					{title: 'LE Stundensatz', field: 'le_stundensatz', headerFilter: true, hozAlign:"right"},
 					{title: 'LV-Plan Stunden', field: 'lv_plan_stunden', headerFilter: true, hozAlign:"right"},
-
-
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
 					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
 					{title: 'Zrm - Stundensatz', field: 'zrm_stundensatz_lehre', headerFilter: "input", visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
-
-
-
 					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
 					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stunden', field: 'akt_stunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stundensatz - Lehre', field: 'akt_stundensaetze_lehre', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
-
-
-
-
 					{title: 'Vorjahres Lektoren', field: 'vorjahreslektoren', headerFilter: "input", visible: true},
 					{title: 'Raumtyp', field: 'raumtyp', headerFilter: "input", visible: false},
 					{title: 'Raumtypalternativ', field: 'raumtypalternativ', headerFilter: "input",visible: false},
@@ -178,7 +198,7 @@ export default {
 					{title: 'Start_kw', field: 'start_kw', headerFilter: "input", visible: false},
 					{title: 'Stundenblockung', field: 'stundenblockung', headerFilter: "input", visible: false},
 				],
-				persistenceID: "2024_10_09_pep_lehre",
+				persistenceID: "2024_11_11_pep_lehre",
 			}
 		},
 		faktorTabulatorOptions() {
@@ -232,6 +252,12 @@ export default {
 
 		tableBuilt(){
 			this.theModel = { ...this.modelValue, loadDataReady: true };
+		},
+		updateSelectedRows() {
+			this.selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
+			this.selectedColumnValues = this.selectedRows.map(row => row.getData().lehreinheit_id);
+			//this.selectedColumnValues = [...new Set(this.selectedRows.map(row => row.getData().lehreinheit_id))];
+
 		},
 
 		newSideMenuEntryHandler: function (payload)
@@ -563,6 +589,63 @@ export default {
 			};
 			this.selectedRow = null;
 		},
+		addedTag(addedTag)
+		{
+			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
+				const rowData = row.getData();
+
+				if (addedTag.response === "")
+				{
+					if (this.selectedColumnValues.includes(rowData.lehreinheit_id))
+					{
+						let tags = JSON.parse(rowData.tags);
+						tags.push(addedTag)
+						rowData.tags = JSON.stringify(tags);
+						row.update(rowData).then(() => row.reformat());
+					}
+				}
+				else
+				{
+					addedTag.response.forEach(tag => {
+						if (rowData.lehreinheit_id === tag.lehreinheit_id) {
+							let tags = JSON.parse(rowData.tags);
+							addedTag.id = tag.id;
+							tags.push(addedTag);
+							rowData.tags = JSON.stringify(tags);
+							row.update(rowData).then(() => row.reformat());
+						}
+					});
+				}
+			});
+		},
+		deletedTag(deletedTag)
+		{
+			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
+				const rowData = row.getData();
+				let tags = JSON.parse(rowData.tags);
+				tags = tags.filter(tag => tag?.id !== deletedTag);
+				const updatedTags = JSON.stringify(tags);
+				if (updatedTags !== rowData.tags) {
+					rowData.tags = updatedTags;
+					row.update(rowData).then(() => row.reformat());
+				}
+			});
+		},
+		updatedTag(updatedTag) {
+			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
+				const rowData = row.getData();
+				let tags = JSON.parse(rowData.tags);
+				const tagIndex = tags.findIndex(tag => tag?.id === updatedTag.id);
+				if (tagIndex !== -1) {
+					tags[tagIndex] = updatedTag;
+					const updatedTags = JSON.stringify(tags);
+					if (updatedTags !== rowData.tags) {
+						rowData.tags = updatedTags;
+						row.update(rowData).then(() => row.reformat());
+					}
+				}
+			});
+		}
 	},
 	template: `
 		<core-base-layout>
@@ -574,11 +657,21 @@ export default {
 						@nw-new-entry="newSideMenuEntryHandler"
 						:table-only=true
 						:hideTopMenu=false
-						:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited}, { event: 'tableBuilt', handler: tableBuilt }]"
+						:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited},
+											{ event: 'tableBuilt', handler: tableBuilt }, 
+											{ event: 'rowSelectionChanged', handler: updateSelectedRows }]"
 				>
 					<template #actions>
 						<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
 						<button class="btn btn-primary" @click="assistenzMailButton">EMail an Assistenz</button>
+						<Tag ref="tagComponent"
+							:endpoint="$fhcApi.factory.pep_lehre_tab_tags"
+							:values="selectedColumnValues"
+							@added="addedTag"
+							@deleted="deletedTag"
+							@updated="updatedTag"
+							zuordnung_typ="lehreinheit_id"
+						></Tag>
 					</template>
 				</core-filter-cmpt>
 				<bs-modal ref="editModal" class="bootstrap-prompt" dialogClass="modal-lg" @hidden-bs-modal="reset">
