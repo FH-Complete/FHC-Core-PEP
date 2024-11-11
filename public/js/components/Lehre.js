@@ -95,21 +95,50 @@ export default {
 							let tags = cell.getValue();
 							let container = document.createElement('div');
 							container.className = "d-flex gap-1";
-							JSON.parse(tags).forEach(tag => {
-								if (tag === null)
-									return;
-								let tagElement = document.createElement('span');
-								tagElement.innerText = tag.beschreibung;
-								tagElement.title = tag.notiz;
-								tagElement.className = tag.style;
-								if (tag.done)
-									tagElement.className += " tag-done"
+							let parsedTags = JSON.parse(tags);
+							let maxVisibleTags = 2;
 
-								container.appendChild(tagElement);
-								tagElement.addEventListener('click', (event) => {
-									this.$refs.tagComponent.editTag(tag.id);
+							if (cell._expanded === undefined)
+							{
+								cell._expanded = false;
+							}
+							const renderTags = () => {
+								container.innerHTML = '';
+
+								const tagsToShow = cell._expanded ? parsedTags : parsedTags.slice(0, maxVisibleTags);
+								tagsToShow.forEach(tag => {
+									if (tag === null)
+										return;
+
+									let tagElement = document.createElement('span');
+									tagElement.innerText = tag.beschreibung;
+									tagElement.title = tag.notiz;
+									tagElement.className = tag.style;
+									if (tag.done)
+										tagElement.className += " tag-done";
+
+									container.appendChild(tagElement);
+									tagElement.addEventListener('click', (event) => {
+										this.$refs.tagComponent.editTag(tag.id);
+									});
 								});
-							});
+
+								if (parsedTags.length > maxVisibleTags)
+								{
+									let toggleTagElement = document.createElement('button');
+									toggleTagElement.innerText = cell._expanded ? '- ' : '+ ';
+									toggleTagElement.innerText += `${parsedTags.length - maxVisibleTags}`;
+									toggleTagElement.className = "btn btn-secondary btn-sm";
+									toggleTagElement.title = cell._expanded ? "Tags ausblenden" : "Tags einblenden";
+									container.appendChild(toggleTagElement);
+									toggleTagElement.addEventListener('click', () => {
+										cell._expanded = !cell._expanded;
+										renderTags();
+									});
+								}
+							};
+
+							renderTags();
 							return container;
 						}
 					},
@@ -601,7 +630,7 @@ export default {
 						let tags = JSON.parse(rowData.tags);
 						tags.push(addedTag)
 						rowData.tags = JSON.stringify(tags);
-						row.update(rowData).then(() => row.reformat());
+						row.update(rowData);
 					}
 				}
 				else
@@ -612,7 +641,7 @@ export default {
 							addedTag.id = tag.id;
 							tags.push(addedTag);
 							rowData.tags = JSON.stringify(tags);
-							row.update(rowData).then(() => row.reformat());
+							row.update(rowData);
 						}
 					});
 				}
@@ -627,7 +656,7 @@ export default {
 				const updatedTags = JSON.stringify(tags);
 				if (updatedTags !== rowData.tags) {
 					rowData.tags = updatedTags;
-					row.update(rowData).then(() => row.reformat());
+					row.update(rowData);
 				}
 			});
 		},
@@ -639,9 +668,10 @@ export default {
 				if (tagIndex !== -1) {
 					tags[tagIndex] = updatedTag;
 					const updatedTags = JSON.stringify(tags);
-					if (updatedTags !== rowData.tags) {
+					if (updatedTags !== rowData.tags)
+					{
 						rowData.tags = updatedTags;
-						row.update(rowData).then(() => row.reformat());
+						row.update(rowData);
 					}
 				}
 			});
