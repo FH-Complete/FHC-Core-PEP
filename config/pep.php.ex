@@ -35,3 +35,6 @@ $config['project_id_list'] = array(
 	'P2%',
 	'P3%'
 );
+
+// content ID for CMS reference
+$config['content_id'] = XXX
