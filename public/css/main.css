@@ -58,3 +58,12 @@
 .timeAuswahl{
 	width: -webkit-fill-available !important;
 }
+
+.full-screen-iframe {
+	width: 100vw;
+	height: 70vh;
+	border: none;
+	display: block;
+	overflow: hidden;
+}
+

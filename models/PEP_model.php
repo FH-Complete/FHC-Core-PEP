@@ -600,7 +600,8 @@ class PEP_model extends DB_Model
 			tbl_lehreinheit.stundenblockung,
 			tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz,
 			tbl_lehreinheitmitarbeiter.planstunden AS lv_plan_stunden,
-			zv.relevante_vertragsart
+			zv.relevante_vertragsart,
+			array_to_json(array_agg(DISTINCT(tag_data))) AS tags
 		FROM
 			lehre.tbl_lehreinheit
 			JOIN lehre.tbl_lehrveranstaltung USING (lehrveranstaltung_id)
@@ -613,6 +614,23 @@ class PEP_model extends DB_Model
 			JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
 			JOIN tbl_organisationseinheit lv_org ON lv_org.oe_kurzbz = lehrfach.oe_kurzbz
 			LEFT JOIN zeitraumVertrag zv ON tbl_mitarbeiter.mitarbeiter_uid = zv.mitarbeiter_uid AND zv.rn = 1
+			LEFT JOIN
+			(
+				SELECT
+				 DISTINCT ON (tbl_notiz.notiz_id)
+					tbl_notiz.notiz_id AS id,
+					typ_kurzbz,
+					array_to_json(tbl_notiz_typ.bezeichnung_mehrsprachig)->>0 AS beschreibung,
+					lehreinheit_id,
+					tbl_notiz.text as notiz,
+					tbl_notiz_typ.style,
+					tbl_notiz.erledigt as done
+				FROM
+					public.tbl_notizzuordnung
+					JOIN public.tbl_notiz ON tbl_notizzuordnung.notiz_id = tbl_notiz.notiz_id
+					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
+			) AS tag_data
+				ON tbl_lehreinheit.lehreinheit_id = tag_data.lehreinheit_id
 		WHERE
 			tbl_lehreinheit.studiensemester_kurzbz IN ?
 		AND (

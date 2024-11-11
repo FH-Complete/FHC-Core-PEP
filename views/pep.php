@@ -10,6 +10,7 @@ $includesArray = array(
 	'navigationcomponent' => true,
 	'customJSModules' => array('public/extensions/FHC-Core-PEP/js/apps/PEPApp.js'),
 	'customCSSs' => array('public/extensions/FHC-Core-PEP/css/main.css'),
+	'tags' => true,
 );
 
 $this->load->view('templates/FHC-Header', $includesArray);

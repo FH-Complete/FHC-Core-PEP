@@ -21,7 +21,6 @@ export default {
 	watch: {
 		loadedData: {
 			handler(newValue) {
-
 				if (newValue.oldSemester)
 				{
 					this.oldStudiensemester = this.semester
@@ -30,10 +29,21 @@ export default {
 							const jahr = parseInt(item.slice(-4)) - 1;
 							return `<span style="color: red"> (SS${jahr})</span>`;
 						});
+
+					let column = this.$refs?.startTable.tabulator.getColumn('studiensemester_1_lehrauftrag');
+					if (column)
+					{
+						column.getElement().classList.add("highlight-alert");
+					}
 				}
 				else
 				{
 					this.oldStudiensemester = "";
+					let column = this.$refs?.startTable.tabulator.getColumn('studiensemester_1_lehrauftrag');
+					if (column)
+					{
+						column.getElement().classList.remove("highlight-alert");
+					}
 				}
 			},
 			deep: true
@@ -87,9 +97,9 @@ export default {
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
 					{title: 'Karenz', field: 'karenz', visible: false, formatter: formatter.karenzFormatter, headerFilter:"input"},
-					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
-					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
-					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
+					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: "", headerTooltip: "Zeitraum - Dienstverhältnis"},
+					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", headerTooltip: "Zeitraum - Stunden pro Woche"},
+					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea",  headerTooltip: "Zeitraum - Stunden pro Jahr"},
 
 					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
 					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
@@ -154,48 +164,6 @@ export default {
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
-		},
-		loadColumns(semester)
-		{
-			const tabulatorInstance = this.$refs?.startTable.tabulator;
-
-			if (this.columnsConfig.lehrauftraege) {
-				semester.forEach((studiensemester, index) => {
-					const fieldKey = `studiensemester_${index}_lehrauftrag`;
-					const title = `Lehraufträge ${studiensemester}`;
-					tabulatorInstance.updateColumnDefinition(fieldKey, { title: title, visible: true });
-				});
-
-				if (semester.length < 2) {
-					tabulatorInstance.hideColumn('studiensemester_1_lehrauftrag');
-				}
-			}
-
-			if (this.columnsConfig.projects) {
-				semester.forEach((studiensemester, index) => {
-					const fieldKey = `studiensemester_${index}_project`;
-					const title = `Projekte ${studiensemester}`;
-					tabulatorInstance.updateColumnDefinition(fieldKey, { title: title, visible: true });
-				});
-
-				if (semester.length < 2) {
-					tabulatorInstance.hideColumn('studiensemester_1_project');
-				}
-			}
-
-			if (this.columnsConfig.categories) {
-				this.columnsConfig.categories.forEach(kategorie => {
-					semester.forEach((studiensemester, index) => {
-						const fieldKey = `studiensemester_${index}_kategorie_${kategorie.kategorie_id}`;
-						const title = `${kategorie.beschreibung} ${studiensemester}`;
-						tabulatorInstance.updateColumnDefinition(fieldKey, { title: title, visible: true });
-						if (semester.length < 2) {
-							const fieldKey = `studiensemester_1_kategorie_${kategorie.kategorie_id}`;
-							tabulatorInstance.hideColumn(fieldKey);
-						}
-					});
-				});
-			}
 		},
 		createColumns(configKey, titlePrefix, formatter, mode = 'studiensemester', category = null)
 		{

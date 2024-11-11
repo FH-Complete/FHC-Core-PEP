@@ -36,6 +36,15 @@ class TabsConfig extends FHCAPI_Controller
 		$tabs = array();
 		$this->_getAdministration($tabs);
 
+		if ($this->_ci->config->item('content_id'))
+		{
+			$tabs['legende'] = array (
+				'title' =>  'Legende',
+				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Legende.js',
+				'config' => ['content_url' => APP_ROOT.'cms/content.php?content_id=' . $this->_ci->config->item('content_id')]
+			);
+		}
+
 		$tabs['start'] = array (
 			'title' =>  'Start',
 			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
