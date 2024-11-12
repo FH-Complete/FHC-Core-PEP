@@ -1,4 +1,4 @@
-export default {
+export const Tags = {
 	getTag(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/getTag'
@@ -14,13 +14,11 @@ export default {
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/addTag'
 		return this.$fhcApi.post(url, data)
 	},
-
 	updateTag(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/updateTag'
 		return this.$fhcApi.post(url, data)
 	},
-
 	doneTag(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/doneTag'
@@ -31,5 +29,4 @@ export default {
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/deleteTag'
 		return this.$fhcApi.post(url, data)
 	},
-
 };

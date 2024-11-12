@@ -1,4 +1,56 @@
 export const formatter = {
+	tagFormatter: function(cell, tagComponent)
+	{
+		let tags = cell.getValue();
+		let container = document.createElement('div');
+		container.className = "d-flex gap-1";
+		let parsedTags = JSON.parse(tags);
+		let maxVisibleTags = 2;
+
+		if (cell._expanded === undefined)
+		{
+			cell._expanded = false;
+		}
+		const renderTags = () => {
+			container.innerHTML = '';
+
+			parsedTags = parsedTags.filter(item => item !== null);
+			const tagsToShow = cell._expanded ? parsedTags : parsedTags.slice(0, maxVisibleTags);
+			tagsToShow.forEach(tag => {
+				if (tag === null)
+					return;
+
+				let tagElement = document.createElement('span');
+				tagElement.innerText = tag.beschreibung;
+				tagElement.title = tag.notiz;
+				tagElement.className = tag.style;
+				if (tag.done)
+					tagElement.className += " tag-done";
+
+				container.appendChild(tagElement);
+				tagElement.addEventListener('click', (event) => {
+					tagComponent.editTag(tag.id);
+				});
+			});
+
+			if (parsedTags.length > maxVisibleTags)
+			{
+				let toggleTagElement = document.createElement('button');
+				toggleTagElement.innerText = cell._expanded ? '- ' : '+ ';
+				toggleTagElement.innerText += `${parsedTags.length - maxVisibleTags}`;
+				toggleTagElement.className = "btn btn-secondary btn-sm";
+				toggleTagElement.title = cell._expanded ? "Tags ausblenden" : "Tags einblenden";
+				container.appendChild(toggleTagElement);
+				toggleTagElement.addEventListener('click', () => {
+					cell._expanded = !cell._expanded;
+					renderTags();
+				});
+			}
+		};
+
+		renderTags();
+		return container;
+	},
 	datumFormatter: function(e, cell)
 	{
 		let value = cell.getValue();

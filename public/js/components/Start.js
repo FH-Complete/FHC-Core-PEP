@@ -2,6 +2,7 @@ import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {formatter} from "../mixins/formatters";
 import FhcLoader from '../../../../js/components/Loader.js';
+import Tag from '../../../../js/components/Tag/Tag.js';
 
 
 export default {
@@ -16,7 +17,8 @@ export default {
 	components: {
 		CoreFilterCmpt,
 		CoreBaseLayout,
-		FhcLoader
+		FhcLoader,
+		Tag,
 	},
 	watch: {
 		loadedData: {
@@ -59,7 +61,8 @@ export default {
 			projectsConfig: {},
 			loadedData: {},
 			oldStudiensemester: "",
-			isOldSemesterLoaded: false
+			isOldSemesterLoaded: false,
+			selectedColumnValues: [],
 		}
 	},
 
@@ -92,6 +95,13 @@ export default {
 						},
 						headerSort: false,
 						width: 70
+					},
+					{
+						title: 'Tags',
+						field: 'tags',
+						tooltip: false,
+						headerFilter: true,
+						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent)
 					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
@@ -138,6 +148,67 @@ export default {
 		}
 	},
 	methods: {
+		updateSelectedRows() {
+			this.selectedRows = this.$refs.startTable.tabulator.getSelectedRows();
+			this.selectedColumnValues = this.selectedRows.map(row => row.getData().uid);
+		},
+		addedTag(addedTag)
+		{
+			this.selectedRows.forEach(row => {
+				const rowData = row.getData();
+				if (addedTag.response === "")
+				{
+					if (this.selectedColumnValues.includes(rowData.uid))
+					{
+						let tags = JSON.parse(rowData.tags);
+						tags.push(addedTag)
+						rowData.tags = JSON.stringify(tags);
+						row.update(rowData);
+					}
+				}
+				else
+				{
+					addedTag.response.forEach(tag => {
+						if (rowData.uid === tag.mitarbeiter_uid) {
+							let tags = JSON.parse(rowData.tags);
+							addedTag.id = tag.id;
+							tags.push(addedTag);
+							rowData.tags = JSON.stringify(tags);
+							row.update(rowData);
+						}
+					});
+				}
+			});
+		},
+		deletedTag(deletedTag)
+		{
+			this.$refs.startTable.tabulator.getRows().forEach(row => {
+				const rowData = row.getData();
+				let tags = JSON.parse(rowData.tags);
+				tags = tags.filter(tag => tag?.id !== deletedTag);
+				const updatedTags = JSON.stringify(tags);
+				if (updatedTags !== rowData.tags) {
+					rowData.tags = updatedTags;
+					row.update(rowData);
+				}
+			});
+		},
+		updatedTag(updatedTag) {
+			this.$refs.startTable.tabulator.getRows().forEach(row => {
+				const rowData = row.getData();
+				let tags = JSON.parse(rowData.tags);
+				const tagIndex = tags.findIndex(tag => tag?.id === updatedTag.id);
+				if (tagIndex !== -1) {
+					tags[tagIndex] = updatedTag;
+					const updatedTags = JSON.stringify(tags);
+					if (updatedTags !== rowData.tags)
+					{
+						rowData.tags = updatedTags;
+						row.update(rowData);
+					}
+				}
+			});
+		},
 		async loadData(data)
 		{
 			if (this.loadedData.studienjahr !== data.studienjahr)
@@ -266,6 +337,7 @@ export default {
 			this.getCategoriesConfig()
 				.then(() => this.theModel = { ...this.modelValue, loadDataReady: true })
 		},
+
 	},
 	template: `
 		<core-base-layout>
@@ -280,12 +352,20 @@ export default {
 				<core-filter-cmpt
 					ref="startTable"
 					:tabulator-options="tabulatorOptions"
-					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }]"
+					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'rowSelectionChanged', handler: updateSelectedRows }]"
 					:table-only=true
 					:side-menu="false"
 					:hideTopMenu=false
 				>
-				<template #actions></template>
+				<template #actions>
+				<Tag ref="tagComponent"
+							:endpoint="$fhcApi.factory.pep_start_tab_tags"
+							:values="selectedColumnValues"
+							@added="addedTag"
+							@deleted="deletedTag"
+							@updated="updatedTag"
+						></Tag>
+						</template>
 				</core-filter-cmpt>
 			</template>
 		</core-base-layout>
