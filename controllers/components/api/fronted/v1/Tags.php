@@ -19,8 +19,47 @@ class Tags extends Tag_Controller
 			'updateLehre' => self::BERECHTIGUNG_KURZBZ,
 			'doneLehre' => self::BERECHTIGUNG_KURZBZ,
 			'deleteLehre' => self::BERECHTIGUNG_KURZBZ,
+			'addMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
+			'deleteMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
 		]);
 
 		$this->_ci = &get_instance();
+		$this->load->model('extensions/FHC-Core-PEP/PEP_Notiz_Mitarbeiter_model', 'PEPNotizMitarbeiterModel');
+	}
+
+
+	public function addMitarbeiterTag()
+	{
+		$postData = $this->getPostJson();
+
+		$return = array();
+		foreach ($postData->values as $value)
+		{
+			$insertResult = parent::addTag(false);
+
+			$insertZuordnung = $this->PEPNotizMitarbeiterModel->insert(array(
+				'notiz_id' => $insertResult,
+				'mitarbeiter_uid' => $value
+			));
+
+			if (isError($insertZuordnung))
+				$this->terminateWithError('Error occurred', self::ERROR_TYPE_GENERAL);
+			$return[] = ['mitarbeiter_uid' => $value, 'id' => $insertResult];
+		}
+		$this->terminateWithSuccess($return);
+	}
+	public function deleteMitarbeiterTag()
+	{
+		$postData = $this->getPostJson();
+
+		$deleteZuordnung = $this->PEPNotizMitarbeiterModel->delete(array(
+			'notiz_id' => $postData->id
+		));
+
+		if (isSuccess($deleteZuordnung))
+		{
+			parent::deleteTag(false);
+		}
+
 	}
 }
