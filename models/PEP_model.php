@@ -629,8 +629,7 @@ class PEP_model extends DB_Model
 					public.tbl_notizzuordnung
 					JOIN public.tbl_notiz ON tbl_notizzuordnung.notiz_id = tbl_notiz.notiz_id
 					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
-			) AS tag_data
-				ON tbl_lehreinheit.lehreinheit_id = tag_data.lehreinheit_id
+			) AS tag_data ON tbl_lehreinheit.lehreinheit_id = tag_data.lehreinheit_id
 		WHERE
 			tbl_lehreinheit.studiensemester_kurzbz IN ?
 		AND (
@@ -896,8 +895,30 @@ class PEP_model extends DB_Model
 						AND (tbl_vertragsbestandteil.bis >= NOW() OR tbl_vertragsbestandteil.bis IS NULL)
 						AND vertragsbestandteiltyp_kurzbz = 'karenz'
 					ORDER BY tbl_vertragsbestandteil.von DESC NULLS LAST
+				),
+				tag_data AS (
+					SELECT
+						DISTINCT ON (tbl_notiz.notiz_id)
+						tbl_notiz.notiz_id AS id,
+						typ_kurzbz,
+						array_to_json(tbl_notiz_typ.bezeichnung_mehrsprachig)->>0 AS beschreibung,
+						tbl_notiz.text as notiz,
+						tbl_notiz_typ.style,
+						tbl_notiz.erledigt as done,
+						mitarbeiter_uid
+					FROM
+						extension.tbl_pep_notiz_mitarbeiter
+						JOIN public.tbl_notiz ON tbl_pep_notiz_mitarbeiter.notiz_id = tbl_notiz.notiz_id
+						JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
+					ORDER BY tbl_notiz.notiz_id
 				)
 			SELECT
+				COALESCE((
+				SELECT array_to_json(array_agg(DISTINCT tag_data))
+					FROM tag_data
+					WHERE tag_data.mitarbeiter_uid = ma.mitarbeiter_uid),
+					'[]'::json
+				) AS tags,
 				zv.dienstverhaeltnis_id,
 				zv.von AS von,
 				zv.bis AS bis,

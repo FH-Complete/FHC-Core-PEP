@@ -91,56 +91,7 @@ export default {
 						field: 'tags',
 						tooltip: false,
 						headerFilter: true,
-						formatter: (cell) => {
-							let tags = cell.getValue();
-							let container = document.createElement('div');
-							container.className = "d-flex gap-1";
-							let parsedTags = JSON.parse(tags);
-							let maxVisibleTags = 2;
-
-							if (cell._expanded === undefined)
-							{
-								cell._expanded = false;
-							}
-							const renderTags = () => {
-								container.innerHTML = '';
-
-								const tagsToShow = cell._expanded ? parsedTags : parsedTags.slice(0, maxVisibleTags);
-								tagsToShow.forEach(tag => {
-									if (tag === null)
-										return;
-
-									let tagElement = document.createElement('span');
-									tagElement.innerText = tag.beschreibung;
-									tagElement.title = tag.notiz;
-									tagElement.className = tag.style;
-									if (tag.done)
-										tagElement.className += " tag-done";
-
-									container.appendChild(tagElement);
-									tagElement.addEventListener('click', (event) => {
-										this.$refs.tagComponent.editTag(tag.id);
-									});
-								});
-
-								if (parsedTags.length > maxVisibleTags)
-								{
-									let toggleTagElement = document.createElement('button');
-									toggleTagElement.innerText = cell._expanded ? '- ' : '+ ';
-									toggleTagElement.innerText += `${parsedTags.length - maxVisibleTags}`;
-									toggleTagElement.className = "btn btn-secondary btn-sm";
-									toggleTagElement.title = cell._expanded ? "Tags ausblenden" : "Tags einblenden";
-									container.appendChild(toggleTagElement);
-									toggleTagElement.addEventListener('click', () => {
-										cell._expanded = !cell._expanded;
-										renderTags();
-									});
-								}
-							};
-
-							renderTags();
-							return container;
-						}
+						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent)
 					},
 					{
 						title: 'Aktionen',
@@ -286,7 +237,6 @@ export default {
 			this.selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
 			this.selectedColumnValues = this.selectedRows.map(row => row.getData().lehreinheit_id);
 			//this.selectedColumnValues = [...new Set(this.selectedRows.map(row => row.getData().lehreinheit_id))];
-
 		},
 
 		newSideMenuEntryHandler: function (payload)
@@ -618,11 +568,11 @@ export default {
 			};
 			this.selectedRow = null;
 		},
+		//TODO (david) die Tag Logik gehört zsm gefasst
 		addedTag(addedTag)
 		{
 			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
 				const rowData = row.getData();
-
 				if (addedTag.response === "")
 				{
 					if (this.selectedColumnValues.includes(rowData.lehreinheit_id))
