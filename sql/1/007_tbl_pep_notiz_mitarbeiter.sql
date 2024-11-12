@@ -1,4 +1,4 @@
-CREATE TABLE extension.tbl_pep_notiz_mitarbeiter
+CREATE TABLE IF NOT EXISTS extension.tbl_pep_notiz_mitarbeiter
 (
     notiz_id integer NOT NULL,
     mitarbeiter_uid varchar(32) NOT NULL
