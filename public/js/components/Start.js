@@ -70,7 +70,6 @@ export default {
 		tabulatorOptions()
 		{
 			return {
-				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: function(row) {
@@ -85,7 +84,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_10_09_pep_start",
+				persistenceID: "2024_12_03_pep_start",
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -94,14 +93,15 @@ export default {
 							rowRange: "active"
 						},
 						headerSort: false,
-						width: 70
+						width: 40
 					},
 					{
 						title: 'Tags',
 						field: 'tags',
 						tooltip: false,
 						headerFilter: true,
-						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent)
+						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
+						width: 150,
 					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
@@ -217,7 +217,13 @@ export default {
 			this.loadedData = data;
 			await this.$fhcApi.factory.pep.getStart(data)
 				.then(response => {
-					this.$refs?.startTable.tabulator.setData(response.data)
+					if (response.data.length === 0)
+					{
+						this.$fhcAlert.alertInfo("Start: Keine Daten vorhanden");
+						this.$refs.startTable.tabulator.setData([]);
+					}
+					else
+						this.$refs.startTable.tabulator.setData(response.data);
 				})
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);

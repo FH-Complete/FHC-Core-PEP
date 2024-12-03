@@ -43,7 +43,7 @@ export default {
 				von: '',
 				bis: ''
 			},
-			columnsToMark: ['summe_planstunden', 'stunden']
+			columnsToMark: ['stunden', 'anmerkung']
 
 		}
 	},
@@ -57,18 +57,15 @@ export default {
 				index: "row_index",
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
-				selectable: false,
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: (row) =>
 				{
 					if (row.getElement().classList.contains("tabulator-calcs"))
 						return;
 					let data = row.getData();
-					let children = row.getElement().childNodes;
 					let columns = row.getTable().getColumns();
-					if (data.stunden === null && data.summe_planstunden !== null)
+					if ((data.stunden === null && data.anmerkung === null) && data.summe_planstunden !== null)
 					{
-
 						this.columnsToMark.forEach((spaltenName) => {
 							let column = columns.find(col => col.getField() === spaltenName);
 							if (column) {
@@ -88,7 +85,17 @@ export default {
 						});
 					}
 				},
+				persistenceID: "2024_12_03_pep_project",
 				columns: [
+					{
+						formatter: 'rowSelection',
+						titleFormatter: 'rowSelection',
+						titleFormatterParams: {
+							rowRange: "active"
+						},
+						headerSort: false,
+						width: 40
+					},
 					{
 						title: 'Aktionen',
 						field: 'actions',
@@ -125,20 +132,54 @@ export default {
 						editor: "number",
 						bottomCalcParams: {precision: 2},
 						bottomCalc: "sum",
-						cellEdited: (cell) => {
-							this.stundenEdited(cell);
-						},
 						hozAlign: "right",
 						negativeSign: false,
-						formatter: function (cell, formatterParams, onRendered)
-						{
+						cellEdited: (cell) => {
 							let value = cell.getValue();
+							let oldValue = cell.getOldValue();
+
+
+							if (oldValue === null && value === null)
+							{
+								value = null;
+							}
+							else if (value === "" )
+							{
+								value = parseFloat(0).toFixed(2);
+							}
+							else if (!isNaN(value))
+							{
+								value = parseFloat(value).toFixed(2);
+							}
+							return value;
+						},
+						formatter: function (cell, formatterParams, onRendered) {
+							let value = cell.getValue();
+							let row = cell.getRow();
+							let anmerkungValue = row.getData().anmerkung;
+							let oldValue = cell.getOldValue();
+
 							if (value === null)
 								return;
+
 							if (value === "")
 								return null;
+							{
+								if (anmerkungValue && anmerkungValue.trim() !== "")
+								{
+									return parseFloat(0).toFixed(2);
+								}
+								if (oldValue === null || oldValue === "")
+								{
+									return;
+								}
+								return parseFloat(0).toFixed(2);
+							}
+
 							if (!isNaN(value))
+							{
 								return parseFloat(value).toFixed(2);
+							}
 						},
 						validator: ["numeric", {
 							type: function(cell, value, parameters)
@@ -161,10 +202,7 @@ export default {
 						]
 					},
 					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", visible: true, editor: "textarea",
-						formatter: "textarea",
-						cellEdited: (cell) => {
-							this.anmerkungEdited(cell);
-						},
+						formatter: "textarea"
 					},
 					{title: 'Startdatum', field: 'start_date', headerFilter: true, visible: false},
 					{title: 'Enddatum', field: 'end_date', headerFilter: true, visible: false},
@@ -181,7 +219,6 @@ export default {
 					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 
 				],
-				persistenceID: "2024_10_16s_pep_project"
 			}
 		},
 		theModel: {
@@ -285,31 +322,34 @@ export default {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
-
-		stundenEdited(cell)
+		onCellEdited(cell)
 		{
 			let value = cell.getValue();
-			let row = cell.getRow();
+			let oldValue = cell.getOldValue();
+			let field = cell.getField();
 
-			if (parseFloat(value).toFixed(2) === parseFloat(cell.getOldValue()).toFixed(2))
-				return;
-			else if (cell.getOldValue() === null && value === "")
-				value = null;
-			else if (value === "")
-				value = 0
+			if (field === "stunden")
+			{
+				if (parseFloat(value).toFixed(2) === parseFloat(cell.getOldValue()).toFixed(2))
+					return;
 
-			this.updateStunden(row)
+				let row = cell.getRow();
+				this.updateStunden(row);
+			}
+			else if (field === "anmerkung")
+			{
+				if ((value === "" || value === null) && (oldValue === "" || oldValue === null))
+				{
+					return;
+				}
 
-		},
-		anmerkungEdited(cell)
-		{
-			let value = cell.getValue();
-			let row = cell.getRow();
+				if (value === oldValue) {
+					return;
+				}
 
-			if (value === cell.getOldValue())
-				return;
-
-			this.updateStunden(row)
+				let row = cell.getRow();
+				this.updateStunden(row);
+			}
 
 		},
 		async updateStunden(row)
@@ -445,16 +485,18 @@ export default {
 	template: `
 		<core-base-layout>
 			<template #main>
+				<h5>{{$p.t('lehre', 'studienjahr')}}: {{theModel?.config?.studienjahr}}</h5>
 				<core-filter-cmpt
 					ref="projectTable"
 					:tabulator-options="tabulatorOptions"
-					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }]"
+					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'cellEdited', handler: onCellEdited }]"
 					:table-only=true
 					:side-menu="false"
 					:hideTopMenu=false
-					new-btn-label="Zeile"
-					new-btn-show
-					@click:new="addData">
+					:countOnly="true">
+					<template #actions>
+						<button class="btn btn-primary" @click="addData">Mitarbeiter hinzufügen</button>
+					</template>
 				</core-filter-cmpt>
 				<bs-modal ref="newModal" class="bootstrap-prompt" dialogClass="modal-lg" @hidden-bs-modal="reset">
 					<template #title>Stunden hinzufügen</template>

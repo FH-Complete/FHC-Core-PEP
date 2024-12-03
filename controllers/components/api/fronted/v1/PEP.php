@@ -181,16 +181,17 @@ class PEP extends FHCAPI_Controller
 		}
 
 		$allMitarbeiterUid = $this->_getMitarbeiterUids($org, $studiensemester, $recursive === "true");
-		$mitarbeiterDataArray = array();
 		$allMitarbeiter = $this->_ci->PEPModel->_getDVs($allMitarbeiterUid, (isEmptyString($studienjahr) ? null : $studienjahr), isEmptyString($studienjahr) ? $studiensemester : null);
 
+		if (!hasData($allMitarbeiter))
+			$this->terminateWithSuccess([]);
+
+		$mitarbeiterDataArray = array();
 		$projectColumnsStudiensemester = $this->_ci->config->item('projects_columns') === 'studiensemester';
 		$categoriesColumnsStudiensemester = $this->_ci->config->item('category_columns') === 'studiensemester';
-
 		foreach (getData($allMitarbeiter) as $mitarbeiter)
 		{
 			$mitarbeiterData = $mitarbeiter;
-
 
 			$mitarbeiterData->karenz = isEmptyString($mitarbeiter->karenzvon);
 
@@ -354,9 +355,13 @@ class PEP extends FHCAPI_Controller
 
 		$uniqueMitarbeiter = array_unique(array_column($allMitarbeiter, 'uid'));
 
+		$dienstverhaeltnisse = $this->_ci->PEPModel->_getDVs($uniqueMitarbeiter, null, $studiensemester);
+
+		if (!hasData($dienstverhaeltnisse))
+			$this->terminateWithSuccess([]);
+
 		$mitarbeiterInfos = [];
 
-		$dienstverhaeltnisse = $this->_ci->PEPModel->_getDVs($uniqueMitarbeiter, null, $studiensemester);
 		foreach (getData($dienstverhaeltnisse) as $mitarbeiter)
 		{
 			$mitarbeiterInfos[$mitarbeiter->mitarbeiter_uid] = (object) [
@@ -393,38 +398,6 @@ class PEP extends FHCAPI_Controller
 		}
 
 		$this->terminateWithSuccess(($mitarbeiterDataArray));
-
-
-		$mitarbeiterInfos = [];
-
-		foreach ($uniqueMitarbeiter as $mitarbeiter)
-		{
-			$mitarbeiterInfos[$mitarbeiter] = new stdClass();
-
-			$mitarbeiterInfos[$mitarbeiter]->vertraege = isset($dienstverhaeltnis->vertraege) ? $dienstverhaeltnis->vertraege : '-';
-			$mitarbeiterInfos[$mitarbeiter]->wochenstundenstunden = isset($dienstverhaeltnis->wochenstundenstunden) ? $dienstverhaeltnis->wochenstundenstunden : '-';
-			$mitarbeiterInfos[$mitarbeiter]->aktbezeichnung = isset($dienstverhaeltnis->aktbezeichnung) ? $dienstverhaeltnis->aktbezeichnung : '-';
-			$mitarbeiterInfos[$mitarbeiter]->aktorgbezeichnung = isset($dienstverhaeltnis->aktorgbezeichnung) ? $dienstverhaeltnis->aktorgbezeichnung : '-';
-			$mitarbeiterInfos[$mitarbeiter]->aktparentbezeichnung = isset($dienstverhaeltnis->aktparentbezeichnung) ? $dienstverhaeltnis->aktparentbezeichnung : '-';
-			$mitarbeiterInfos[$mitarbeiter]->aktstunden = isset($dienstverhaeltnis->aktstunden) ? $dienstverhaeltnis->aktstunden : '-';
-			$mitarbeiterInfos[$mitarbeiter]->stundensaetze_lehre_aktuell = isset($dienstverhaeltnis->stundensaetze_lehre_aktuell) ? $dienstverhaeltnis->stundensaetze_lehre_aktuell : '-';
-			$mitarbeiterInfos[$mitarbeiter]->stundensaetze_lehre = isset($dienstverhaeltnis->stundensaetze_lehre) ? $dienstverhaeltnis->stundensaetze_lehre : '-';
-		}
-
-		foreach ($allMitarbeiter as $mitarbeiter)
-		{
-			$mitarbeiterData = $mitarbeiter;
-			$mitarbeiterData->vertraege = $mitarbeiterInfos[$mitarbeiter->uid]->vertraege;
-			$mitarbeiterData->aktorgbezeichnung = $mitarbeiterInfos[$mitarbeiter->uid]->aktorgbezeichnung;
-			$mitarbeiterData->aktparentbezeichnung = $mitarbeiterInfos[$mitarbeiter->uid]->aktparentbezeichnung;
-			$mitarbeiterData->aktstunden = $mitarbeiterInfos[$mitarbeiter->uid]->aktstunden;
-			$mitarbeiterData->wochenstundenstunden = $mitarbeiterInfos[$mitarbeiter->uid]->wochenstundenstunden;
-			$mitarbeiterData->aktbezeichnung = $mitarbeiterInfos[$mitarbeiter->uid]->aktbezeichnung;
-			$mitarbeiter->stundensaetze_lehre_aktuell = $mitarbeiterInfos[$mitarbeiter->uid]->stundensaetze_lehre_aktuell;
-			$mitarbeiter->stundensaetze_lehre = $mitarbeiterInfos[$mitarbeiter->uid]->stundensaetze_lehre;
-			$mitarbeiterDataArray[] = $mitarbeiterData;
-		}
-		$this->terminateWithSuccess($mitarbeiterDataArray);
 	}
 
 	public function getCategory()
@@ -442,12 +415,15 @@ class PEP extends FHCAPI_Controller
 		$studiensemestern = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
 
 		$mitarbeiter_uids = $this->_getMitarbeiterUids($org, $studiensemestern, $recursive === "true");
+
 		$categoryData = $this->_ci->PEPModel->getCategoryData($mitarbeiter_uids, $category, $studienjahr);
 
+		$dienstverhaeltnisse = $this->_ci->PEPModel->_getDVs($mitarbeiter_uids, $studienjahr);
+
+		if (!hasData($dienstverhaeltnisse))
+			$this->terminateWithSuccess([]);
 
 		$mitarbeiterInfos = [];
-
-		$dienstverhaeltnisse = $this->_ci->PEPModel->_getDVs($mitarbeiter_uids, $studienjahr);
 
 		foreach (getData($dienstverhaeltnisse) as $mitarbeiter)
 		{
@@ -467,23 +443,26 @@ class PEP extends FHCAPI_Controller
 
 
 		$mitarbeiterDataArray = [];
-		foreach (getData($categoryData) as $empCategoryData)
+		if (hasData($categoryData))
 		{
-			$mitarbeiterData = clone $empCategoryData;
-			$info = isset($mitarbeiterInfos[$empCategoryData->mitarbeiter_uid]) ? $mitarbeiterInfos[$empCategoryData->mitarbeiter_uid] : new stdClass();
+			foreach (getData($categoryData) as $empCategoryData)
+			{
+				$mitarbeiterData = clone $empCategoryData;
+				$info = isset($mitarbeiterInfos[$empCategoryData->mitarbeiter_uid]) ? $mitarbeiterInfos[$empCategoryData->mitarbeiter_uid] : new stdClass();
 
-			$mitarbeiterData->zrm_vertraege = $info->zrm_vertraege;
-			$mitarbeiterData->zrm_wochenstunden = $info->zrm_wochenstunden;
-			$mitarbeiterData->zrm_jahresstunden = $info->zrm_jahresstunden;
-			$mitarbeiterData->zrm_stundensatz_lehre = $info->zrm_stundensatz_lehre;
+				$mitarbeiterData->zrm_vertraege = $info->zrm_vertraege;
+				$mitarbeiterData->zrm_wochenstunden = $info->zrm_wochenstunden;
+				$mitarbeiterData->zrm_jahresstunden = $info->zrm_jahresstunden;
+				$mitarbeiterData->zrm_stundensatz_lehre = $info->zrm_stundensatz_lehre;
 
-			$mitarbeiterData->akt_bezeichnung = $info->akt_bezeichnung;
-			$mitarbeiterData->akt_orgbezeichnung = $info->akt_orgbezeichnung;
-			$mitarbeiterData->akt_parentbezeichnung = $info->akt_parentbezeichnung;
-			$mitarbeiterData->akt_stunden = $info->akt_stunden;
-			$mitarbeiterData->akt_stundensaetze_lehre = $info->akt_stundensaetze_lehre;
+				$mitarbeiterData->akt_bezeichnung = $info->akt_bezeichnung;
+				$mitarbeiterData->akt_orgbezeichnung = $info->akt_orgbezeichnung;
+				$mitarbeiterData->akt_parentbezeichnung = $info->akt_parentbezeichnung;
+				$mitarbeiterData->akt_stunden = $info->akt_stunden;
+				$mitarbeiterData->akt_stundensaetze_lehre = $info->akt_stundensaetze_lehre;
 
-			$mitarbeiterDataArray[] = $mitarbeiterData;
+				$mitarbeiterDataArray[] = $mitarbeiterData;
+			}
 		}
 
 		$this->terminateWithSuccess($mitarbeiterDataArray);
@@ -596,6 +575,7 @@ class PEP extends FHCAPI_Controller
 		$studiensemester = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
 		if (!hasData($studiensemester))
 			$this->terminateWithSuccess(false);
+
 		$studiensemester = array_column(getData($studiensemester), 'studiensemester_kurzbz');
 		$mitarbeiteruids = $this->_ci->_getMitarbeiterUids($data->org, $studiensemester, true);
 
@@ -610,6 +590,9 @@ class PEP extends FHCAPI_Controller
 			(property_exists($data, 'studienjahr')) &&
 			(property_exists($data, 'stunden')))
 		{
+			if (isEmptyString($data->lektor) || isEmptyString($data->project) || isEmptyString($data->studienjahr) || isEmptyString($data->stunden))
+				$this->terminateWithSuccess(false);
+
 			$exist = $this->_ci->PEPProjectsEmployeesModel->loadWhere(array(
 				'projekt_id' => $data->project,
 				'mitarbeiter_uid' => $data->lektor,
@@ -676,7 +659,7 @@ class PEP extends FHCAPI_Controller
 					$updateResult = $this->_ci->PEPProjectsEmployeesModel->update(
 						array('pep_projects_employees_id' => $data->id),
 						array(
-							'stunden' => $data->stunden,
+							'stunden' => is_numeric($data->stunden) ? $data->stunden : 0,
 							'anmerkung' => isset($data->anmerkung) ? ($data->anmerkung) : null,
 							'updatevon' => $this->_uid,
 							'updateamum' => date('Y-m-d H:i:s'),
@@ -691,7 +674,8 @@ class PEP extends FHCAPI_Controller
 				$result = $this->_ci->PEPProjectsEmployeesModel->insert(array(
 					'projekt_id' => $data->project_id,
 					'mitarbeiter_uid' => $data->uid,
-					'stunden' => $data->stunden,
+					'stunden' => is_numeric($data->stunden) ? $data->stunden : 0,
+					'anmerkung' => isset($data->anmerkung) ? ($data->anmerkung) : null,
 					'studienjahr_kurzbz' =>  $data->studienjahr,
 					'insertamum' => date('Y-m-d H:i:s'),
 					'insertvon' => $this->_uid
@@ -822,7 +806,7 @@ class PEP extends FHCAPI_Controller
 				'kategorie_id' =>  $mitarbeiterCategory->kategorie,
 				'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
 				'studienjahr_kurzbz' => $mitarbeiterCategory->studienjahr,
-				'stunden' => $mitarbeiterCategory->stunden,
+				'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
 				'anmerkung' => $mitarbeiterCategory->anmerkung,
 				'insertamum' => date('Y-m-d H:i:s'),
 				'insertvon' => $this->_uid
@@ -863,7 +847,7 @@ class PEP extends FHCAPI_Controller
 					$result = $this->_ci->PEPKategorieMitarbeiterModel->update(
 						array($stunden_exists->kategorie_mitarbeiter_id),
 						array(
-							'stunden' => $mitarbeiterCategory->stunden,
+							'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
 							'anmerkung' => $mitarbeiterCategory->anmerkung,
 							'updatevon' => $this->_uid,
 							'updateamum' => date('Y-m-d H:i:s'),
@@ -908,14 +892,16 @@ class PEP extends FHCAPI_Controller
 		if (!property_exists($data, 'studiensemester'))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
-		if ((property_exists($data, 'raumtyp')) &&
-			(property_exists($data->raumtyp, 'raumtyp_kurzbz')) &&
+		if (
 			(property_exists($data, 'lehreinheit_id')) &&
+			/*
+			(property_exists($data, 'raumtyp')) &&
+			(property_exists($data->raumtyp, 'raumtyp_kurzbz')) &&
 			(property_exists($data, 'raumtypalternativ')) &&
 			(property_exists($data->raumtypalternativ, 'raumtyp_kurzbz')) &&
 			(property_exists($data, 'start_kw')) &&
 			(property_exists($data, 'stundenblockung')) &&
-			(property_exists($data, 'wochenrythmus')) &&
+			(property_exists($data, 'wochenrythmus')) &&*/
 			(property_exists($data, 'anmerkung')) &&
 			(property_exists($data, 'lektor')) &&
 			(property_exists($data->lektor, 'uid')) &&
@@ -939,24 +925,25 @@ class PEP extends FHCAPI_Controller
 			if (isError($result))
 				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);;*/
 
-			$result = $this->_ci->LehreinheitmitarbeiterModel->update(
-				array(
-					'lehreinheit_id' => $data->lehreinheit_id,
-					'mitarbeiter_uid' => $data->oldlektor
-				),
-				array(
-					'mitarbeiter_uid' => $data->lektor->uid,
-					'anmerkung' => $data->anmerkung,
-					'updateamum' => date('Y-m-d H:i:s'),
-					'updatevon' => $this->_uid
-				)
-			);
 
+			$this->_ci->load->model('ressource/Mitarbeiter_model', 'MitarbeiterModel');
+			$fixangestellt = getData($this->_ci->MitarbeiterModel->isMitarbeiter($data->lektor->uid, true));
+			$this->_ci->load->model('ressource/Stundensatz_model', 'StundensatzModel');
 			$successUpdated = [];
 			if (!isEmptyArray($data->lehreinheit_ids))
 			{
 				foreach ($data->lehreinheit_ids as $lehreinheit)
 				{
+					if (!$fixangestellt)
+					{
+						$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $lehreinheit->le_semester));
+						$semester = getData($semester)[0];
+						$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
+						$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
+					}
+					else
+						$stundensatzResult = null;
+
 					$result = $this->_ci->LehreinheitmitarbeiterModel->update(
 						array(
 							'lehreinheit_id' => $lehreinheit->lehreinheit_id,
@@ -965,16 +952,44 @@ class PEP extends FHCAPI_Controller
 						array(
 							'mitarbeiter_uid' => $data->lektor->uid,
 							'updateamum' => date('Y-m-d H:i:s'),
-							'updatevon' => $this->_uid
+							'updatevon' => $this->_uid,
+							'stundensatz' => $stundensatzResult
 						)
 					);
 
 					if (isError($result))
 						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 
-					$successUpdated[] = ['id' => $lehreinheit->row_index];
+					$successUpdated[] = ['id' => $lehreinheit->row_index, 'le_stundensatz' => $stundensatzResult];
 				}
 			}
+			else
+			{
+				if (!$fixangestellt)
+				{
+					$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $data->le_semester));
+					$semester = getData($semester)[0];
+					$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
+					$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
+				}
+				else
+					$stundensatzResult = null;
+
+				$result = $this->_ci->LehreinheitmitarbeiterModel->update(
+					array(
+						'lehreinheit_id' => $data->lehreinheit_id,
+						'mitarbeiter_uid' => $data->oldlektor
+					),
+					array(
+						'mitarbeiter_uid' => $data->lektor->uid,
+						'anmerkung' => $data->anmerkung,
+						'updateamum' => date('Y-m-d H:i:s'),
+						'updatevon' => $this->_uid,
+						'stundensatz' => $stundensatzResult
+					)
+				);
+			}
+
 			if (isError($result))
 				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 
@@ -998,7 +1013,7 @@ class PEP extends FHCAPI_Controller
 
 			$returnData->akt_orgbezeichnung = isset($dv->akt_orgbezeichnung) ? $dv->akt_orgbezeichnung : '-';
 			$returnData->akt_parentbezeichnung = isset($dv->akt_parentbezeichnung) ? $dv->akt_parentbezeichnung : '-';
-			$returnData->le_stundensatz = isset($dv->le_stundensatz) ? $dv->le_stundensatz : '-';
+			$returnData->le_stundensatz = isset($stundensatzResult) ? $stundensatzResult : '-';
 			$returnData->akt_stunden = isset($dv->akt_stunden) ? $dv->akt_stunden : '-';
 
 			$returnData->akt_stundensaetze_lehre = isset($dv->akt_stundensaetze_lehre) ? $dv->akt_stundensaetze_lehre : '-';
@@ -1188,7 +1203,7 @@ class PEP extends FHCAPI_Controller
 	private function _getMitarbeiterUids($org, $studiensemester, $recursive)
 	{
 		$allMitarbeiter = $this->_ci->PEPModel->getMitarbeiter($org, $studiensemester, $recursive);
-		$mitarbeiter_uids = array();
+		$mitarbeiter_uids = array('');
 		if (hasData($allMitarbeiter))
 			$mitarbeiter_uids = array_column(getData($allMitarbeiter), 'uid');
 		return $mitarbeiter_uids;

@@ -35,10 +35,9 @@
 }
 
 .highlight-warning {
-	color: #856404 !important;
-	background-color: #fff3cd !important;
-	border-color: #ffeeba !important;
-	transition: background-color 0.5s ease-in-out;
+	background-color: #f6fac7 !important;
+	border: 1px solid #ffeeba !important;
+	transition: background-color 0.5s ease-in-out, box-shadow 0.3s ease-in-out;
 }
 
 .highlight-info {
@@ -48,10 +47,10 @@
 	transition: background-color 0.5s ease-in-out;
 }
 
-#resetHoursButton{
+.resetHoursButton{
 	opacity: 0.5
 }
-#resetHoursButton:hover{
+.resetHoursButton:hover{
 	opacity: 1.0
 }
 
