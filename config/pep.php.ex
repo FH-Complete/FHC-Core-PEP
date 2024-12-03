@@ -38,3 +38,6 @@ $config['project_id_list'] = array(
 
 // content ID for CMS reference
 $config['content_id'] = XXX
+
+//defines which tags are displayed in the "Planning Status" column
+$config['planungsstatus_tags'] = array('');

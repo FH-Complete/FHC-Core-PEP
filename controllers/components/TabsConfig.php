@@ -54,7 +54,7 @@ class TabsConfig extends FHCAPI_Controller
 		$tabs['lehre'] = array (
 			'title' =>  'Lehre',
 			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Lehre.js',
-			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true]
+			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true, 'planungsstatus' => $this->_ci->config->item('planungsstatus_tags')]
 		);
 
 		if ($this->_ci->config->item('enable_projects') === true)

@@ -38,7 +38,7 @@ export const formatter = {
 				let toggleTagElement = document.createElement('button');
 				toggleTagElement.innerText = cell._expanded ? '- ' : '+ ';
 				toggleTagElement.innerText += `${parsedTags.length - maxVisibleTags}`;
-				toggleTagElement.className = "btn btn-secondary btn-sm";
+				toggleTagElement.className = "display_all";
 				toggleTagElement.title = cell._expanded ? "Tags ausblenden" : "Tags einblenden";
 				container.appendChild(toggleTagElement);
 				toggleTagElement.addEventListener('click', () => {
