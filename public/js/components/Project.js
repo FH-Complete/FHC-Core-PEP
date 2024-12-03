@@ -163,7 +163,6 @@ export default {
 								return;
 
 							if (value === "")
-								return null;
 							{
 								if (anmerkungValue && anmerkungValue.trim() !== "")
 								{
