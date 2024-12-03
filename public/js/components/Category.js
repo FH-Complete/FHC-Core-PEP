@@ -17,6 +17,7 @@ export default {
 		return{
 			studienjahr: null,
 			rowCount: {},
+			columnsToMark: ['stunden', 'anmerkung']
 		}
 	},
 	computed: {
@@ -25,9 +26,37 @@ export default {
 				index: "row_index",
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
-				selectable: false,
 				placeholder: "Keine Daten verfügbar",
+				rowFormatter: (row) =>
+				{
+					if (row.getElement().classList.contains("tabulator-calcs"))
+						return;
+
+					let data = row.getData();
+					let columns = row.getTable().getColumns();
+
+					if (data.kategorie_mitarbeiter_id === null || data.newentry === false)
+					{
+						this.columnsToMark.forEach((spaltenName) => {
+							let column = columns.find(col => col.getField() === spaltenName);
+							if (column) {
+								let cellElement = row.getCell(column).getElement();
+								cellElement.classList.add("highlight-warning");
+							}
+						});
+					}
+				},
+				persistenceID: "2024_12_03_pep_kategorie_" + this.config.category_id,
 				columns: [
+					{
+						formatter: 'rowSelection',
+						titleFormatter: 'rowSelection',
+						titleFormatterParams: {
+							rowRange: "active"
+						},
+						headerSort: false,
+						width: 40
+					},
 					{
 						title: 'Aktionen',
 						field: 'actions',
@@ -81,7 +110,6 @@ export default {
 						bottomCalcParams: {precision: 2},
 						bottomCalc: "sum",
 						hozAlign: "right",
-
 						formatter: function (cell, formatterParams, onRendered)
 						{
 							var value = cell.getValue();
@@ -99,18 +127,19 @@ export default {
 						cellEdited: function (cell)
 						{
 							var value = cell.getValue();
-							if (value && !isNaN(value) && value > 0)
-							{
-								return (parseFloat(value).toFixed(2));
-							}
-							else
-							{
-								return (parseFloat(0).toFixed(2));
+							if (value === "" || value === null || isNaN(value) || value < 0) {
+								cell.setValue(0.00);
+								return parseFloat(0).toFixed(2);
+							} else {
+								return parseFloat(value).toFixed(2);
 							}
 						},
 						validator: ["numeric", {
 							type: function(cell, value, parameters)
 							{
+
+								if (value === "")
+									return true;
 								if (isNaN(value))
 									return false;
 
@@ -128,8 +157,7 @@ export default {
 					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", visible: true, editor: "textarea",
 						formatter: "textarea"
 					},
-				],
-				persistenceID: "2024_10_16_pep_kategorie_" + this.config.category_id,
+				]
 			}
 		},
 		theModel: {
@@ -167,7 +195,12 @@ export default {
 			if (this.$refs.categoryTable.tabulator.getRows().length == 0)
 				return;
 			this.theModel.config.category_id = this.config.category_id
-			if (await this.$fhcAlert.confirmDelete() === false)
+			if (await this.$fhcAlert.confirm({
+				message: 'Stunden für alle aus der Liste auf Standard zurücksetzen?',
+				acceptLabel: 'Ja',
+				acceptClass: 'btn btn-danger',
+
+			}) === false)
 				return;
 			this.$fhcApi.factory.pep.stundenzuruecksetzen(this.theModel.config)
 				.then(response => {
@@ -189,13 +222,31 @@ export default {
 		onCellEdited(cell)
 		{
 			let value = cell.getValue();
-			if ((value === "" || value === "0" || value == 0) && (cell.getOldValue() === null || cell.getOldValue() == 0)
-				|| (value == cell.getOldValue())
-			)
-				return;
+			let field = cell.getField();
+			let oldValue = cell.getOldValue();
 
-			let row = cell.getRow();
-			this.speichern(row);
+			if (field === "stunden")
+			{
+				if (parseFloat(value).toFixed(2) === parseFloat(cell.getOldValue()).toFixed(2))
+					return;
+
+				let row = cell.getRow();
+				this.speichern(row);
+			}
+			else if (field === "anmerkung")
+			{
+				if ((value === "" || value === null) && (oldValue === "" || oldValue === null))
+				{
+					return;
+				}
+
+				if (value === oldValue) {
+					return;
+				}
+
+				let row = cell.getRow();
+				this.speichern(row);
+			}
 		},
 		async speichern (row, remove = false) {
 
@@ -335,9 +386,10 @@ export default {
 					:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited }, { event: 'tableBuilt', handler: tableBuilt }]"
 					:table-only=true
 					:side-menu="false"
+					:countOnly="true"
 					:hideTopMenu=false>
 					<template #actions>
-						<button class="btn btn-danger btn-sm" @click="resetHours" id="resetHoursButton">Stunden zurücksetzen</button>
+						<button class="btn btn-danger btn-sm resetHoursButton" @click="resetHours">Stunden zurücksetzen</button>
 					</template>
 				</core-filter-cmpt>
 			</template>

@@ -482,6 +482,7 @@ class PEP_model extends DB_Model
 			lv_org.oe_kurzbz,
 			tbl_lehrveranstaltung.bezeichnung as lv_bezeichnung,
 			tbl_lehrveranstaltung.lehrveranstaltung_id as lv_id,
+			tbl_lehrveranstaltung.anmerkung as lv_anmerkung,
 			lv_org.bezeichnung as lv_oe,
 			(
 				SELECT
@@ -593,6 +594,12 @@ class PEP_model extends DB_Model
                                         FROM public.tbl_studiensemester
                                         WHERE ende < (SELECT start FROM public.tbl_studiensemester WHERE tbl_studiensemester.studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz) ORDER BY ende DESC LIMIT 1 OFFSET 1)
 		   ) as vorjahreslektoren,
+			(SELECT bezeichnung
+				FROM lehre.tbl_vertrag_vertragsstatus
+				JOIN lehre.tbl_vertragsstatus USING(vertragsstatus_kurzbz)
+				WHERE tbl_vertrag_vertragsstatus.vertrag_id = tbl_vertrag.vertrag_id
+				ORDER BY datum DESC LIMIT 1
+			) as lehrauftrag_status,
 			tbl_lehreinheit.raumtyp,
 			tbl_lehreinheit.raumtypalternativ,
 			tbl_lehreinheit.wochenrythmus,
@@ -607,6 +614,7 @@ class PEP_model extends DB_Model
 			JOIN lehre.tbl_lehrveranstaltung USING (lehrveranstaltung_id)
 			JOIN lehre.tbl_lehrveranstaltung lehrfach ON tbl_lehreinheit.lehrfach_id = lehrfach.lehrveranstaltung_id
 			JOIN lehre.tbl_lehreinheitmitarbeiter USING (lehreinheit_id)
+			LEFT JOIN lehre.tbl_vertrag USING(vertrag_id)
 			JOIN tbl_mitarbeiter USING (mitarbeiter_uid)
 			LEFT JOIN lehre.tbl_lehreinheitgruppe USING (lehreinheit_id)
 			LEFT JOIN tbl_studiengang ON tbl_lehreinheitgruppe.studiengang_kz = tbl_studiengang.studiengang_kz
@@ -690,7 +698,8 @@ class PEP_model extends DB_Model
 				tbl_lehreinheitmitarbeiter.anmerkung,
 				tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz,
 				tbl_lehreinheitmitarbeiter.planstunden,
-				relevante_vertragsart
+				relevante_vertragsart,
+				tbl_vertrag.vertrag_id
 			ORDER BY tbl_lehreinheit.lehrveranstaltung_id
 		";
 

@@ -4,6 +4,7 @@ import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import BsModal from '../../../../js/components/Bootstrap/Modal.js';
 import FormInput from "../../../../js/components/Form/Input.js";
 import Tag from '../../../../js/components/Tag/Tag.js';
+import FhcLoader from '../../../../js/components/Loader.js';
 
 
 import {formatter} from "../mixins/formatters";
@@ -16,6 +17,7 @@ export default {
 		BsModal,
 		FormInput,
 		CoreBaseLayout,
+		FhcLoader,
 		Tag
 	},
 	props: {
@@ -65,6 +67,7 @@ export default {
 			selectedRow: null,
 			modalTitle: 'Änderungen',
 			selectedColumnValues: [],
+			columnsToMark: ['anmerkung']
 		}
 	},
 
@@ -76,6 +79,26 @@ export default {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
+				rowFormatter: (row) =>
+				{
+					if (row.getElement().classList.contains("tabulator-calcs"))
+						return;
+
+					let data = row.getData();
+					let columns = row.getTable().getColumns();
+
+					if (data.anmerkung === null || data.anmerkung.trim() === "")
+					{
+						this.columnsToMark.forEach((spaltenName) => {
+							let column = columns.find(col => col.getField() === spaltenName);
+							if (column) {
+								let cellElement = row.getCell(column).getElement();
+								cellElement.classList.add("highlight-warning");
+							}
+						});
+					}
+				},
+				persistenceID: "2024_12_03_pep_lehre",
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -84,19 +107,20 @@ export default {
 							rowRange: "active"
 						},
 						headerSort: false,
-						width: 70
+						width: 40
 					},
 					{
 						title: 'Tags',
 						field: 'tags',
 						tooltip: false,
 						headerFilter: true,
-						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent)
+						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
+						width: 150
 					},
 					{
 						title: 'Aktionen',
 						field: 'actions',
-						width: 85,
+						width: 110,
 						formatter: (cell, formatterParams, onRendered) => {
 							let container = document.createElement('div');
 							container.className = "d-flex gap-1";
@@ -138,7 +162,8 @@ export default {
 					{title: 'Nachname', field: 'lektor_nachname', headerFilter: true},
 					{title: 'Hinzugefuegt am', field: 'insertamum', headerFilter: true},
 					{title: 'Updated am', field: 'updateamum', headerFilter: true},
-					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", editor: "textarea", formatter: "textarea"},
+					{title: 'Info LV-Planung', field: 'lv_anmerkung', headerFilter: "input", formatter: "textarea"},
+					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", editor: "textarea", formatter: "textarea", visible: false},
 					{title: 'LV Leitung', field: 'lehrfunktion_kurzbz', headerFilter: true, viisble: false},
 					{title: 'Semesterstunden', field: 'lektor_stunden', headerFilter: true, bottomCalc: "sum", bottomCalcParams:{precision:2},visible: true, hozAlign:"right"},
 					{title: 'Realstunden', field: 'faktorstunden', headerFilter: true, visible: true, hozAlign:"right", bottomCalc: "sum", bottomCalcParams:{precision:2},
@@ -177,8 +202,8 @@ export default {
 					{title: 'Wochenrythmus', field: 'wochenrythmus', headerFilter: "input", visible: false},
 					{title: 'Start_kw', field: 'start_kw', headerFilter: "input", visible: false},
 					{title: 'Stundenblockung', field: 'stundenblockung', headerFilter: "input", visible: false},
+					{title: 'Lehrauftrag Status', field: 'lehrauftrag_status', headerFilter: "input", visible: false},
 				],
-				persistenceID: "2024_11_11_pep_lehre",
 			}
 		},
 		faktorTabulatorOptions() {
@@ -245,6 +270,7 @@ export default {
 		},
 		async loadData(data) {
 			this.studiensemester = this.theModel.config.semester;
+			this.loadedData = data;
 			await this.$fhcApi.factory.pep.getLehre(data)
 				.then(response => {
 
@@ -319,6 +345,7 @@ export default {
 		{
 			this.formData.lehreinheit_id = data.lehreinheit_id;
 			this.formData.faktorstunden = data.faktorstunden;
+			this.formData.le_semester = data.studiensemester_kurzbz;
 
 /*			this.formData.raumtyp = data.raumtyp;
 			this.formData.raumtypalternativ = data.raumtypalternativ;
@@ -327,6 +354,7 @@ export default {
 			this.formData.wochenrythmus = data.wochenrythmus;*/
 			this.formData.anmerkung = data.anmerkung;
 			this.formData.oldlektor = data.mitarbeiter_uid;
+			this.formData.studiensemester = this.studiensemester;
 			this.formData.studiensemester = this.studiensemester;
 
 			const selectedLektor = this.lektoren.find(lektor => lektor.uid === data.mitarbeiter_uid);
@@ -337,7 +365,7 @@ export default {
 				}
 			}
 
-			const selectedRaumtyp = this.raumtypen.find(raumtyp => raumtyp.raumtyp_kurzbz === data.raumtyp);
+			/*const selectedRaumtyp = this.raumtypen.find(raumtyp => raumtyp.raumtyp_kurzbz === data.raumtyp);
 
 			if (selectedRaumtyp) {
 				this.formData.raumtyp = {
@@ -353,7 +381,7 @@ export default {
 					label: `${selectedRaumtypAlt.beschreibung}`,
 					raumtyp_kurzbz: data.raumtypalternativ
 				}
-			}
+			}*/
 			this.$refs.editModal.show();
 		},
 		prefillFaktorModal(data)
@@ -363,13 +391,16 @@ export default {
 				updatestudiensemester: data[0].updatestudiensemester,
 				lvstunden: data[0].lvstunden,
 				faktor: parseFloat(data[0].faktor).toFixed(2),
-				lvstundenfaktor: data[0].faktor * data[0].lvstunden,
+				lvstundenfaktor: parseFloat(data[0].faktor * data[0].lvstunden).toFixed(2),
 				lv_id: data[0].lehrveranstaltung_id,
 				semester: this.studiensemester
 			}
 
-			this.$refs.faktorTable.tabulator.setData(data);
 			this.$refs.faktorModal.show();
+
+			Vue.nextTick(() => {
+				this.$refs.faktorTable.tabulator.setData(data);
+			});
 		},
 		getRaumtypen() {
 			this.$fhcApi.factory.pep.getRaumtypen()
@@ -462,33 +493,40 @@ export default {
 				let rowData = row.getData()
 				if (rowData.editable === false)
 					return;
-				this.formData.lehreinheit_ids.push({row_index: rowData.row_index, lehreinheit_id: rowData.lehreinheit_id, uid: rowData.uid})
+				this.formData.lehreinheit_ids.push(
+					{row_index: rowData.row_index,
+						lehreinheit_id: rowData.lehreinheit_id,
+						uid: rowData.uid,
+						le_semester: rowData.studiensemester_kurzbz
+					})
 			})
 			this.$fhcApi.factory.pep.saveLehreinheit(this.formData)
 				.then(result => result.data)
 				.then(updateData => {
-
-					updateData.lehreinheiten_ids.forEach(row => {
-						this.$refs.lehreTable.tabulator.updateRow(row.id, {
-							'lektor' : updateData.lektor,
-							'vorname' : updateData.vorname,
-							'lektor_nachname' : updateData.nachname,
-							'zrm_vertraege' : updateData.zrm_vertraege,
-							'zrm_wochenstunden' : updateData.zrm_wochenstunden,
-							'zrm_jahresstunden' : updateData.zrm_jahresstunden,
-							'le_stundensatz' : updateData.le_stundensatz,
-							'bezeichnung' : updateData.bezeichnung,
-							'akt_orgbezeichnung' : updateData.akt_orgbezeichnung,
-							'akt_parentbezeichnung' : updateData.akt_parentbezeichnung,
-							'akt_stunden' : updateData.akt_stunden,
-							'akt_stundensaetze_lehre' : updateData.akt_stundensaetze_lehre,
-							'uid' : updateData.uid,
-							'updateamum' : updateData.updateamum,
-						})
-					});
-
-					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
-					this.selectedRow.update({
+					if (Array.isArray(updateData.lehreinheiten_ids) && updateData.lehreinheiten_ids.length !== 0)
+					{
+						updateData.lehreinheiten_ids.forEach(row => {
+							this.$refs.lehreTable.tabulator.updateRow(row.id, {
+								'lektor' : updateData.lektor,
+								'vorname' : updateData.vorname,
+								'lektor_nachname' : updateData.nachname,
+								'zrm_vertraege' : updateData.zrm_vertraege,
+								'zrm_wochenstunden' : updateData.zrm_wochenstunden,
+								'zrm_jahresstunden' : updateData.zrm_jahresstunden,
+								'le_stundensatz' : row.le_stundensatz,
+								'bezeichnung' : updateData.bezeichnung,
+								'akt_orgbezeichnung' : updateData.akt_orgbezeichnung,
+								'akt_parentbezeichnung' : updateData.akt_parentbezeichnung,
+								'akt_stunden' : updateData.akt_stunden,
+								'akt_stundensaetze_lehre' : updateData.akt_stundensaetze_lehre,
+								'uid' : updateData.uid,
+								'updateamum' : updateData.updateamum,
+							})
+						});
+					}
+					else
+					{
+						this.selectedRow.update({
 							'lektor' : updateData.lektor,
 							'vorname' : updateData.vorname,
 							'lektor_nachname' : updateData.nachname,
@@ -505,9 +543,11 @@ export default {
 							'anmerkung' : updateData.anmerkung,
 							'updateamum' : updateData.updateamum,
 						})
-						.then(() => this.resetFormData())
-						.then(() => this.$refs.editModal.hide());
+					}
+					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 				})
+				.then(() => this.resetFormData())
+				.then(() => this.$refs.editModal.hide())
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
@@ -517,6 +557,14 @@ export default {
 			this.$fhcApi.factory.pep.updateFaktor(this.formDataFaktor)
 				.then(result => result.data)
 				.then(updateData => {
+					this.$refs.faktorModal.hide();
+
+					this.$refs.loader.show();
+					this.loadData(this.theModel.config).then(() => {
+						this.$refs.loader.hide()
+
+					});
+
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 				})
 				.catch(error => {
@@ -526,7 +574,10 @@ export default {
 		onCellEdited(cell)
 		{
 			let value = cell.getValue();
-			if (!value.trim() || (cell.getOldValue() === value.trim()))
+			if (!value.trim() && (cell.getOldValue() === value.trim()))
+				return;
+
+			if (value === cell.getOldValue())
 				return;
 
 			let data = cell.getRow().getData();
@@ -538,13 +589,13 @@ export default {
 			}
 
 			this.updateAnmerkung(updateData);
+			cell.getRow().reformat();
 		},
 		updateAnmerkung(data)
 		{
 			this.$fhcApi.factory.pep.updateAnmerkung(data)
 				.then(result => result.data)
 				.then(updateData => {
-
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 
 				})
@@ -769,7 +820,7 @@ export default {
 									v-model="formDataFaktor.lvstundenfaktor"
 									label="Realstunden"
 									type="number"
-									@change="recalcFaktor"
+									@input="recalcFaktor"
 								>
 								</form-input>
 							</div>
@@ -788,5 +839,6 @@ export default {
 				</bs-modal>
 			</template>
 		</core-base-layout>
+		<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 	`
 };
