@@ -156,28 +156,15 @@ export default {
 		{
 			this.selectedRows.forEach(row => {
 				const rowData = row.getData();
-				if (addedTag.response === "")
-				{
-					if (this.selectedColumnValues.includes(rowData.uid))
-					{
+				addedTag.response.forEach(tag => {
+					if (rowData.uid === tag.mitarbeiter_uid) {
 						let tags = JSON.parse(rowData.tags);
-						tags.push(addedTag)
+						addedTag.id = tag.id;
+						tags.push(addedTag);
 						rowData.tags = JSON.stringify(tags);
 						row.update(rowData);
 					}
-				}
-				else
-				{
-					addedTag.response.forEach(tag => {
-						if (rowData.uid === tag.mitarbeiter_uid) {
-							let tags = JSON.parse(rowData.tags);
-							addedTag.id = tag.id;
-							tags.push(addedTag);
-							rowData.tags = JSON.stringify(tags);
-							row.update(rowData);
-						}
-					});
-				}
+				});
 			});
 		},
 		deletedTag(deletedTag)

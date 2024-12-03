@@ -608,7 +608,8 @@ class PEP_model extends DB_Model
 			tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz,
 			tbl_lehreinheitmitarbeiter.planstunden AS lv_plan_stunden,
 			zv.relevante_vertragsart,
-			array_to_json(array_agg(DISTINCT(tag_data))) AS tags
+			array_to_json(array_agg(DISTINCT(tag_data))) AS tags,
+			array_to_json(array_agg(DISTINCT(tag_status_data))) AS tagstatus
 		FROM
 			lehre.tbl_lehreinheit
 			JOIN lehre.tbl_lehrveranstaltung USING (lehrveranstaltung_id)
@@ -637,7 +638,26 @@ class PEP_model extends DB_Model
 					public.tbl_notizzuordnung
 					JOIN public.tbl_notiz ON tbl_notizzuordnung.notiz_id = tbl_notiz.notiz_id
 					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
+				WHERE typ_kurzbz NOT IN ? 
 			) AS tag_data ON tbl_lehreinheit.lehreinheit_id = tag_data.lehreinheit_id
+			
+			LEFT JOIN
+			(
+				SELECT
+				 DISTINCT ON (tbl_notiz.notiz_id)
+					tbl_notiz.notiz_id AS id,
+					typ_kurzbz,
+					array_to_json(tbl_notiz_typ.bezeichnung_mehrsprachig)->>0 AS beschreibung,
+					lehreinheit_id,
+					tbl_notiz.text as notiz,
+					tbl_notiz_typ.style,
+					tbl_notiz.erledigt as done
+				FROM
+					public.tbl_notizzuordnung
+					JOIN public.tbl_notiz ON tbl_notizzuordnung.notiz_id = tbl_notiz.notiz_id
+					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
+				WHERE typ_kurzbz IN ?
+			) AS tag_status_data ON tbl_lehreinheit.lehreinheit_id = tag_status_data.lehreinheit_id
 		WHERE
 			tbl_lehreinheit.studiensemester_kurzbz IN ?
 		AND (
@@ -703,7 +723,8 @@ class PEP_model extends DB_Model
 			ORDER BY tbl_lehreinheit.lehrveranstaltung_id
 		";
 
-		return $this->execReadOnlyQuery($query, array($studiensemester, $studiensemester, $org, $mitarbeiter_uids));
+		$tags = $this->config->item('planungsstatus_tags');
+		return $this->execReadOnlyQuery($query, array($studiensemester, $tags, $tags, $studiensemester, $org, $mitarbeiter_uids));
 	}
 
 	public function getLehrauftraegeStundenWithFaktor($uid, $studiensemester)

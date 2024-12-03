@@ -294,7 +294,7 @@ export default {
 		{
 			let row = cell.getRow()
 			let rowData = row.getData();
-			if (!rowData.stunden)
+			if (!rowData.stunden || rowData.stunden === "0.00")
 				return;
 
 			let newData = { ...rowData };
