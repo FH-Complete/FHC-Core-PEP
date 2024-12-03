@@ -571,27 +571,29 @@ class PEP extends FHCAPI_Controller
 	{
 
 		$data = $this->getPostJson();
-		$studienjahr = $data->studienjahr;
-		$studiensemester = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
-		if (!hasData($studiensemester))
-			$this->terminateWithSuccess(false);
-
-		$studiensemester = array_column(getData($studiensemester), 'studiensemester_kurzbz');
-		$mitarbeiteruids = $this->_ci->_getMitarbeiterUids($data->org, $studiensemester, true);
-
-		if (!in_array($data->lektor, $mitarbeiteruids) &&
-			!hasData($this->_ci->PEPModel->isProjectAssignedToOrganization($data->org, $data->project)))
-		{
-			$this->terminateWithError($this->p->t('ui', 'maprojohneoe'), self::ERROR_TYPE_GENERAL);
-		}
 
 		if ((property_exists($data, 'lektor')) &&
 			(property_exists($data, 'project')) &&
 			(property_exists($data, 'studienjahr')) &&
 			(property_exists($data, 'stunden')))
 		{
+
 			if (isEmptyString($data->lektor) || isEmptyString($data->project) || isEmptyString($data->studienjahr) || isEmptyString($data->stunden))
+				$this->terminateWithError($this->p->t('ui', 'felderFehlen'), self::ERROR_TYPE_GENERAL);
+
+			$studienjahr = $data->studienjahr;
+			$studiensemester = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
+			if (!hasData($studiensemester))
 				$this->terminateWithSuccess(false);
+
+			$studiensemester = array_column(getData($studiensemester), 'studiensemester_kurzbz');
+			$mitarbeiteruids = $this->_ci->_getMitarbeiterUids($data->org, $studiensemester, true);
+
+			if (!in_array($data->lektor, $mitarbeiteruids) &&
+				!hasData($this->_ci->PEPModel->isProjectAssignedToOrganization($data->org, $data->project)))
+			{
+				$this->terminateWithError($this->p->t('ui', 'maprojohneoe'), self::ERROR_TYPE_GENERAL);
+			}
 
 			$exist = $this->_ci->PEPProjectsEmployeesModel->loadWhere(array(
 				'projekt_id' => $data->project,
@@ -621,6 +623,8 @@ class PEP extends FHCAPI_Controller
 			$returnResult->anmerkung = isset($data->anmerkung) ? $data->anmerkung: null;
 			$this->terminateWithSuccess($returnResult);
 		}
+		else
+			$this->terminateWithError($this->p->t('ui', 'felderFehlen'), self::ERROR_TYPE_GENERAL);
 	}
 
 	public function deleteProjectStunden()
