@@ -23,9 +23,9 @@ export const formatter = {
 				let tagElement = document.createElement('span');
 				tagElement.innerText = tag.beschreibung;
 				tagElement.title = tag.notiz;
-				tagElement.className = tag.style;
+				tagElement.className = "tag "+ tag.style;
 				if (tag.done)
-					tagElement.className += " tag-done";
+					tagElement.className += " tag_done";
 
 				container.appendChild(tagElement);
 				tagElement.addEventListener('click', (event) => {

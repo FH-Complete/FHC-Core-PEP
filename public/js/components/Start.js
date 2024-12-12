@@ -71,6 +71,7 @@ export default {
 		{
 			return {
 				layout: 'fitDataStretch',
+				height: '60vh',
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: function(row) {
 					var data = row.getData();
@@ -84,7 +85,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_12_03_pep_start",
+				persistenceID: "2024_12_11_pep_start",
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -352,12 +353,12 @@ export default {
 				>
 				<template #actions>
 				<Tag ref="tagComponent"
-							:endpoint="$fhcApi.factory.pep_start_tab_tags"
-							:values="selectedColumnValues"
-							@added="addedTag"
-							@deleted="deletedTag"
-							@updated="updatedTag"
-						></Tag>
+					:endpoint="$fhcApi.factory.pep_start_tab_tags"
+					:values="selectedColumnValues"
+					@added="addedTag"
+					@deleted="deletedTag"
+					@updated="updatedTag"
+				></Tag>
 						</template>
 				</core-filter-cmpt>
 			</template>

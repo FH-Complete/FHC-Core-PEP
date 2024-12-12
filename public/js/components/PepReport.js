@@ -160,11 +160,21 @@ export default {
 				recursive: this.isRecursive,
 			};
 
+			let studienjahrMatch = true;
+			if (this.selectedStudienjahr)
+			{
+				studienjahrMatch = this.currentStudiensemester.every(semester => {
+					return semester.studienjahr_kurzbz && semester.studienjahr_kurzbz === this.selectedStudienjahr;
+				});
+
+			}
+
 			this.modelValue.config = {
 				studienjahr: this.selectedStudienjahr,
 				semester: this.selectedStsem,
 				org: this.currentOrg,
 				recursive: this.isRecursive,
+				matched: studienjahrMatch
 			}
 		},
 		async loadTabConfig() {

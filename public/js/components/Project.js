@@ -55,7 +55,7 @@ export default {
 		tabulatorOptions() {
 			return {
 				index: "row_index",
-				maxHeight: "100%",
+				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: (row) =>

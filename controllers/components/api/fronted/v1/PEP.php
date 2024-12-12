@@ -934,13 +934,66 @@ class PEP extends FHCAPI_Controller
 			$fixangestellt = getData($this->_ci->MitarbeiterModel->isMitarbeiter($data->lektor->uid, true));
 			$this->_ci->load->model('ressource/Stundensatz_model', 'StundensatzModel');
 			$successUpdated = [];
-			if (!isEmptyArray($data->lehreinheit_ids))
+			/*if (!isEmptyArray($data->lehreinheit_ids))
 			{
 				foreach ($data->lehreinheit_ids as $lehreinheit)
 				{
+					if (!$this->_canUpdateLehreinheit( $data->lehreinheit_id, $data->lektor->uid))
+					{
+						$this->addError("Der Lektor ist bereits der Lehreinheit zugeordnet!", self::ERROR_TYPE_GENERAL);
+						continue;
+					}
+
+					$updateParams = array('mitarbeiter_uid' => $data->lektor->uid,
+						'updateamum' => date('Y-m-d H:i:s'),
+						'updatevon' => $this->_uid);
+
+					if ($this->_shouldUpdateStundensatz($lehreinheit->lehreinheit_id, $lehreinheit->uid))
+					{
+						if (!$fixangestellt)
+						{
+							$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $lehreinheit->le_semester));
+							$semester = getData($semester)[0];
+							$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
+							$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
+						}
+						else
+							$stundensatzResult = null;
+
+						$updateParams['stundensatz'] = $stundensatzResult;
+					}
+
+					$result = $this->_ci->LehreinheitmitarbeiterModel->update(
+						array(
+							'lehreinheit_id' => $lehreinheit->lehreinheit_id,
+							'mitarbeiter_uid' => $lehreinheit->uid
+						),
+						$updateParams
+					);
+
+					if (isError($result))
+						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
+
+					$successUpdated[] = ['id' => $lehreinheit->row_index, 'le_stundensatz' => isset($stundensatzResult) ? $stundensatzResult : '0.00'];
+				}
+			}
+			else
+			{*/
+
+				if (!$this->_canUpdateLehreinheit($data->lehreinheit_id, $data->lektor->uid) && $data->lektor->uid !== $data->oldlektor)
+				{
+					$this->terminateWithError("Der Lektor ist bereits der Lehreinheit zugeordnet!", self::ERROR_TYPE_GENERAL);
+				}
+				$updateParams = array('mitarbeiter_uid' => $data->lektor->uid,
+					'anmerkung' => $data->anmerkung,
+					'updateamum' => date('Y-m-d H:i:s'),
+					'updatevon' => $this->_uid);
+
+				if ($this->_shouldUpdateStundensatz($data->lehreinheit_id, $data->oldlektor))
+				{
 					if (!$fixangestellt)
 					{
-						$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $lehreinheit->le_semester));
+						$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $data->le_semester));
 						$semester = getData($semester)[0];
 						$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
 						$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
@@ -948,54 +1001,21 @@ class PEP extends FHCAPI_Controller
 					else
 						$stundensatzResult = null;
 
-					$result = $this->_ci->LehreinheitmitarbeiterModel->update(
-						array(
-							'lehreinheit_id' => $lehreinheit->lehreinheit_id,
-							'mitarbeiter_uid' => $lehreinheit->uid
-						),
-						array(
-							'mitarbeiter_uid' => $data->lektor->uid,
-							'updateamum' => date('Y-m-d H:i:s'),
-							'updatevon' => $this->_uid,
-							'stundensatz' => $stundensatzResult
-						)
-					);
-
-					if (isError($result))
-						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
-
-					$successUpdated[] = ['id' => $lehreinheit->row_index, 'le_stundensatz' => $stundensatzResult];
+					$updateParams['stundensatz'] = $stundensatzResult;
 				}
-			}
-			else
-			{
-				if (!$fixangestellt)
-				{
-					$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $data->le_semester));
-					$semester = getData($semester)[0];
-					$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
-					$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
-				}
-				else
-					$stundensatzResult = null;
 
 				$result = $this->_ci->LehreinheitmitarbeiterModel->update(
 					array(
 						'lehreinheit_id' => $data->lehreinheit_id,
 						'mitarbeiter_uid' => $data->oldlektor
 					),
-					array(
-						'mitarbeiter_uid' => $data->lektor->uid,
-						'anmerkung' => $data->anmerkung,
-						'updateamum' => date('Y-m-d H:i:s'),
-						'updatevon' => $this->_uid,
-						'stundensatz' => $stundensatzResult
-					)
+					$updateParams
 				);
-			}
 
-			if (isError($result))
-				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
+				if (isError($result))
+					$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
+			/*}*/
+
 
 			$this->_ci->PersonModel->addSelect('vorname, nachname, kurzbz as lektor, uid');
 			$this->_ci->PersonModel->addJoin('public.tbl_benutzer', 'person_id');
@@ -1017,7 +1037,7 @@ class PEP extends FHCAPI_Controller
 
 			$returnData->akt_orgbezeichnung = isset($dv->akt_orgbezeichnung) ? $dv->akt_orgbezeichnung : '-';
 			$returnData->akt_parentbezeichnung = isset($dv->akt_parentbezeichnung) ? $dv->akt_parentbezeichnung : '-';
-			$returnData->le_stundensatz = isset($stundensatzResult) ? $stundensatzResult : '-';
+			$returnData->le_stundensatz = isset($stundensatzResult) ? $stundensatzResult : '0.00';
 			$returnData->akt_stunden = isset($dv->akt_stunden) ? $dv->akt_stunden : '-';
 
 			$returnData->akt_stundensaetze_lehre = isset($dv->akt_stundensaetze_lehre) ? $dv->akt_stundensaetze_lehre : '-';
@@ -1032,6 +1052,22 @@ class PEP extends FHCAPI_Controller
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 	}
 
+	private function _shouldUpdateStundensatz($lehreinheit, $mitarbeiter_uid)
+	{
+		$lehreinheitData = $this->_ci->LehreinheitmitarbeiterModel->loadWhere(array('mitarbeiter_uid' => $mitarbeiter_uid, 'lehreinheit_id' => $lehreinheit));
+
+		$lehreinheitData = hasData($lehreinheitData) ? getData($lehreinheitData)[0] : null;
+
+		return !($lehreinheitData->stundensatz === "0.00");
+	}
+
+	private function _canUpdateLehreinheit($lehreinheit, $mitarbeiter_uid)
+	{
+		$lehreinheitData = $this->_ci->LehreinheitmitarbeiterModel->loadWhere(array('mitarbeiter_uid' => $mitarbeiter_uid, 'lehreinheit_id' => $lehreinheit));
+
+		return !hasData($lehreinheitData);
+
+	}
 	public function getLektoren()
 	{
 		$dbModel = new DB_Model();

@@ -50,7 +50,7 @@ export default {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2024_12_03_pep_kategorie_administration",
+				persistenceID: "2024_12_11_pep_kategorie_administration",
 				columns: [
 					{
 						formatter: 'rowSelection',

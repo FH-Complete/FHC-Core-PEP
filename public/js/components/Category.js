@@ -24,9 +24,10 @@ export default {
 		tabulatorOptions() {
 			return {
 				index: "row_index",
-				maxHeight: "100%",
+				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
+				persistenceID: "2024_12_11_pep_kategorie_" + this.config.category_id,
 				rowFormatter: (row) =>
 				{
 					if (row.getElement().classList.contains("tabulator-calcs"))
@@ -46,7 +47,6 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_12_03_pep_kategorie_" + this.config.category_id,
 				columns: [
 					{
 						formatter: 'rowSelection',

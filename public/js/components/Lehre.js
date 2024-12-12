@@ -7,6 +7,7 @@ import Tag from '../../../../js/components/Tag/Tag.js';
 import FhcLoader from '../../../../js/components/Loader.js';
 
 
+
 import {formatter} from "../mixins/formatters";
 
 
@@ -76,7 +77,7 @@ export default {
 		{
 			return {
 				index: "row_index",
-				maxHeight: "100%",
+				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: (row) =>
@@ -98,7 +99,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_12_03_pep_lehre",
+				persistenceID: "2024_12_11_pep_lehre",
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -219,11 +220,12 @@ export default {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
+				persistenceID: "2024_12_11_pep_lehre_faktor",
 				columns: [
-					{title: 'Lektor*in', field: 'kurzbz'},
-					{title: 'Vorname', field: 'vorname'},
-					{title: 'Nachname', field: 'nachname'},
-					{title: 'Faktor', field: 'faktor', hozAlign: "right",
+					{title: 'Lektor*in', field: 'kurzbz', width: 150},
+					{title: 'Vorname', field: 'vorname', width: 200},
+					{title: 'Nachname', field: 'nachname', width: 200},
+					{title: 'Faktor', field: 'faktor', hozAlign: "right", width: 100,
 						formatter: (cell) => {
 							return this.formDataFaktor.faktor
 						}
@@ -232,12 +234,13 @@ export default {
 						title: 'Semesterstunden',
 						field: 'semesterstunden',
 						hozAlign: "right",
-
+						width: 150
 					},
 					{
 						title: 'Realstunden',
 						field: 'faktorstunden',
 						hozAlign: "right",
+
 						formatter: (cell) => {
 							let data = cell.getData();
 							let realstunden = parseFloat(data.semesterstunden * this.formDataFaktor.faktor).toFixed(2)
@@ -293,6 +296,7 @@ export default {
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
+
 		},
 		recalcFaktor: function()
 		{
@@ -495,7 +499,7 @@ export default {
 		},
 		updateLehreinheit()
 		{
-			const selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
+			/*const selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
 
 			selectedRows.forEach(row => {
 				let rowData = row.getData()
@@ -507,10 +511,12 @@ export default {
 						uid: rowData.uid,
 						le_semester: rowData.studiensemester_kurzbz
 					})
-			})
+			})*/
 			this.$fhcApi.factory.pep.saveLehreinheit(this.formData)
 				.then(result => result.data)
 				.then(updateData => {
+					/*
+					Note (david): wechsel soll vorerst nur pro Zeile möglich sein
 					if (Array.isArray(updateData.lehreinheiten_ids) && updateData.lehreinheiten_ids.length !== 0)
 					{
 						updateData.lehreinheiten_ids.forEach(row => {
@@ -533,7 +539,7 @@ export default {
 						});
 					}
 					else
-					{
+					{*/
 						this.selectedRow.update({
 							'lektor' : updateData.lektor,
 							'vorname' : updateData.vorname,
@@ -551,7 +557,7 @@ export default {
 							'anmerkung' : updateData.anmerkung,
 							'updateamum' : updateData.updateamum,
 						})
-					}
+				/*	}*/
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 				})
 				.then(() => this.resetFormData())
@@ -628,8 +634,7 @@ export default {
 			this.selectedRow = null;
 		},
 		//TODO (david) die Tag Logik gehört zsm gefasst
-		addedTag(addedTag)
-		{
+		addedTag(addedTag) {
 			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
 				const rowData = row.getData();
 
@@ -708,9 +713,13 @@ export default {
 		}
 	},
 	template: `
+	
 		<core-base-layout>
 			<template #main>
-			<h5>{{$p.t('lehre', 'studiensemester')}}: {{studiensemester.join(', ')}}</h5>
+			<h5 
+			:class="theModel.config.matched ? '' : 'mismatch'"
+			:title="theModel.config.matched ? '' : 'Die Auswahl des Studienjahres im Start-Tab weicht ab'"
+			>{{$p.t('lehre', 'studiensemester')}}: {{studiensemester.join(', ')}} </h5>
 				<core-filter-cmpt
 						ref="lehreTable"
 						:tabulator-options="tabulatorOptions"
