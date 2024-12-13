@@ -13,14 +13,14 @@ END $$;
 DO $$
     BEGIN
         ALTER TABLE extension.tbl_pep_notiz_mitarbeiter ADD CONSTRAINT tbl_pep_kategorie_mitarbeiter_notiz_id_fkey
-            FOREIGN KEY (notiz_id) REFERENCES public.tbl_notiz (notiz_id) ON UPDATE CASCADE ON DELETE RESTRICT ;
+            FOREIGN KEY (notiz_id) REFERENCES public.tbl_notiz (notiz_id) ON UPDATE CASCADE ON DELETE CASCADE ;
     EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 DO $$
     BEGIN
     ALTER TABLE extension.tbl_pep_notiz_mitarbeiter ADD CONSTRAINT tbl_pep_notiz_mitarbeiter_mitarbeiter_uid_fkey
-        FOREIGN KEY (mitarbeiter_uid) REFERENCES public.tbl_mitarbeiter(mitarbeiter_uid) ON UPDATE CASCADE ON DELETE RESTRICT;
+        FOREIGN KEY (mitarbeiter_uid) REFERENCES public.tbl_mitarbeiter(mitarbeiter_uid) ON UPDATE CASCADE ON DELETE CASCADE;
     EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
