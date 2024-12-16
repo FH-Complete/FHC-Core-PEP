@@ -3,7 +3,7 @@
 if (!defined('BASEPATH'))
 	exit('No direct script access allowed');
 
-class TabsConfig extends Auth_Controller
+class TabsConfig extends FHCAPI_Controller
 {
 
 	const DEFAULT_PERMISSION = 'extension/pep';
@@ -19,7 +19,6 @@ class TabsConfig extends Auth_Controller
 		);
 		$this->_ci = &get_instance();
 
-		// Loads phrases system
 		$this->_ci->loadPhrases(
 			array(
 				'global',
@@ -29,30 +28,92 @@ class TabsConfig extends Auth_Controller
 		);
 
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_model', 'PEPModel');
+		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
 	}
 
 	public function get()
 	{
-		$language = $this->_getLanguageIndex();
+		$tabs = array();
+		$this->_getAdministration($tabs);
 
-		$tabs = array(
-			'start' => array(
-				'title' =>  'Start',
-				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
-				'config' => ['studiensemester' => true]
-			),
-			'lehre' => array(
-				'title' =>  'Lehre',
-				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Lehre.js',
-				'config' => ['studiensemester' => true]
-			)
+		if ($this->_ci->config->item('content_id'))
+		{
+			$tabs['legende'] = array (
+				'title' =>  'Legende',
+				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Legende.js',
+				'config' => ['content_url' => APP_ROOT.'cms/content.php?content_id=' . $this->_ci->config->item('content_id')]
+			);
+		}
+
+		$tabs['start'] = array (
+			'title' =>  'Start',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Start.js',
+			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true]
+		);
+
+		$tabs['lehre'] = array (
+			'title' =>  'Lehre',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Lehre.js',
+			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true, 'planungsstatus' => $this->_ci->config->item('planungsstatus_tags')]
+		);
+
+		if ($this->_ci->config->item('enable_projects') === true)
+			$this->_getProjects($tabs);
+
+		$this->_getCategories($tabs);
+
+		if ($this->_ci->config->item('enable_compare_tab') === true)
+		{
+			$tabs['vergleich'] = array (
+				'title' =>  'Vergleichen',
+				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Vergleichen.js',
+				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => false]
+			);
+		}
+
+		$this->terminateWithSuccess($tabs);
+	}
+
+	private function _getAdministration(&$tabs)
+	{
+		$this->_ci->load->library('PermissionLib');
+
+		if (!$this->_ci->permissionlib->isBerechtigt('admin'))
+			return;
+
+		$tabs['administration'] = array (
+			'title' =>  'Administration',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Administration.js',
+			'config' => ['dropdowns' => false, 'reload' => false]
+		);
+	}
+
+	private function _getProjects(&$tabs)
+	{
+		$this->_ci->load->library('PermissionLib');
+
+		if (!$this->_ci->permissionlib->isBerechtigt(self::DEFAULT_PERMISSION))
+			return;
+
+		$tabs['syncprojects'] = array (
+			'title' =>  'Projekte',
+			'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Project.js',
+			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true]
+		);
+
+	}
+	private function _getCategories(&$tabs)
+	{
+
+		$language = $this->_getLanguageIndex();
+		$this->_ci->PEPModel->addOrder(
+			'sort'
 		);
 
 		$this->_ci->PEPModel->addSelect(
 			'kategorie_id,
 			bezeichnung,
-			bezeichnung_mehrsprachig[('.$language.')] as tabname,
-			default_stunden
+			bezeichnung_mehrsprachig[('.$language.')] as tabname
 			'
 		);
 
@@ -69,7 +130,10 @@ class TabsConfig extends Auth_Controller
 				$config = [
 					'category_id' => $category->kategorie_id,
 					'studienjahr' => true,
+					'dropdowns' => true,
+					'reload' => true
 				];
+
 				$tab = [
 					'title' => $category->tabname,
 					'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/Category.js',
@@ -79,9 +143,6 @@ class TabsConfig extends Auth_Controller
 				$tabs[$category->bezeichnung] = $tab;
 			}
 		}
-
-		$this->outputJsonSuccess($tabs);
-
 	}
 
 	private function _getLanguageIndex()

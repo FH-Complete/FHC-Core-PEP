@@ -1,25 +1,10 @@
-/**
- * Copyright (C) 2023 fhcomplete.org
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
-
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import FhcTabs from '../../../../js/components/Tabs.js';
 import {CoreNavigationCmpt} from '../../../../js/components/navigation/Navigation.js';
-import {CoreRESTClient} from '../../../../js/RESTClient.js';
+import FhcLoader from '../../../../js/components/Loader.js';
+import FormInput from "../../../../js/components/Form/Input.js";
+import BaseLayout from "../../../../js/components/layout/BaseLayout.js";
+
 
 export default {
 	name: "PepReport",
@@ -36,133 +21,330 @@ export default {
 			type: Array,
 			required: true
 		},
-		config:null,
+		var_studienjahr: {
+			type: String,
+			required: true
+		},
+		var_studiensemester: {
+			type: Array,
+			required: true
+		},
+		var_organisation: {
+			type: String,
+			required: true,
+		},
+		config: {
+			type: Array
+		}
 	},
 	data: function() {
 		return {
-			appSideMenuEntries: {},
-			currentTab: null,
-			showInfo: false,
-			studiensemester: [],
-			selectedTab: '',
-			selectedOrg: "",
-			modelValue: [],
-			selectedStsem: [],
-			selectedStjahr: "",
 			tabsConfig: null,
-			showStudiensemester: false,
-			showStudienjahr: false,
+			currentTab: null,
+			tabInstances: [],
+			studiensemester: [],
+			studiensemester_readonly: [],
+			selectedOrg: "",
+			selectedOrg_readonly: "",
+			modelValue: {
+				config: {},
+				updatedData: {},
+				needReload: false,
+			},
+			selectedStsem: [],
+			selectedStudienjahr: "",
+			loadedData: {
+				studienjahr: "",
+				semester: [],
+				org: "",
+				recursive: false,
+				variables: false
+			},
 			isRecursive: false
 		};
 	},
-	created() {
-		this.loadTabConfig();
-		window.addEventListener('beforeunload', (event) => {
-			if (this.checkBeforeLeave())
-			{
-				event.preventDefault();
-			}
-		})
+	async created() {
+		await this.$p.loadCategory(['ui']);
+
+		await this.loadTabConfig()
+			.then(() => this.checkVars());
 	},
-	beforeDestroy() {
-		window.removeEventListener('beforeunload', this.checkBeforeLeave)
+	computed: {
+
+		currentStudiensemester: {
+			get()
+			{
+				return this.tabsConfig[this.currentTab]?.config?.reload ? this.studiensemester : this.studiensemester_readonly;
+			},
+			set(value)
+			{
+				if (this.tabsConfig[this.currentTab]?.config?.reload)
+					this.studiensemester = value;
+				else
+					this.studiensemester_readonly = value
+			}
+		},
+
+		filteredStudiensemestern()
+		{
+			if (this.currentStudiensemester.length === 0) {
+				return this.studiensemestern;
+			}
+
+			const selectedStudienjahr = this.currentStudiensemester[0].studienjahr_kurzbz;
+
+			return this.studiensemestern.filter(
+				(semester) => semester.studienjahr_kurzbz === selectedStudienjahr
+			);
+		},
+		currentOrg: {
+			get()
+			{
+				return this.tabsConfig[this.currentTab]?.config?.reload
+					? this.selectedOrg
+					: this.selectedOrg_readonly;
+			},
+			set(value)
+			{
+				if (this.tabsConfig[this.currentTab]?.config?.reload) {
+					this.selectedOrg = value;
+				} else {
+					this.selectedOrg_readonly = value;
+				}
+			}
+		},
+
 	},
 	components: {
-		CoreNavigationCmpt,
-		CoreFilterCmpt,
 		FhcTabs,
-		Multiselect: primevue.multiselect
+		CoreNavigationCmpt,
+		Multiselect: primevue.multiselect,
+		FhcLoader,
+		FormInput,
+		BaseLayout
 	},
 	watch: {
-		currentTab(newTabKey)
-		{
-			this.updateDropdowns(newTabKey);
-		}
+		modelValue: {
+			handler(newValue) {
+				if (newValue.loadDataReady && this.tabsConfig[this.currentTab]?.config?.reload)
+				{
+					this.modelValue.loadDataReady = false;
+					this.collectTab()
+						.then(() => this.loadOneTab())
+				}
+			},
+			deep: true
+		},
+
 	},
 	methods: {
-		updateDropdowns(tabKey) {
-			if (this.tabsConfig[tabKey]) {
-				this.showStudienjahr = this.tabsConfig[tabKey].config.studienjahr ? this.tabsConfig[tabKey].config.studienjahr : false;
-				this.showStudiensemester = this.tabsConfig[tabKey].config.studiensemester ? this.tabsConfig[tabKey].config.studiensemester : false;
+		async checkVars()
+		{
+			this.currentStudiensemester = this.currentStudiensemester.length === 0 && this.tabsConfig[this.currentTab]?.config?.reload === true
+				? this.studiensemestern.filter(semester => this.var_studiensemester.includes(semester.studiensemester_kurzbz))
+				: this.studiensemestern.filter(semester => this.currentStudiensemester.map(item => item.studiensemester_kurzbz).includes(semester.studiensemester_kurzbz));
+
+			this.selectedStsem = this.currentStudiensemester.map(item => item.studiensemester_kurzbz);
+
+
+			this.currentOrg = (this.tabsConfig[this.currentTab]?.config?.reload === true)
+				? ((this.currentOrg && this.currentOrg.length > 0) ? this.currentOrg : (this.var_organisation || ""))
+				: (this.currentOrg || "");
+
+			this.selectedStudienjahr = this.selectedStudienjahr || this.var_studienjahr || "";
+
+			this.loadedData = {
+				studienjahr: this.selectedStudienjahr,
+				semester: this.selectedStsem,
+				org: this.currentOrg,
+				recursive: this.isRecursive,
+			};
+
+			let studienjahrMatch = true;
+			if (this.selectedStudienjahr)
+			{
+				studienjahrMatch = this.currentStudiensemester.every(semester => {
+					return semester.studienjahr_kurzbz && semester.studienjahr_kurzbz === this.selectedStudienjahr;
+				});
+
+			}
+
+			this.modelValue.config = {
+				studienjahr: this.selectedStudienjahr,
+				semester: this.selectedStsem,
+				org: this.currentOrg,
+				recursive: this.isRecursive,
+				matched: studienjahrMatch
 			}
 		},
 		async loadTabConfig() {
-			try {
-				const response = await CoreRESTClient.get('/extensions/FHC-Core-PEP/components/TabsConfig/get');
-				if (CoreRESTClient.isSuccess(response.data)) {
-					this.tabsConfig = CoreRESTClient.getData(response.data);
-					this.updateTab('start');
-				}
-			} catch (error) {
-				this.errors = "Fehler beim Laden des Reports";
+			await this.$fhcApi.factory.pep.getConfig()
+				.then(response => {this.tabsConfig = response.data})
+				.then(() => this.updateTab("start"))
+		},
+		async collectTab()
+		{
+			let tabInstance = this.$refs.tabComponent.$refs.current
+			if (tabInstance && !this.tabInstances.includes(tabInstance) &&
+				this.tabsConfig[this.currentTab]?.config?.reload
+			)
+			{
+				this.tabInstances.push(tabInstance);
 			}
 		},
-		newSideMenuEntryHandler: function (payload) {
-			this.appSideMenuEntries = payload;
-		},
-		ssChanged: function (e) {
-			this.selectedStsem = e.value.map(item => item.studiensemester_kurzbz);
-		},
+		async loadOneTab()
+		{
+			await this.checkVars();
+			const currentTabConfig = this.tabsConfig[this.currentTab].config;
 
-		saveButtonClick: function () {
-			this.$refs.navtabs.saveTabData();
-		},
-		handleLoad: function (e) {
-			if (this.checkBeforeLeave()) {
-				if (!confirm('Es gibt ungespeicherte Änderungen. Möchten Sie diese Seite wirklich verlassen?'))
-				{
-					return;
-				}
-			}
-
-			if (this.selectedOrg !== '' && (this.selectedStsem !== "" || this.selectedStjahr)) {
-				let data = {
-					'org': this.selectedOrg,
-					'recursive': this.isRecursive
-				}
-
-				if (this.selectedStsem !== "" && this.tabsConfig[this.currentTab].config.studiensemester) {
-					data.studiensemester = this.selectedStsem;
-				} else if (this.selectedStjahr !== "" && this.tabsConfig[this.currentTab].config.studienjahr)
-					data.studienjahr = this.selectedStjahr;
-
-				this.resetModelValue();
-				this.$refs.currentTab.$refs.current.loadData(data);
-			}
-
-		},
-		speichern: function () {
-			if (!Object.keys(this.modelValue).length)
+			if (this.checkForLoad(currentTabConfig) === false)
 				return;
 
-			Vue.$fhcapi.Category.saveMitarbeiter(this.modelValue).then(response => {
-				if (CoreRESTClient.isSuccess(response.data)) {
-					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
-					this.resetModelValue();
-				}
-			});
+			let request = {...this.loadedData};
+
+			if (currentTabConfig.studienjahr === undefined)
+				delete(request.studienjahr)
+			if (currentTabConfig.studiensemester === undefined)
+				delete(request.semester)
+
+			this.$refs.loader.show();
+			this.$refs.tabComponent.$refs.current.loadData(request).then(() => this.$refs.loader.hide());
 		},
-		resetModelValue() {
-			this.modelValue = {};
+		changedStudienjahr()
+		{
+			this.setVariables()
+				.then(() => this.checkVars())
+				.then(() => this.reloadTabs(['studienjahr']))
 		},
-		updateTab(newTab) {
-			this.currentTab = newTab;
-		},
-		checkBeforeLeave() {
-			if (Object.keys(this.modelValue).length > 0)
-				return true;
+		changedOrg()
+		{
+			if (this.tabsConfig[this.currentTab]?.config?.reload === false)
+			{
+				this.loadOneTab()
+			}
 			else
+			{
+				this.setVariables()
+					.then(() => this.checkVars())
+					.then(() => this.reloadTabs(['org']))
+			}
+		},
+		checkStudiensemester ()
+		{
+			this.selectedStsem = (this.currentStudiensemester || []).map(item => item.studiensemester_kurzbz);
+
+			if (this.tabsConfig[this.currentTab]?.config?.reload === false)
+			{
+				this.loadOneTab()
+			}
+			else
+			{
+				this.setVariables()
+					.then(() => this.checkVars())
+					.then(() => this.reloadTabs(['studiensemester']))
+			}
+		},
+		async reloadTabs(needChange)
+		{
+			const currentTabConfig = this.tabsConfig[this.currentTab].config;
+			if (this.checkForLoad(currentTabConfig) === false)
+				return;
+			this.$refs.loader.show();
+
+			await this.loopTabs(needChange)
+				.then(() => this.$refs.loader.hide())
+		},
+		async loopTabs(needChange)
+		{
+			for (const tabInstance of Object.values(this.tabInstances))
+			{
+				let tabInstanceConfig = tabInstance.config;
+				if (tabInstance && tabInstance.loadData)
+				{
+					let request = {...this.loadedData};
+
+					if (tabInstanceConfig.studienjahr === undefined)
+						delete(request.studienjahr)
+					if (tabInstanceConfig.studiensemester === undefined)
+						delete(request.semester)
+
+					if (needChange.includes('studienjahr') &&
+						!needChange.includes('studiensemester') &&
+						(request.studienjahr === undefined || request.studienjahr === ""))
+						continue;
+					else if (needChange.includes('studiensemester') &&
+						!needChange.includes('studienjahr') &&
+						(request.semester === undefined || request.semester?.length === 0))
+						continue;
+					else if ((needChange.includes('org') && tabInstanceConfig.studienjahr !== undefined && request.studienjahr === "") ||
+						(needChange.includes('org') && tabInstanceConfig.studiensemester !== undefined && request.semester?.length === 0))
+						continue;
+					await tabInstance.loadData(request);
+				}
+			}
+		},
+		checkForLoad(currentTabConfig)
+		{
+			if ((currentTabConfig?.studiensemester && this.loadedData.semester?.length === 0) ||
+				(currentTabConfig?.studienjahr && this.loadedData.studienjahr === "") ||
+				this.loadedData.org === ""
+			)
 				return false;
+		},
+		updateTab(newTab)
+		{
+			this.currentTab = newTab;
+			if (this.currentTab === 'start' && this.modelValue.needReload === true)
+				this.loadOneTab().then(() =>  this.modelValue.needReload = false)
+			else
+				this.redrawTabulator();
+		},
+		//TODO (david) andere läsung finden
+		//INFO: beim wechseln zwischen den tabs bleibt der inhalt ansonsten leer
+		redrawTabulator()
+		{
+			let tabInstance = this.$refs.tabComponent?.$refs?.current?.$refs
+			if (tabInstance !== undefined)
+			{
+				const tableRefs = Object.keys(tabInstance)
+					.filter(refName => refName.endsWith('Table'))
+					.map(refName => tabInstance[refName]);
+
+				tableRefs.forEach(table => {
+					if (table && table.tabulator) {
+						try {
+							table.tabulator.redraw(true);
+						} catch (error) {
+
+						}
+					}
+				});
+			}
+		},
+		async setVariables()
+		{
+			let variables = {
+				'var_studienjahr' : this.selectedStudienjahr,
+				'var_studiensemester' : this.selectedStsem,
+				'var_organisation' : this.selectedOrg
+			}
+			this.$fhcApi.factory.pep.setVar(variables);
 		},
 	},
 	template: `
-
 	<core-navigation-cmpt 
 		v-bind:add-side-menu-entries="sideMenuEntries"
 		v-bind:add-header-menu-entries="headerMenuEntries"
 		leftNavCssClasses="''">	
 	</core-navigation-cmpt>
 
+<core-base-layout
+title="Personaleinsatzplanung"
+>
+<template #main>
+
+</template>
+</core-base-layout>
 	<div id="wrapper">
 		<div id="page-wrapper">
 			<div class="container-fluid">
@@ -186,25 +368,24 @@ export default {
 					</div>
 				</div>
 				<hr />
-				<div class="row">
-					<div class="col-md-9" id="container">
+				<div class="row" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.dropdowns">
+					<div class="col-md-12" id="container">
 						<div class="row">
-							<div class="col-md-2" v-if="showStudiensemester">
+							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studiensemester">
 								<Multiselect
-									v-model="studiensemester"
+									v-model="currentStudiensemester"
 									option-label="studiensemester_kurzbz" 
-									:options="studiensemestern"
+									:options="filteredStudiensemestern"
 									placeholder="Studiensemester"
 									:hide-selected="true"
 									:selectionLimit="2"
-									@change="ssChanged" 
+									@hide="checkStudiensemester"
+									class="timeAuswahl"
 								>
 								</Multiselect>
 							</div>
-							
-							
-							<div class="col-md-2" v-if="showStudienjahr">
-								<select v-model="selectedStjahr" class="form-control">
+							<div class="col-md-2" v-if="currentTab !== null && tabsConfig[this.currentTab]?.config?.studienjahr">
+								<select v-model="selectedStudienjahr" class="form-select timeAuswahl" @change="changedStudienjahr">
 									<option value="">Studienjahr</option>
 									<option v-for="studienjahr in studienjahre" :value="studienjahr.studienjahr_kurzbz" >
 										{{ studienjahr.studienjahr_kurzbz }}
@@ -212,7 +393,7 @@ export default {
 								</select>
 							</div>
 							<div class="col-md-3">
-								<select v-model="selectedOrg" class="form-control">
+								<select v-model="currentOrg" class="form-select" @change="changedOrg">
 									<option value="">Abteilung</option>
 									<option v-for="organisation in organisationen" :value="organisation.oe_kurzbz" >
 										[{{ organisation.organisationseinheittyp_kurzbz }}] {{ organisation.bezeichnung }}
@@ -232,20 +413,20 @@ export default {
 									</label>
 								</div>
 							</div>
-							<div class="col-md-2">
-								<button @click="handleLoad" class="form-control btn-default">
-									Laden
+							<div class="col-md-1">
+								<button class="btn btn-outline-secondary" aria-label="Reload" @click="loadOneTab">
+									<span class="fa-solid fa-rotate-right" aria-hidden="true"></span>
 								</button>
 							</div>
 							<div class="col-md-2">
-								<button @click="speichern" class="form-control btn-default">Speichern</button>
+								<!--<button @click="speichern" class="form-control btn-default">Speichern</button>-->
 								</div>
 								<br/>
 								<br/>
 								<hr />
 								</div>
 							</div>
-					<div class="col-md-3">
+				<!--	<div class="col-md-3">
 						<div class="accordion" id="accordionExample">
 							<div class="accordion-item">
 								<h2 class="accordion-header" id="headingOne">
@@ -273,20 +454,22 @@ export default {
 								</div>
 							</div>
 						</div>
-					</div>
+					</div>-->
 				</div>
-				<fhc-tabs v-if="tabsConfig !== ''"
-					ref="currentTab"
+
+				<fhc-tabs v-if="tabsConfig"
+					ref="tabComponent"
 					:config="tabsConfig"
-					style="flex: 1 1 0%; height: 0%"
+					default="start"
 					:vertical="false"
-					border="true"
+					border=true
 					@changed="updateTab"
 					v-model="modelValue"
 				>
 				</fhc-tabs>
 			</div>
 		</div>
+		<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 	</div>
 	
 `

@@ -7,7 +7,7 @@ CREATE SEQUENCE IF NOT EXISTS extension.tbl_pep_kategorie_mitarbeiter_id_seq
 
 GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_kategorie_mitarbeiter_id_seq TO vilesci;
 GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_kategorie_mitarbeiter_id_seq TO fhcomplete;
-GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_kategorie_mitarbeiter_id_seq TO web;
+GRANT SELECT ON SEQUENCE extension.tbl_pep_kategorie_mitarbeiter_id_seq TO web;
 
 CREATE TABLE IF NOT EXISTS extension.tbl_pep_kategorie_mitarbeiter
 (
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS extension.tbl_pep_kategorie_mitarbeiter
     kategorie_id                integer NOT NULL,
     mitarbeiter_uid             varchar(32) NOT NULL,
     studienjahr_kurzbz          character varying(16) NOT NULL,
-    stunden                     numeric(5,2),
+    stunden                     numeric(6,2) NOT NULL,
     anmerkung                   text,
     insertamum                  timestamp without time zone DEFAULT now(),
     insertvon                   varchar (32),
@@ -55,5 +55,4 @@ END $$;
 
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_kategorie_mitarbeiter TO vilesci;
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_kategorie_mitarbeiter TO fhcomplete;
-GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_kategorie_mitarbeiter TO web;
-
+GRANT SELECT ON TABLE extension.tbl_pep_kategorie_mitarbeiter TO web;

@@ -8,3 +8,65 @@
 {
 	padding-top: 20px;
 }
+
+.p-autocomplete-panel
+{
+	z-index: 99999 !important;
+}
+
+.tabulator-row.disabled-row {
+	background-color: #f0f0f0;
+	pointer-events: none;
+	opacity: 0.5;
+}
+
+.highlight-success {
+	color: #0f5132 !important;
+	background-color: #d1e7dd !important;
+	border-color: #badbcc !important;
+	transition: background-color 0.5s ease-out;
+}
+
+.highlight-alert {
+	color: #842029 !important;
+	background-color: #f8d7da !important;
+	border-color: #f5c2c7 !important;
+	transition: background-color 0.5s ease-in-out;
+}
+
+.mismatch {
+	color: red;
+}
+
+.highlight-warning {
+	background-color: #f6fac7 !important;
+	border: 1px solid #ffeeba !important;
+	transition: background-color 0.5s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.highlight-info {
+	color: #0c5460 !important;
+	background-color: #d1ecf1 !important;
+	border-color: #bee5eb !important;
+	transition: background-color 0.5s ease-in-out;
+}
+
+.resetHoursButton{
+	opacity: 0.5
+}
+.resetHoursButton:hover{
+	opacity: 1.0
+}
+
+.timeAuswahl{
+	width: -webkit-fill-available !important;
+}
+
+.full-screen-iframe {
+	width: 100vw;
+	height: 70vh;
+	border: none;
+	display: block;
+	overflow: hidden;
+}
+

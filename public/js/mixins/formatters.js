@@ -1,4 +1,56 @@
 export const formatter = {
+	tagFormatter: function(cell, tagComponent)
+	{
+		let tags = cell.getValue();
+		let container = document.createElement('div');
+		container.className = "d-flex gap-1";
+		let parsedTags = JSON.parse(tags);
+		let maxVisibleTags = 2;
+
+		if (cell._expanded === undefined)
+		{
+			cell._expanded = false;
+		}
+		const renderTags = () => {
+			container.innerHTML = '';
+
+			parsedTags = parsedTags.filter(item => item !== null);
+			const tagsToShow = cell._expanded ? parsedTags : parsedTags.slice(0, maxVisibleTags);
+			tagsToShow.forEach(tag => {
+				if (tag === null)
+					return;
+
+				let tagElement = document.createElement('span');
+				tagElement.innerText = tag.beschreibung;
+				tagElement.title = tag.notiz;
+				tagElement.className = "tag "+ tag.style;
+				if (tag.done)
+					tagElement.className += " tag_done";
+
+				container.appendChild(tagElement);
+				tagElement.addEventListener('click', (event) => {
+					tagComponent.editTag(tag.id);
+				});
+			});
+
+			if (parsedTags.length > maxVisibleTags)
+			{
+				let toggleTagElement = document.createElement('button');
+				toggleTagElement.innerText = cell._expanded ? '- ' : '+ ';
+				toggleTagElement.innerText += `${parsedTags.length - maxVisibleTags}`;
+				toggleTagElement.className = "display_all";
+				toggleTagElement.title = cell._expanded ? "Tags ausblenden" : "Tags einblenden";
+				container.appendChild(toggleTagElement);
+				toggleTagElement.addEventListener('click', () => {
+					cell._expanded = !cell._expanded;
+					renderTags();
+				});
+			}
+		};
+
+		renderTags();
+		return container;
+	},
 	datumFormatter: function(e, cell)
 	{
 		let value = cell.getValue();
@@ -301,21 +353,27 @@ export const formatter = {
 			{
 				if (cell.getValue() > 130)
 				{
-					return "<span style='color:red; font-weight:bold;'>" + value + "</span>";
+					return "<span style='color:red; font-weight:bold;'>" + parseFloat(value).toFixed(formatterParams.precision) + "</span>";
 				}
 			}
 		}
-		return value;
+		return parseFloat(value).toFixed(formatterParams.precision);
+	},
+	checkStunden: function(cell, formatterParams, onRendered)
+	{
+		let value = cell.getValue();
+		return (isNaN(value) || value === undefined || value === null) ? '-' : parseFloat(value).toFixed(formatterParams.precision);
 	},
 	karenzFormatter: function(cell, formatterParams, onRendered)
 	{
 		let value = cell.getValue();
-		if (istGueltig(value) && value !== false)
+		var row = cell.getRow().getData();
+		if (value === false)
 		{
-			return "[" + value[0].von + " - " + value[0].bis + "]";
+			return row.karenzvon + " - " + row?.karenzbis;
 		}
 		else
-			return "-";
+			return '-';
 	},
 
 	berechneSumme: function(cell, formatterParams, onRendered)
@@ -325,7 +383,7 @@ export const formatter = {
 		if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
 		{
 			if (row.releavante_vertragsart !== 'echterdv')
-				return '';
+				return '-';
 		}
 		else
 			return '-';
@@ -333,6 +391,8 @@ export const formatter = {
 		var praefix = "studiensemester_";
 
 		var summe = cell.getRow().getData().summe;
+		if (summe === undefined)
+			return '-';
 		for (var key in row)
 		{
 			if (row.hasOwnProperty(key) && key.startsWith(praefix))
@@ -351,7 +411,49 @@ export const formatter = {
 			cell.getElement().classList.add('text-success');
 		return calcsum;
 	},
+	berechneSummeVerplant: function(cell, formatterParams, onRendered)
+	{
+		var row = cell.getRow().getData();
 
+		let summe = 0;
+		var prefix = "studiensemester_";
+
+		for (var key in row)
+		{
+			if (row.hasOwnProperty(key) && key.startsWith(prefix))
+			{
+				var wert = row[key];
+				if (!isNaN(parseFloat(wert)))
+				{
+					summe += parseFloat(wert);
+				}
+			}
+		}
+		let calcsum = parseFloat(summe).toFixed(2);
+		return calcsum;
+	},
+	berechneSummeBottomVerplant: function(values, data, calcParams)
+	{
+		let bottomsum = 0;
+		var prefix = "studiensemester_";
+		data.forEach((row) => {
+			let summe = 0;
+			for (var key in row)
+			{
+				if (row.hasOwnProperty(key) && key.startsWith(prefix))
+				{
+					var wert = row[key];
+					if (!isNaN(parseFloat(wert)))
+					{
+						summe += parseFloat(wert);
+					}
+				}
+			}
+			bottomsum += summe;
+		});
+
+		return parseFloat(bottomsum).toFixed(2);
+	},
 	berechneSummeBottom: function(values, data, calcParams)
 	{
 		let bottomsum = 0;
@@ -360,11 +462,13 @@ export const formatter = {
 			if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
 			{
 				if (row.releavante_vertragsart !== 'echterdv')
-					return;
+					return '-';
 			}
 			else
 				return;
 			var summe = row.summe;
+			if (summe === undefined)
+				return;
 			for (var key in row)
 			{
 				if (row.hasOwnProperty(key) && key.startsWith(praefix))
