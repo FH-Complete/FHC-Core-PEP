@@ -7,7 +7,7 @@ CREATE SEQUENCE IF NOT EXISTS extension.tbl_pep_kategorie_id_seq
 
 GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_kategorie_id_seq TO vilesci;
 GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_kategorie_id_seq TO fhcomplete;
-GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_kategorie_id_seq TO web;
+GRANT SELECT ON SEQUENCE extension.tbl_pep_kategorie_id_seq TO web;
 
 CREATE TABLE IF NOT EXISTS extension.tbl_pep_kategorie
 (
@@ -30,5 +30,4 @@ END $$;
 
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_kategorie TO vilesci;
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_kategorie TO fhcomplete;
-GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_kategorie TO web;
-
+GRANT SELECT ON TABLE extension.tbl_pep_kategorie TO web;

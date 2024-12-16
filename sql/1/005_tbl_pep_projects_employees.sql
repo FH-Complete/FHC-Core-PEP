@@ -7,7 +7,7 @@ CREATE SEQUENCE IF NOT EXISTS extension.tbl_pep_projects_employees_seq
 
 GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_projects_employees_seq TO vilesci;
 GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_projects_employees_seq TO fhcomplete;
-GRANT SELECT, UPDATE ON SEQUENCE extension.tbl_pep_projects_employees_seq TO web;
+GRANT SELECT ON SEQUENCE extension.tbl_pep_projects_employees_seq TO web;
 
 CREATE TABLE IF NOT EXISTS extension.tbl_pep_projects_employees
 (
@@ -56,5 +56,4 @@ END $$;
 
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_projects_employees TO vilesci;
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_projects_employees TO fhcomplete;
-GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_projects_employees TO web;
-
+GRANT SELECT ON TABLE extension.tbl_pep_projects_employees TO web;

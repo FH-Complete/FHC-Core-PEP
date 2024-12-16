@@ -26,4 +26,4 @@ END $$;
 
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_notiz_mitarbeiter TO vilesci;
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_notiz_mitarbeiter TO fhcomplete;
-GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_notiz_mitarbeiter TO web;
+GRANT SELECT ON TABLE extension.tbl_pep_notiz_mitarbeiter TO web;
