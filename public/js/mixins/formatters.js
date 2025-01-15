@@ -382,7 +382,7 @@ export const formatter = {
 
 		if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
 		{
-			if (row.releavante_vertragsart !== 'echterdv')
+			if (!["echterdv", "dummy"].includes(row.releavante_vertragsart))
 				return '-';
 		}
 		else

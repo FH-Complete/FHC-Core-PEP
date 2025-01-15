@@ -168,6 +168,18 @@ export default {
 				});
 			});
 		},
+		lektorMail()
+		{
+			const selectedRows = this.$refs.startTable.tabulator.getSelectedRows();
+			let emails = []
+			selectedRows.forEach(row => {
+				let rowData = row.getData()
+
+				if (!emails.includes(rowData.email))
+					emails.push(rowData.email)
+			})
+			window.location.href = `mailto:${emails}`;
+		},
 		deletedTag(deletedTag)
 		{
 			this.$refs.startTable.tabulator.getRows().forEach(row => {
@@ -352,6 +364,7 @@ export default {
 					:hideTopMenu=false
 				>
 				<template #actions>
+				<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
 				<Tag ref="tagComponent"
 					:endpoint="$fhcApi.factory.pep_start_tab_tags"
 					:values="selectedColumnValues"

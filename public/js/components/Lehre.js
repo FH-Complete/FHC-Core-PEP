@@ -494,8 +494,7 @@ export default {
 					lehreinheiten.push(rowData.lehreinheit_id)
 			})
 
-			let body = `Lehreinheiten: ${lehreinheiten.join('; ')}`
-			window.location.href = `mailto:${emails}?body=${body}`;
+			window.location.href = `mailto:${emails}`;
 		},
 		updateLehreinheit()
 		{
