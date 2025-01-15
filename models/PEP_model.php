@@ -123,8 +123,8 @@ class PEP_model extends DB_Model
 				LEFT JOIN zweiterstichtag ON tbl_projekt.projekt_kurzbz = zweiterstichtag.projekt_kurzbz AND zweiterstichtag.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 				LEFT JOIN aktuell ON tbl_projekt.projekt_kurzbz = aktuell.projekt_kurzbz AND aktuell.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 
-				JOIN tbl_benutzer leitungsbenutzer ON timesheetsprojectinfos.project_leader = leitungsbenutzer.uid
-				JOIN public.tbl_person leitungsperson ON leitungsbenutzer.person_id = leitungsperson.person_id
+				LEFT JOIN tbl_benutzer leitungsbenutzer ON timesheetsprojectinfos.project_leader = leitungsbenutzer.uid
+				LEFT JOIN public.tbl_person leitungsperson ON leitungsbenutzer.person_id = leitungsperson.person_id
 				LEFT JOIN sync.tbl_sap_projects_status_intern
 				ON NULLIF(timesheetsprojectinfos.custom_fields->>'Status_KUT', '')::numeric = tbl_sap_projects_status_intern.status
 
@@ -212,7 +212,7 @@ class PEP_model extends DB_Model
 					pk.kategorie_id,
 					pk.bezeichnung,
 					pk.bezeichnung_mehrsprachig,
-					CASE WHEN zv.relevante_vertragsart = 'echterdv' THEN (
+					CASE WHEN zv.relevante_vertragsart IN ('echterdv', 'dummy') THEN (
 						ROUND (COALESCE(SUM(pkm.stunden),
 							  CASE ". implode(" ", $caseStatements) . " END
 								, 2))
@@ -971,7 +971,8 @@ class PEP_model extends DB_Model
 				karenz.bis as karenzbis,
 				vorname,
 				nachname,
-				tbl_benutzer.uid
+				tbl_benutzer.uid,
+				(tbl_benutzer.uid || '@".DOMAIN."') AS email
 			FROM tbl_mitarbeiter ma
 				JOIN tbl_benutzer ON ma.mitarbeiter_uid = tbl_benutzer.uid
 				JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
