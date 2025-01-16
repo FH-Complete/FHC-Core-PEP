@@ -578,7 +578,7 @@ class PEP extends FHCAPI_Controller
 			(property_exists($data, 'stunden')))
 		{
 
-			if (isEmptyString($data->lektor) || isEmptyString($data->project) || isEmptyString($data->studienjahr) || isEmptyString($data->stunden))
+			if (isEmptyString($data->lektor) || isEmptyString($data->project) || isEmptyString($data->studienjahr) || isEmptyString((string)$data->stunden))
 				$this->terminateWithError($this->p->t('ui', 'felderFehlen'), self::ERROR_TYPE_GENERAL);
 
 			$studienjahr = $data->studienjahr;
