@@ -858,7 +858,7 @@ class PEP_model extends DB_Model
 					dv.mitarbeiter_uid,
 					va.vertragsart_kurzbz,
 					sd.studiensemester_kurzbz,
-					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid, sd.studiensemester_kurzbz ORDER BY dv.bis NULLS FIRST, dv.von DESC) AS rn
+					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid, sd.studiensemester_kurzbz ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST) AS rn
 				FROM hr.tbl_dienstverhaeltnis dv
 				JOIN hr.tbl_vertragsart va USING (vertragsart_kurzbz)
 				RIGHT JOIN semester_daten sd ON
@@ -895,7 +895,7 @@ class PEP_model extends DB_Model
 				akt_lehre_stundensatz AS (
 						SELECT stundensatz,
 								uid,
-								ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_bis NULLS FIRST, gueltig_von DESC) AS rn
+								ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_von DESC, gueltig_bis DESC NULLS FIRST) AS rn
 						FROM hr.tbl_stundensatz
 						JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
 						AND (tbl_stundensatz.gueltig_von <= NOW() OR tbl_stundensatz.gueltig_von IS NULL)
@@ -906,7 +906,7 @@ class PEP_model extends DB_Model
 					 SELECT
 						 ARRAY_TO_STRING(ARRAY_AGG(stundensatz) OVER (PARTITION BY uid), E'\n') AS stunden,
 							uid,
-							ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_bis NULLS FIRST, gueltig_von DESC) AS rn
+							ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_von DESC, gueltig_bis DESC NULLS FIRST) AS rn
 					 FROM hr.tbl_stundensatz
 					JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
 						AND tbl_stundensatz.stundensatztyp = 'lehre'
@@ -918,7 +918,7 @@ class PEP_model extends DB_Model
 				karenz AS (
 					SELECT hr.tbl_vertragsbestandteil.*,
 						dv.mitarbeiter_uid,
-						ROW_NUMBER() OVER (PARTITION BY mitarbeiter_uid ORDER BY tbl_vertragsbestandteil.bis NULLS FIRST, tbl_vertragsbestandteil.von DESC) AS rn
+						ROW_NUMBER() OVER (PARTITION BY mitarbeiter_uid ORDER BY tbl_vertragsbestandteil.von DESC, tbl_vertragsbestandteil.bis DESC NULLS FIRST) AS rn
 					FROM hr.tbl_dienstverhaeltnis dv
 						JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
 					WHERE (tbl_vertragsbestandteil.von <= NOW() OR tbl_vertragsbestandteil.von > NOW())
@@ -1071,7 +1071,7 @@ class PEP_model extends DB_Model
 					funktion.parentbezeichnung,
 					stunden.wochenstunden AS wochenstunden,
 					CASE ". implode(" ", $caseStatements) . " END as jahresstunden,
-					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.bis NULLS FIRST, dv.von DESC) AS rn
+					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST) AS rn
 				FROM hr.tbl_dienstverhaeltnis dv
 					JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
 					LEFT JOIN (
@@ -1133,15 +1133,15 @@ class PEP_model extends DB_Model
 						 va.vertragsart_kurzbz AS relevante_vertragsart,
 						 dv.oe_kurzbz,
 						 ARRAY_TO_STRING(ARRAY_AGG(va.bezeichnung) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege,
-						 ARRAY_TO_STRING(ARRAY_AGG(stunden.wochenstunden) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC), E'\n') AS wochenstunden,
+						 ARRAY_TO_STRING(ARRAY_AGG(stunden.wochenstunden) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST), E'\n') AS wochenstunden,
 						 ARRAY_TO_STRING(ARRAY_AGG(
-								CASE ". implode(" ", $caseStatements) . " END) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC),
+								CASE ". implode(" ", $caseStatements) . " END) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST),
 								 E'\n'
 						) AS jahresstunden,
 						(
 							CASE ". implode(" ", $caseStatements) . " END
 						) as einzelnejahresstunden,
-						 ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.bis NULLS FIRST, dv.von DESC) AS rn
+						 ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST) AS rn
 					 FROM hr.tbl_dienstverhaeltnis dv
 							  JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
 							  LEFT JOIN (
