@@ -162,6 +162,8 @@ export default {
 					{title: 'STG', field: 'stg_kuerzel', headerFilter: true},
 					{title: 'LV Organisationseinheit', field: 'lv_oe', headerFilter: true, visible: true},
 					{title: 'LV Bezeichnung', field: 'lv_bezeichnung', headerFilter: true},
+					{title: 'LV Kurzbz', field: 'lv_kurzbz', headerFilter: true, visible: false},
+					{title: 'LV Semester', field: 'lv_semester', headerFilter: true, visible:false},
 					{title: 'LE Semester', field: 'studiensemester_kurzbz', headerFilter: true, visible:false},
 					{title: 'Gruppe', field: 'gruppe', headerFilter: true, visible:false},
 					{title: 'LE ID', field: 'lehreinheit_id', headerFilter: true, visible:false},
