@@ -480,9 +480,11 @@ class PEP_model extends DB_Model
 			tbl_lehreinheitmitarbeiter.semesterstunden AS lektor_stunden,
 			tbl_lehreinheit.lehrform_kurzbz,
 			lv_org.oe_kurzbz,
+			tbl_lehrveranstaltung.kurzbz as lv_kurzbz,
 			tbl_lehrveranstaltung.bezeichnung as lv_bezeichnung,
 			tbl_lehrveranstaltung.lehrveranstaltung_id as lv_id,
-			tbl_lehrveranstaltung.anmerkung as lv_anmerkung,
+			tbl_lehrveranstaltung.semester as lv_semester,
+			tbl_lehreinheit.anmerkung as lv_anmerkung,
 			lv_org.bezeichnung as lv_oe,
 			(
 				SELECT
