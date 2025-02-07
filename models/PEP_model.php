@@ -215,7 +215,7 @@ class PEP_model extends DB_Model
 					CASE WHEN zv.relevante_vertragsart IN ('echterdv', 'dummy') THEN (
 						ROUND (COALESCE(SUM(pkm.stunden),
 							  CASE ". implode(" ", $caseStatements) . " END
-								, 2))
+								), 2)
 					) END AS stunden,
 
 					COALESCE(pkm.mitarbeiter_uid, pk.insertvon) AS mitarbeiter_uid,
