@@ -1,8 +1,11 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
-import {CoreRESTClient} from '../../../../js/RESTClient.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import BsModal from '../../../../js/components/Bootstrap/Modal.js';
 import FormInput from "../../../../js/components/Form/Input.js";
+import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
+import {formatter} from "../mixins/formatters";
+import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
+
 export default {
 	props: {
 		config: null,
@@ -86,6 +89,10 @@ export default {
 					}
 				},
 				persistenceID: "2024_12_03_pep_project",
+				columnDefaults: {
+					headerFilterFunc: extendedHeaderFilter,
+					tooltip: true
+				},
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -133,7 +140,6 @@ export default {
 						bottomCalcParams: {precision: 2},
 						bottomCalc: "sum",
 						hozAlign: "right",
-						negativeSign: false,
 						cellEdited: (cell) => {
 							let value = cell.getValue();
 							let oldValue = cell.getOldValue();
@@ -203,8 +209,8 @@ export default {
 					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", visible: true, editor: "textarea",
 						formatter: "textarea"
 					},
-					{title: 'Startdatum', field: 'start_date', headerFilter: true, visible: false},
-					{title: 'Enddatum', field: 'end_date', headerFilter: true, visible: false},
+					{title: 'Startdatum', field: 'start_date', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter, visible: false},
+					{title: 'Enddatum', field: 'end_date', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter, visible: false},
 					{title: 'Projektlaufzeit in Monaten', field: 'laufzeit', headerFilter: true},
 					{title: 'Verbrauchte Zeit in Monaten', field: 'verbrauchte_zeit', headerFilter: true},
 					{title: 'Restlaufzeit in Monaten', field: 'restlaufzeit', headerFilter: true},
@@ -212,10 +218,11 @@ export default {
 					{title: 'Status intern', field: 'status_sap_intern', headerFilter: true},
 					{title: 'Erster Stichtag (01.01)', field: 'erster', headerFilter: true},
 					{title: 'Zweiter Stichtag (01.06)', field: 'zweiter', headerFilter: true},
-					{title: 'Aktuelle Stunden', field: 'aktuellestunden', headerFilter: true},
+					{title: 'im ausgewählten SJ gebuchte Stunden', field: 'aktuellestunden', headerFilter: true},
+					{title: 'bis heute gebuchte Gesamtstunden', field: 'aktuellestundengesamt', headerFilter: true},
 					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
-					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
-					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - OE Mitarbeiter*in', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - OE Mitarbeiter*in - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 
 				],
 			}
@@ -491,7 +498,6 @@ export default {
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'cellEdited', handler: onCellEdited }]"
 					:table-only=true
 					:side-menu="false"
-					:hideTopMenu=false
 					:countOnly="true">
 					<template #actions>
 						<button class="btn btn-primary" @click="addData">Mitarbeiter hinzufügen</button>
@@ -504,7 +510,7 @@ export default {
 							<div class="col">
 								<form-input
 									type="autocomplete"
-									:label="Lektor"
+									label="Lektor"
 									:suggestions="filteredLektor"
 									placeholder="Mitarbeiter auswählen"
 									field="label"
@@ -521,7 +527,7 @@ export default {
 									placeholder="Projekt auswählen"
 									@complete="searchProjekt"
 									@item-select="fillDates"
-									:label="Projekt"
+									label="Projekt"
 								></form-input>
 							</div>
 						</div>
@@ -550,7 +556,7 @@ export default {
 									v-model="formData.stunden"
 									name="stunden"
 									placeholder="Stunden"
-									:label="Stunden"
+									label="Stunden"
 								>
 								</form-input>
 									
@@ -563,7 +569,7 @@ export default {
 									v-model="formData.anmerkung"
 									name="anmerkung"
 									placeholder="Anmerkung"
-									:label="Anmerkung"
+									label="Anmerkung"
 								>
 								</form-input>
 							</div>

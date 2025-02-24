@@ -1,9 +1,7 @@
-import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import FhcTabs from '../../../../js/components/Tabs.js';
 import {CoreNavigationCmpt} from '../../../../js/components/navigation/Navigation.js';
 import FhcLoader from '../../../../js/components/Loader.js';
 import FormInput from "../../../../js/components/Form/Input.js";
-import BaseLayout from "../../../../js/components/layout/BaseLayout.js";
 
 
 export default {
@@ -39,6 +37,8 @@ export default {
 	},
 	data: function() {
 		return {
+			headerMenuEntries: {},
+			sideMenuEntries: {},
 			tabsConfig: null,
 			currentTab: null,
 			tabInstances: [],
@@ -50,6 +50,7 @@ export default {
 				config: {},
 				updatedData: {},
 				needReload: false,
+				organisationen: this.organisationen
 			},
 			selectedStsem: [],
 			selectedStudienjahr: "",
@@ -60,7 +61,13 @@ export default {
 				recursive: false,
 				variables: false
 			},
-			isRecursive: false
+			isRecursive: false,
+			filteredOrganisations: [],
+			orgAutocomplete: null,
+			filteredOrgs: null,
+			orgSearchText: "",
+
+
 		};
 	},
 	async created() {
@@ -69,7 +76,16 @@ export default {
 		await this.loadTabConfig()
 			.then(() => this.checkVars());
 	},
+
 	computed: {
+		formattedOrgs() {
+			return this.organisationen.map(org => ({
+				oe_kurzbz: org.oe_kurzbz,
+				bezeichnung: org.bezeichnung,
+				active: org.aktiv,
+				displayName: `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung}`
+			}));
+		},
 
 		currentStudiensemester: {
 			get()
@@ -106,22 +122,39 @@ export default {
 			},
 			set(value)
 			{
-				if (this.tabsConfig[this.currentTab]?.config?.reload) {
+				if (this.tabsConfig[this.currentTab]?.config?.reload)
+				{
 					this.selectedOrg = value;
-				} else {
+				}
+				else
+				{
 					this.selectedOrg_readonly = value;
 				}
 			}
 		},
-
+		autocompleteOrg: {
+			get() {
+				const orgValue = this.tabsConfig[this.currentTab]?.config?.reload
+					? this.selectedOrg
+					: this.selectedOrg_readonly;
+				return this.getAutocompleteOrg(orgValue);
+			},
+			set(value) {
+				const newOrg = value && value.oe_kurzbz ? value.oe_kurzbz : value;
+				if (this.tabsConfig[this.currentTab]?.config?.reload) {
+					this.selectedOrg = newOrg;
+				} else {
+					this.selectedOrg_readonly = newOrg;
+				}
+			}
+		},
 	},
 	components: {
 		FhcTabs,
 		CoreNavigationCmpt,
 		Multiselect: primevue.multiselect,
 		FhcLoader,
-		FormInput,
-		BaseLayout
+		FormInput
 	},
 	watch: {
 		modelValue: {
@@ -135,9 +168,20 @@ export default {
 			},
 			deep: true
 		},
-
 	},
 	methods: {
+		getAutocompleteOrg(orgValue) {
+			if (!orgValue) return null;
+			const selected = this.organisationen.find(org => org.oe_kurzbz === orgValue);
+
+			return selected
+				? {
+					displayName: `[${selected.organisationseinheittyp_kurzbz}] ${selected.bezeichnung}`,
+					active: selected.aktiv,
+					oe_kurzbz: selected.oe_kurzbz
+				}
+				: orgValue;
+		},
 		async checkVars()
 		{
 			this.currentStudiensemester = this.currentStudiensemester.length === 0 && this.tabsConfig[this.currentTab]?.config?.reload === true
@@ -321,6 +365,24 @@ export default {
 				});
 			}
 		},
+		searchOrg(event)
+		{
+			if (!event.query) {
+				this.filteredOrgs = [...this.formattedOrgs];
+				return;
+			}
+
+			this.orgSearchText = event.query
+
+			const query = event.query.toLowerCase();
+			this.filteredOrgs = this.formattedOrgs.filter(org =>
+				org.displayName.toLowerCase().includes(query)
+			);
+
+			if (this.filteredOrgs.length === 0) {
+				this.filteredOrgs = [...this.formattedOrgs];
+			}
+		},
 		async setVariables()
 		{
 			let variables = {
@@ -338,13 +400,6 @@ export default {
 		leftNavCssClasses="''">	
 	</core-navigation-cmpt>
 
-<core-base-layout
-title="Personaleinsatzplanung"
->
-<template #main>
-
-</template>
-</core-base-layout>
 	<div id="wrapper">
 		<div id="page-wrapper">
 			<div class="container-fluid">
@@ -352,18 +407,14 @@ title="Personaleinsatzplanung"
 					<div class="col-12">
 						<h4 class="page-header">
 						Personaleinsatzplanung
-						<i class="fa fa-info-circle text-right fa-xs" data-bs-toggle="collapse" href="#faq0"></i>
+						<!--<i class="fa fa-info-circle text-right fa-xs" data-bs-toggle="collapse" href="#faq0"></i>-->
 						</h4>
 					</div>
 				</div>
 				<div class="row collapse" id="faq0">
 					<div class="col-6">
 						<div class="alert alert-info">
-							- <b>Zrm (Zeitraum)</b>: Informationen für die festgelegten Studiensememster.
-							<br />
-							- <b>Akt (Aktuell)</b>: Informationen zum aktuellen Zeitpunkt.
-							<br />
-							- Felder mit dem <i class='fa fa-edit fa-sm'></i> - Tooltip (Weiterbildung, Admin...), können editiert und gespeichert werden. Nur bei echten DV´s. 
+							
 						</div>
 					</div>
 				</div>
@@ -393,12 +444,25 @@ title="Personaleinsatzplanung"
 								</select>
 							</div>
 							<div class="col-md-3">
-								<select v-model="currentOrg" class="form-select" @change="changedOrg">
-									<option value="">Abteilung</option>
-									<option v-for="organisation in organisationen" :value="organisation.oe_kurzbz" >
-										[{{ organisation.organisationseinheittyp_kurzbz }}] {{ organisation.bezeichnung }}
-									</option>
-								</select>
+								<form-input
+									type="autocomplete"
+									:suggestions="filteredOrgs"
+									field="displayName"
+									placeholder="Abteilung auswählen"
+									v-model="autocompleteOrg"
+									@complete="searchOrg"
+									@item-select="changedOrg"
+									dropdown
+								>
+								<template #option="slotProps">
+									<div :class="{ 'inactive-item': !slotProps.option.active }">
+										{{ slotProps.option.displayName }}
+									</div>
+								</template>
+            
+
+								</form-input>
+
 							</div>
 							<div class="col-md-1">
 								<div class="form-check">
@@ -419,42 +483,12 @@ title="Personaleinsatzplanung"
 								</button>
 							</div>
 							<div class="col-md-2">
-								<!--<button @click="speichern" class="form-control btn-default">Speichern</button>-->
 								</div>
 								<br/>
 								<br/>
 								<hr />
 								</div>
 							</div>
-				<!--	<div class="col-md-3">
-						<div class="accordion" id="accordionExample">
-							<div class="accordion-item">
-								<h2 class="accordion-header" id="headingOne">
-									<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-										<i class="fa fa-circle-exclamation"></i>&ensp; Info Start
-									</button>
-								</h2>
-								<div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#accordionExample">
-									<div class="accordion-body">
-										Die Übersicht zeigt die Mitarbeiter, die während des ausgewählten Semestern der Organisation oder einer untergeordneten Organisation zugeordnet (Kostenstellen und organisatorische Zuordnung) waren.
-									</div>
-								</div>
-							</div>
-							<div class="accordion-item">
-								<h2 class="accordion-header" id="headingTwo">
-									<button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-										<i class="fa fa-circle-exclamation"></i>&ensp; Info Lehre
-									</button>
-								</h2>
-								<div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionExample">
-									<div class="accordion-body">
-										Die Übersicht enthält alle Lehrveranstaltungen, die von der Organisation für die gewählten Semestern zugeordnet waren.
-										Ebenso enthält die Liste alle Lehrveranstaltungen der Mitarbeiter, die in dem ausgewählten Semestern der die Organisation zugeordnet (Kostenstellen und organisatorische Zuordnung) waren.
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>-->
 				</div>
 
 				<fhc-tabs v-if="tabsConfig"
@@ -462,7 +496,7 @@ title="Personaleinsatzplanung"
 					:config="tabsConfig"
 					default="start"
 					:vertical="false"
-					border=true
+					:border="true"
 					@changed="updateTab"
 					v-model="modelValue"
 				>

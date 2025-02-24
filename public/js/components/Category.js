@@ -1,5 +1,6 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
+import { extendedHeaderFilter } from "../../../..//js/tabulator/filters/extendedHeaderFilter";
 
 export default {
 	props: {
@@ -17,7 +18,10 @@ export default {
 		return{
 			studienjahr: null,
 			rowCount: {},
-			columnsToMark: ['stunden', 'anmerkung']
+			columnsToMark: ['stunden', 'anmerkung', 'category_oe_kurzbz', 'mitarbeiter_uid'],
+			tableData: [],
+			mitarbeiterListe: {},
+			orgListe: null
 		}
 	},
 	computed: {
@@ -46,6 +50,10 @@ export default {
 							}
 						});
 					}
+				},
+				columnDefaults: {
+					headerFilterFunc: extendedHeaderFilter,
+					tooltip: true
 				},
 				columns: [
 					{
@@ -77,8 +85,7 @@ export default {
 								this.duplicateRow(cell)
 							);
 							container.append(duplicateButton);
-							if (
-								(cell.getData().kategorie_mitarbeiter_id !== null || cell.getData().newentry === true))
+							if ((cell.getData().kategorie_mitarbeiter_id !== null || cell.getData().newentry === true))
 							{
 								let deleteButton = document.createElement('button');
 								deleteButton.className = 'btn btn-outline-secondary';
@@ -94,14 +101,31 @@ export default {
 							return container;
 						},
 					},
-					{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true, visible:false},
+					//{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true, visible:false},
+					{
+						title: 'UID',
+						field: 'mitarbeiter_uid',
+						headerFilter: true,
+						editor: "list",
+						width: 50,
+						editorParams:() => {
+							return {
+								values: this.mitarbeiterListe,
+								autocomplete: true,
+								listOnEmpty:true,
+							}
+						},
+						editable:(cell) => {
+							return ((cell.getData().kategorie_mitarbeiter_id !== null || cell.getData().newentry === true))
+						},
+					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
 					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
-					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea"},
-					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea"},
+					{title: 'Akt - OE Mitarbeiter*in', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea"},
+					{title: 'Akt - OE Mitarbeiter*in - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea"},
 					{
 						title: 'Stunden',
 						field: 'stunden',
@@ -112,9 +136,13 @@ export default {
 						hozAlign: "right",
 						formatter: function (cell, formatterParams, onRendered)
 						{
+
+
+
 							var value = cell.getValue();
 							if (value === null || isNaN(value) || value === "")
 							{
+								cell.setValue(0);
 								return parseFloat(0).toFixed(2);
 							}
 
@@ -122,16 +150,6 @@ export default {
 							{
 								value = parseFloat(value).toFixed(2);
 								return value;
-							}
-						},
-						cellEdited: function (cell)
-						{
-							var value = cell.getValue();
-							if (value === "" || value === null || isNaN(value) || value < 0) {
-								cell.setValue(0.00);
-								return parseFloat(0).toFixed(2);
-							} else {
-								return parseFloat(value).toFixed(2);
 							}
 						},
 						validator: ["numeric", {
@@ -154,9 +172,33 @@ export default {
 							},
 						}]
 					},
+					{
+						title: 'Organisation',
+						field: 'category_oe_kurzbz',
+						editor: "list",
+						headerFilter: true,
+						width: 400,
+						headerFilterParams: { values: this.orgListe },
+						editorParams:() => {
+							return {
+								values: this.orgListe,
+								autocomplete: true,
+								allowEmpty : true,
+								clearable: true,
+								listOnEmpty: true,
+								dropdownAlign: "left",
+
+							}
+						},
+						formatter: (cell, formatterParams, onRendered) => {
+							const value = cell.getValue();
+							return this.orgListe[value] || null;
+						},
+					},
 					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", visible: true, editor: "textarea",
 						formatter: "textarea"
 					},
+
 				]
 			}
 		},
@@ -167,29 +209,57 @@ export default {
 			set(value) {
 				this.$emit('update:modelValue', value);
 			}
-		}
+		},
+	},
+	async created() {
+		await this.fetchOrganisationen();
 	},
 
 	methods: {
 		async loadData(data)
 		{
-
 			this.theModel.config.category_id = this.config.category_id
 			data.category_id = this.config.category_id
 			await this.$fhcApi.factory.pep.getCategory(data)
 				.then(response => {
-					this.$refs.categoryTable.tabulator.setData(response.data);
+					this.$refs.categoryTable.tabulator.setData(response.data).then(() => this.getMitarbeiterListe(response.data));
 					if (!this.rowCount[this.config.category_id])
 					{
 						this.rowCount[this.config.category_id] =  this.$refs.categoryTable.tabulator.getRows().length;
 					}
-
 				})
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
+		async getMitarbeiterListe(data)
+		{
+			let mitarbeiter = {};
 
+			data.forEach(row => {
+				if (row.mitarbeiter_uid && row.vorname && row.nachname)
+				{
+					if (!(mitarbeiter[row.mitarbeiter_uid]))
+						mitarbeiter[row.mitarbeiter_uid] = `${row.vorname} ${row.nachname}`;
+				}
+			});
+			this.mitarbeiterListe = mitarbeiter;
+		},
+		async fetchOrganisationen()
+		{
+			await this.$fhcApi.factory.pep.getOrgForCategories()
+				.then(response => {
+					this.orgListe = response.data
+						.reduce((acc, org) => {
+							const orgName = `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung}`;
+							acc[org.oe_kurzbz] = org.aktiv ? orgName : `<s>${orgName}</s>`;
+							return acc;
+						}, {});
+				})
+				.catch(error => {
+					this.$fhcAlert.handleSystemError(error);
+				});
+		},
 		async resetHours()
 		{
 			if (this.$refs.categoryTable.tabulator.getRows().length == 0)
@@ -199,7 +269,6 @@ export default {
 				message: 'Stunden für alle aus der Liste auf Standard zurücksetzen?',
 				acceptLabel: 'Ja',
 				acceptClass: 'btn btn-danger',
-
 			}) === false)
 				return;
 			this.$fhcApi.factory.pep.stundenzuruecksetzen(this.theModel.config)
@@ -227,20 +296,26 @@ export default {
 
 			if (field === "stunden")
 			{
-				if (parseFloat(value).toFixed(2) === parseFloat(cell.getOldValue()).toFixed(2))
+				if (oldValue === null || oldValue === "")
+				{
+					return;
+				}
+
+				if (parseFloat(value).toFixed(2) === parseFloat(oldValue).toFixed(2))
 					return;
 
 				let row = cell.getRow();
 				this.speichern(row);
 			}
-			else if (field === "anmerkung")
+			else if (field === "anmerkung" || field === 'category_oe_kurzbz' || field === 'mitarbeiter_uid')
 			{
 				if ((value === "" || value === null) && (oldValue === "" || oldValue === null))
 				{
 					return;
 				}
 
-				if (value === oldValue) {
+				if (value === oldValue)
+				{
 					return;
 				}
 
@@ -260,6 +335,7 @@ export default {
 
 			await this.$fhcApi.factory.pep.saveMitarbeiter(data)
 				.then(response => {
+
 					if (data.kategorie_mitarbeiter_id === null)
 					{
 						row.update({
@@ -286,6 +362,8 @@ export default {
 								child.classList.remove("highlight-success");
 							})
 						}, 1000);
+
+						row.update(response.data.updated)
 					}
 					this.theModel = { ...this.modelValue, needReload: true };
 				});
@@ -381,13 +459,13 @@ export default {
 			<template #main>
 				<h5>{{$p.t('lehre', 'studienjahr')}}: {{theModel?.config?.studienjahr}}</h5>
 				<core-filter-cmpt
+					v-if="orgListe"
 					ref="categoryTable"
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited }, { event: 'tableBuilt', handler: tableBuilt }]"
 					:table-only=true
 					:side-menu="false"
-					:countOnly="true"
-					:hideTopMenu=false>
+					:countOnly="true">
 					<template #actions>
 						<button class="btn btn-danger btn-sm resetHoursButton" @click="resetHours">Stunden zurücksetzen</button>
 					</template>
