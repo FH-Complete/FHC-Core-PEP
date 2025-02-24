@@ -104,6 +104,14 @@ export default {
 					}
 				},
 				persistenceID: "2024_12_11_pep_lehre",
+				persistence: {
+					sort: true,
+					columns: true,
+					headerFilter: true,
+					filter: false,
+					group: false,
+					page: false,
+				},
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true
