@@ -30,6 +30,7 @@ class PEP extends FHCAPI_Controller
 			'getStudienjahre' => self::BERECHTIGUNG_KURZBZ,
 			'getStartAndEnd' => self::BERECHTIGUNG_KURZBZ,
 			'getOrganisationen' => self::BERECHTIGUNG_KURZBZ,
+			'getOrgForCategories' => self::BERECHTIGUNG_KURZBZ,
 			'getProjects' => self::BERECHTIGUNG_KURZBZ,
 			'addProjectStunden' => self::BERECHTIGUNG_KURZBZ,
 			'deleteProjectStunden' => self::BERECHTIGUNG_KURZBZ,
@@ -138,9 +139,18 @@ class PEP extends FHCAPI_Controller
 	public function getOrganisationen()
 	{
 		$oeKurzbz = $this->_ci->permissionlib->getOE_isEntitledFor(self::BERECHTIGUNG_KURZBZ);
-		$this->_ci->OrganisationseinheitModel->addSelect('organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz');
+		$this->_ci->OrganisationseinheitModel->addSelect('organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz, aktiv');
 		$this->_ci->OrganisationseinheitModel->addOrder('organisationseinheittyp_kurzbz');
 		$organisationen = $this->_ci->OrganisationseinheitModel->loadWhere("oe_kurzbz IN ('". implode("', '", $oeKurzbz) . "')");
+		$this->terminateWithSuccess(getData($organisationen));
+	}
+
+	public function getOrgForCategories()
+	{
+		$this->_ci->OrganisationseinheitModel->addSelect('organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz, aktiv');
+		$this->_ci->OrganisationseinheitModel->addOrder('aktiv', 'DESC');
+		$this->_ci->OrganisationseinheitModel->addOrder('organisationseinheittyp_kurzbz');
+		$organisationen = $this->_ci->OrganisationseinheitModel->load();
 		$this->terminateWithSuccess(getData($organisationen));
 	}
 	public function setVariables()
@@ -578,7 +588,7 @@ class PEP extends FHCAPI_Controller
 			(property_exists($data, 'stunden')))
 		{
 
-			if (isEmptyString($data->lektor) || isEmptyString($data->project) || isEmptyString($data->studienjahr) || isEmptyString($data->stunden))
+			if (isEmptyString($data->lektor) || isEmptyString($data->project) || isEmptyString($data->studienjahr) || isEmptyString((string)$data->stunden))
 				$this->terminateWithError($this->p->t('ui', 'felderFehlen'), self::ERROR_TYPE_GENERAL);
 
 			$studienjahr = $data->studienjahr;
@@ -587,7 +597,7 @@ class PEP extends FHCAPI_Controller
 				$this->terminateWithSuccess(false);
 
 			$studiensemester = array_column(getData($studiensemester), 'studiensemester_kurzbz');
-			$mitarbeiteruids = $this->_ci->_getMitarbeiterUids($data->org, $studiensemester, true);
+			$mitarbeiteruids = $this->_getMitarbeiterUids($data->org, $studiensemester, true);
 
 			if (!in_array($data->lektor, $mitarbeiteruids) &&
 				!hasData($this->_ci->PEPModel->isProjectAssignedToOrganization($data->org, $data->project)))
@@ -697,12 +707,11 @@ class PEP extends FHCAPI_Controller
 
 		if ((property_exists($data, 'lv_id')) &&
 			(property_exists($data, 'faktor')) &&
+			(property_exists($data, 'lehrform_kurzbz')) &&
 			(property_exists($data, 'semester')))
 		{
-			$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz, start');
-			$this->_ci->StudiensemesterModel->addOrder('start', 'DESC');
-			$this->_ci->StudiensemesterModel->addLimit(1);
-			$studiensemester = $this->_ci->StudiensemesterModel->loadWhere("studiensemester_kurzbz IN ('". implode("', '", $data->semester) . "')");
+
+			$studiensemester = $this->_ci->StudiensemesterModel->loadWhere(array("studiensemester_kurzbz" => $data->semester));
 			if (isError($studiensemester) || !hasData($studiensemester))
 				$this->terminateWithError($studiensemester, self::ERROR_TYPE_GENERAL);
 
@@ -720,7 +729,7 @@ class PEP extends FHCAPI_Controller
 
 			$studiensemester = $studiensemester->studiensemester_kurzbz;
 
-			$exists = $this->_ci->LehrveranstaltungFaktorModel->loadWhere(array('studiensemester_kurzbz_von' => $studiensemester, 'lehrveranstaltung_id' => $data->lv_id));
+			$exists = $this->_ci->LehrveranstaltungFaktorModel->loadWhere(array('studiensemester_kurzbz_von' => $studiensemester, 'lehrveranstaltung_id' => $data->lv_id, 'lehrform_kurzbz' => $data->lehrform_kurzbz));
 
 			if (hasData($exists))
 			{
@@ -756,10 +765,11 @@ class PEP extends FHCAPI_Controller
 							WHERE studiensemester_kurzbz = ?
 						)
 						AND bisstem IS NULL
+						AND lehrform_kurzbz = ?
 						ORDER BY vonstsem.start DESC
 						LIMIT 1";
 
-				$exists = $dbModel->execReadOnlyQuery($qry, array($data->lv_id, $studiensemester));
+				$exists = $dbModel->execReadOnlyQuery($qry, array($data->lv_id, $studiensemester, $data->lehrform_kurzbz));
 
 				if (hasData($exists))
 				{
@@ -788,6 +798,7 @@ class PEP extends FHCAPI_Controller
 
 				$insertResult = $this->_ci->LehrveranstaltungFaktorModel->insert(array(
 					'lehrveranstaltung_id' => $data->lv_id,
+					'lehrform_kurzbz' => $data->lehrform_kurzbz,
 					'faktor' => $data->faktor,
 					'studiensemester_kurzbz_von' => $studiensemester,
 					'insertamum' => date('Y-m-d H:i:s'),
@@ -802,8 +813,6 @@ class PEP extends FHCAPI_Controller
 	{
 		$mitarbeiterCategory = $this->getPostJson();
 
-		$kategorie = $this->_ci->PEPModel->load(array('kategorie_id' => $mitarbeiterCategory->kategorie));
-
 		if (is_null($mitarbeiterCategory->kategorie_mitarbeiter_id))
 		{
 			$result = $this->_ci->PEPKategorieMitarbeiterModel->insert(array(
@@ -811,6 +820,7 @@ class PEP extends FHCAPI_Controller
 				'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
 				'studienjahr_kurzbz' => $mitarbeiterCategory->studienjahr,
 				'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
+				'oe_kurzbz' => isEmptyString($mitarbeiterCategory->category_oe_kurzbz) ? null : $mitarbeiterCategory->category_oe_kurzbz,
 				'anmerkung' => $mitarbeiterCategory->anmerkung,
 				'insertamum' => date('Y-m-d H:i:s'),
 				'insertvon' => $this->_uid
@@ -846,13 +856,17 @@ class PEP extends FHCAPI_Controller
 
 				if ($stunden_exists->stunden !== number_format($mitarbeiterCategory->stunden, 2)
 					|| ($stunden_exists->anmerkung !== $mitarbeiterCategory->anmerkung)
+					|| ($stunden_exists->oe_kurzbz !== $mitarbeiterCategory->category_oe_kurzbz)
+					|| ($stunden_exists->mitarbeiter_uid !== $mitarbeiterCategory->mitarbeiter_uid)
 				)
 				{
 					$result = $this->_ci->PEPKategorieMitarbeiterModel->update(
 						array($stunden_exists->kategorie_mitarbeiter_id),
 						array(
 							'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
+							'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
 							'anmerkung' => $mitarbeiterCategory->anmerkung,
+							'oe_kurzbz' => isEmptyString($mitarbeiterCategory->category_oe_kurzbz) ? null : $mitarbeiterCategory->category_oe_kurzbz,
 							'updatevon' => $this->_uid,
 							'updateamum' => date('Y-m-d H:i:s'),
 						)
@@ -860,7 +874,16 @@ class PEP extends FHCAPI_Controller
 					if (isError($result))
 						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
 				}
-				$this->terminateWithSuccess($mitarbeiterCategory->kategorie_mitarbeiter_id);
+
+				$dv = array();
+				if ($stunden_exists->mitarbeiter_uid !== $mitarbeiterCategory->mitarbeiter_uid)
+				{
+					$dienstverhaeltnisse = $this->_ci->PEPModel->_getDVs(array($mitarbeiterCategory->mitarbeiter_uid), $mitarbeiterCategory->studienjahr);
+
+					if (hasData($dienstverhaeltnisse))
+						$dv = getData($dienstverhaeltnisse)[0];
+				}
+				$this->terminateWithSuccess(array('id' => $mitarbeiterCategory->kategorie_mitarbeiter_id, 'updated' => $dv));
 			}
 		}
 	}
@@ -934,13 +957,82 @@ class PEP extends FHCAPI_Controller
 			$fixangestellt = getData($this->_ci->MitarbeiterModel->isMitarbeiter($data->lektor->uid, true));
 			$this->_ci->load->model('ressource/Stundensatz_model', 'StundensatzModel');
 			$successUpdated = [];
-			if (!isEmptyArray($data->lehreinheit_ids))
+			/*if (!isEmptyArray($data->lehreinheit_ids))
 			{
 				foreach ($data->lehreinheit_ids as $lehreinheit)
 				{
+					if (!$this->_canUpdateLehreinheit( $data->lehreinheit_id, $data->lektor->uid))
+					{
+						$this->addError("Der Lektor ist bereits der Lehreinheit zugeordnet!", self::ERROR_TYPE_GENERAL);
+						continue;
+					}
+
+					$updateParams = array('mitarbeiter_uid' => $data->lektor->uid,
+						'updateamum' => date('Y-m-d H:i:s'),
+						'updatevon' => $this->_uid);
+
+					if ($this->_shouldUpdateStundensatz($lehreinheit->lehreinheit_id, $lehreinheit->uid))
+					{
+						if (!$fixangestellt)
+						{
+							$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $lehreinheit->le_semester));
+							$semester = getData($semester)[0];
+							$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
+							$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
+						}
+						else
+							$stundensatzResult = null;
+
+						$updateParams['stundensatz'] = $stundensatzResult;
+					}
+
+					$result = $this->_ci->LehreinheitmitarbeiterModel->update(
+						array(
+							'lehreinheit_id' => $lehreinheit->lehreinheit_id,
+							'mitarbeiter_uid' => $lehreinheit->uid
+						),
+						$updateParams
+					);
+
+					if (isError($result))
+						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
+
+					$successUpdated[] = ['id' => $lehreinheit->row_index, 'le_stundensatz' => isset($stundensatzResult) ? $stundensatzResult : '0.00'];
+				}
+			}
+			else
+			{*/
+
+
+			$updateParams = array('mitarbeiter_uid' => $data->lektor->uid,
+				'anmerkung' => $data->anmerkung,
+				'updateamum' => date('Y-m-d H:i:s'),
+				'updatevon' => $this->_uid);
+
+
+
+			if ($data->lektor->uid !== $data->oldlektor)
+			{
+				if ($this->_cantUpdateLehreinheit($data->lehreinheit_id, $data->lektor->uid))
+				{
+					$this->terminateWithError("Der Lektor ist bereits der Lehreinheit zugeordnet!", self::ERROR_TYPE_GENERAL);
+				}
+
+				if ($this->_vertragExists($data->lehreinheit_id, $data->oldlektor))
+				{
+					$this->terminateWithError("Es existiert bereits ein Vertrag!", self::ERROR_TYPE_GENERAL);
+				}
+
+				if ($this->_verplant($data->lehreinheit_id, $data->oldlektor))
+				{
+					$this->terminateWithError("Mitarbeiter ist bereits verplant!", self::ERROR_TYPE_GENERAL);
+				}
+
+				if ($this->_shouldUpdateStundensatz($data->lehreinheit_id, $data->oldlektor))
+				{
 					if (!$fixangestellt)
 					{
-						$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $lehreinheit->le_semester));
+						$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $data->le_semester));
 						$semester = getData($semester)[0];
 						$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
 						$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
@@ -948,54 +1040,22 @@ class PEP extends FHCAPI_Controller
 					else
 						$stundensatzResult = null;
 
-					$result = $this->_ci->LehreinheitmitarbeiterModel->update(
-						array(
-							'lehreinheit_id' => $lehreinheit->lehreinheit_id,
-							'mitarbeiter_uid' => $lehreinheit->uid
-						),
-						array(
-							'mitarbeiter_uid' => $data->lektor->uid,
-							'updateamum' => date('Y-m-d H:i:s'),
-							'updatevon' => $this->_uid,
-							'stundensatz' => $stundensatzResult
-						)
-					);
-
-					if (isError($result))
-						$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
-
-					$successUpdated[] = ['id' => $lehreinheit->row_index, 'le_stundensatz' => $stundensatzResult];
+					$updateParams['stundensatz'] = $stundensatzResult;
 				}
 			}
-			else
-			{
-				if (!$fixangestellt)
-				{
-					$semester = $this->_ci->StudiensemesterModel->loadWhere(array('studiensemester_kurzbz' => $data->le_semester));
-					$semester = getData($semester)[0];
-					$stundensatzResult = $this->_ci->StundensatzModel->getStundensatzByDatum($data->lektor->uid, $semester->start, $semester->ende, 'lehre');
-					$stundensatzResult = hasData($stundensatzResult) ? getData($stundensatzResult)[0]->stundensatz : null;
-				}
-				else
-					$stundensatzResult = null;
 
-				$result = $this->_ci->LehreinheitmitarbeiterModel->update(
-					array(
-						'lehreinheit_id' => $data->lehreinheit_id,
-						'mitarbeiter_uid' => $data->oldlektor
-					),
-					array(
-						'mitarbeiter_uid' => $data->lektor->uid,
-						'anmerkung' => $data->anmerkung,
-						'updateamum' => date('Y-m-d H:i:s'),
-						'updatevon' => $this->_uid,
-						'stundensatz' => $stundensatzResult
-					)
-				);
-			}
+			$result = $this->_ci->LehreinheitmitarbeiterModel->update(
+				array(
+					'lehreinheit_id' => $data->lehreinheit_id,
+					'mitarbeiter_uid' => $data->oldlektor
+				),
+				$updateParams
+			);
 
 			if (isError($result))
 				$this->terminateWithError($result, self::ERROR_TYPE_GENERAL);
+			/*}*/
+
 
 			$this->_ci->PersonModel->addSelect('vorname, nachname, kurzbz as lektor, uid');
 			$this->_ci->PersonModel->addJoin('public.tbl_benutzer', 'person_id');
@@ -1017,7 +1077,7 @@ class PEP extends FHCAPI_Controller
 
 			$returnData->akt_orgbezeichnung = isset($dv->akt_orgbezeichnung) ? $dv->akt_orgbezeichnung : '-';
 			$returnData->akt_parentbezeichnung = isset($dv->akt_parentbezeichnung) ? $dv->akt_parentbezeichnung : '-';
-			$returnData->le_stundensatz = isset($stundensatzResult) ? $stundensatzResult : '-';
+			$returnData->le_stundensatz = isset($stundensatzResult) ? $stundensatzResult : '0.00';
 			$returnData->akt_stunden = isset($dv->akt_stunden) ? $dv->akt_stunden : '-';
 
 			$returnData->akt_stundensaetze_lehre = isset($dv->akt_stundensaetze_lehre) ? $dv->akt_stundensaetze_lehre : '-';
@@ -1032,6 +1092,54 @@ class PEP extends FHCAPI_Controller
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 	}
 
+	private function _shouldUpdateStundensatz($lehreinheit, $mitarbeiter_uid)
+	{
+		$lehreinheitData = $this->_ci->LehreinheitmitarbeiterModel->loadWhere(array('mitarbeiter_uid' => $mitarbeiter_uid, 'lehreinheit_id' => $lehreinheit));
+
+		$lehreinheitData = hasData($lehreinheitData) ? getData($lehreinheitData)[0] : null;
+
+		return !($lehreinheitData->stundensatz === "0.00");
+	}
+
+	private function _cantUpdateLehreinheit($lehreinheit, $mitarbeiter_uid)
+	{
+		$lehreinheitData = $this->_ci->LehreinheitmitarbeiterModel->loadWhere(array('mitarbeiter_uid' => $mitarbeiter_uid, 'lehreinheit_id' => $lehreinheit));
+
+		return hasData($lehreinheitData);
+	}
+
+	private function _vertragExists($lehreinheit, $mitarbeiter_uid)
+	{
+		$lehreinheitData = $this->_ci->LehreinheitmitarbeiterModel->loadWhere(array('mitarbeiter_uid' => $mitarbeiter_uid, 'lehreinheit_id' => $lehreinheit, 'vertrag_id' => NULL));
+
+		return !hasData($lehreinheitData);
+
+	}
+
+	private function _verplant($lehreinheit, $mitarbeiter_uid)
+	{
+		$dbModel = new DB_Model();
+		$qry = "SELECT 1
+				FROM
+					lehre.tbl_stundenplandev as stpl
+						JOIN lehre.tbl_lehreinheit le USING(lehreinheit_id)
+						JOIN lehre.tbl_lehrveranstaltung as lehrfach ON(le.lehrfach_id = lehrfach.lehrveranstaltung_id)
+				WHERE stpl.lehreinheit_id = ?
+					AND stpl.mitarbeiter_uid = ?
+				UNION
+				SELECT 1
+				FROM
+					lehre.tbl_stundenplan as stpl
+						JOIN lehre.tbl_lehreinheit le USING(lehreinheit_id)
+						JOIN lehre.tbl_lehrveranstaltung as lehrfach ON(le.lehrfach_id = lehrfach.lehrveranstaltung_id)
+				WHERE stpl.lehreinheit_id = ?
+					AND stpl.mitarbeiter_uid = ?";
+
+		$result = $dbModel->execReadOnlyQuery($qry, array($lehreinheit, $mitarbeiter_uid, $lehreinheit, $mitarbeiter_uid));
+
+		return hasData($result);
+
+	}
 	public function getLektoren()
 	{
 		$dbModel = new DB_Model();
@@ -1056,6 +1164,7 @@ class PEP extends FHCAPI_Controller
 				FROM sync.tbl_sap_projects_timesheets
 				WHERE project_task_id IS NULL
 				AND project_id ilike any (array['$projects'])
+				AND deleted is false
 				ORDER BY project_id";
 
 		$result = $dbModel->execReadOnlyQuery($qry);
@@ -1074,7 +1183,6 @@ class PEP extends FHCAPI_Controller
 	{
 		$lehreinheit_id = $this->_ci->input->get('lehreinheit_id');
 		$mitarbeiter_uid = $this->_ci->input->get('mitarbeiter_uid');
-		$lehrveranstaltung_id = $this->_ci->input->get('lehrveranstaltung_id');
 
 		if (isEmptyString($lehreinheit_id))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
@@ -1120,6 +1228,8 @@ class PEP extends FHCAPI_Controller
 	{
 		$lehrveranstaltung_id = $this->_ci->input->get('lehrveranstaltung_id');
 		$studiensemester = $this->_ci->input->get('studiensemester');
+		$lehrform = $this->_ci->input->get('lehrform_kurzbz');
+		$le_studiensemester = $this->_ci->input->get('le_studiensemester_kurzbz');
 
 		if (isEmptyString($lehrveranstaltung_id) || isEmptyArray($studiensemester))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
@@ -1127,45 +1237,51 @@ class PEP extends FHCAPI_Controller
 		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz, start');
 		$this->_ci->StudiensemesterModel->addOrder('start', 'DESC');
 		$this->_ci->StudiensemesterModel->addLimit(1);
-		$updateStudiensemester = $this->_ci->StudiensemesterModel->loadWhere("studiensemester_kurzbz IN ('". implode("', '", $studiensemester) . "')");
-		if (isError($updateStudiensemester) || !hasData($updateStudiensemester))
-			$this->terminateWithError($updateStudiensemester, self::ERROR_TYPE_GENERAL);
-
-		$updateStudiensemester = getData($updateStudiensemester)[0];
-		$updateStudiensemester = $updateStudiensemester->studiensemester_kurzbz;
 
 		$dbModel = new DB_Model();
-
 		$qry = "
+			WITH semester AS (
+				SELECT start, ende
+				FROM public.tbl_studiensemester
+				WHERE studiensemester_kurzbz = ?
+			)
 			SELECT tbl_lehrveranstaltung.bezeichnung,
 					SUM(tbl_lehreinheitmitarbeiter.semesterstunden) OVER () AS lvstunden,
 					tbl_lehreinheitmitarbeiter.semesterstunden,
-					? as updateStudiensemester,
-					(SELECT faktor
-						FROM lehre.tbl_lehrveranstaltung_faktor
+					(
+						SELECT lvf.faktor
+						FROM lehre.tbl_lehrveranstaltung_faktor lvf
 								 LEFT JOIN public.tbl_studiensemester vonstsem
-										   ON tbl_lehrveranstaltung_faktor.studiensemester_kurzbz_von = vonstsem.studiensemester_kurzbz
+										   ON lvf.studiensemester_kurzbz_von = vonstsem.studiensemester_kurzbz
 								 LEFT JOIN public.tbl_studiensemester bisstem
-										   ON tbl_lehrveranstaltung_faktor.studiensemester_kurzbz_bis = bisstem.studiensemester_kurzbz
-						WHERE tbl_lehrveranstaltung_faktor.lehrveranstaltung_id = ?
+										   ON lvf.studiensemester_kurzbz_bis = bisstem.studiensemester_kurzbz
+								 CROSS JOIN semester
+						WHERE lvf.lehrveranstaltung_id = ?
+						  AND (bisstem.ende >= semester.start OR bisstem.ende IS NULL)
+						  AND vonstsem.start <= semester.ende
 						  AND (
-							bisstem.ende >= (
-								SELECT start
-								FROM public.tbl_studiensemester
-								WHERE studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz
+							lvf.lehrform_kurzbz = ?
+								OR (
+								lvf.lehrform_kurzbz IS NULL
+									AND NOT EXISTS (
+									SELECT 1
+									FROM lehre.tbl_lehrveranstaltung_faktor lvf2
+											 LEFT JOIN public.tbl_studiensemester vonstsem2
+													   ON lvf2.studiensemester_kurzbz_von = vonstsem2.studiensemester_kurzbz
+											 LEFT JOIN public.tbl_studiensemester bisstem2
+													   ON lvf2.studiensemester_kurzbz_bis = bisstem2.studiensemester_kurzbz
+									WHERE lvf2.lehrveranstaltung_id = lvf.lehrveranstaltung_id
+									  AND lvf2.lehrform_kurzbz = ?
+									  AND (bisstem2.ende >= semester.start OR bisstem2.ende IS NULL)
+									  AND vonstsem2.start <= semester.ende
+								)
+								)
 							)
-								OR bisstem.ende IS NULL
-							)
-						  AND
-							(vonstsem.start <= (
-								SELECT ende
-								FROM public.tbl_studiensemester
-								WHERE studiensemester_kurzbz =  tbl_lehreinheit.studiensemester_kurzbz
-							))
 						ORDER BY vonstsem.start DESC
 						LIMIT 1) as faktor,
 					studiensemester_kurzbz,
 					tbl_lehreinheit.lehreinheit_id,
+					tbl_lehreinheit.lehrform_kurzbz,
 					tbl_mitarbeiter.kurzbz,
 					vorname,
 					nachname,
@@ -1185,14 +1301,14 @@ class PEP extends FHCAPI_Controller
 				LEFT JOIN public.tbl_mitarbeiter ON tbl_lehreinheitmitarbeiter.mitarbeiter_uid = tbl_mitarbeiter.mitarbeiter_uid
 				JOIN public.tbl_benutzer ON uid = tbl_mitarbeiter.mitarbeiter_uid
 				JOIN public.tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
-				LEFT JOIN lehre.tbl_lehrveranstaltung_faktor ON tbl_lehreinheit.lehrveranstaltung_id = tbl_lehrveranstaltung_faktor.lehrveranstaltung_id
 				WHERE tbl_lehrveranstaltung.lehrveranstaltung_id = ?
 					AND studiensemester_kurzbz IN ?
-			GROUP BY tbl_lehreinheit.lehreinheit_id, tbl_lehrveranstaltung.bezeichnung, las,  tbl_lehreinheitmitarbeiter.semesterstunden, tbl_mitarbeiter.kurzbz, vorname,
+					AND tbl_lehreinheit.lehrform_kurzbz = ?
+			GROUP BY tbl_lehreinheit.lehreinheit_id, tbl_lehreinheit.lehrform_kurzbz, tbl_lehrveranstaltung.bezeichnung, las,  tbl_lehreinheitmitarbeiter.semesterstunden, tbl_mitarbeiter.kurzbz, vorname,
 					nachname, tbl_lehrveranstaltung.lehrveranstaltung_id, tbl_mitarbeiter.mitarbeiter_uid
 		";
 
-		$result = $dbModel->execReadOnlyQuery($qry, array($updateStudiensemester, $lehrveranstaltung_id, $studiensemester, $studiensemester, $lehrveranstaltung_id, $studiensemester));
+		$result = $dbModel->execReadOnlyQuery($qry, array($le_studiensemester, $lehrveranstaltung_id, $lehrform, $lehrform, $studiensemester, $studiensemester, $lehrveranstaltung_id, $studiensemester, $lehrform));
 		$this->terminateWithSuccess(hasData($result) ? getData($result) : []);
 	}
 

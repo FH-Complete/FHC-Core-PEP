@@ -3,7 +3,7 @@ export default {
 	getStart(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getStart'
-		return this.$fhcApi.get(url, data, {timeout: 10000})
+		return this.$fhcApi.get(url, data, {timeout: 20000})
 	},
 	getStudiensemester(data)
 	{
@@ -30,6 +30,11 @@ export default {
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getOrganisationen'
 		return this.$fhcApi.get(url)
 	},
+	getOrgForCategories()
+	{
+		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getOrgForCategories'
+		return this.$fhcApi.get(url)
+	},
 	getProjects(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getProjects'
@@ -53,7 +58,7 @@ export default {
 	getLehre(data)
 	{
 		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/PEP/getLehre'
-		return this.$fhcApi.get(url, data, {timeout: 10000});
+		return this.$fhcApi.get(url, data, {timeout: 20000});
 	},
 	setVar(data)
 	{

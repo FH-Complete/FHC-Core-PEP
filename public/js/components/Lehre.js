@@ -5,6 +5,10 @@ import BsModal from '../../../../js/components/Bootstrap/Modal.js';
 import FormInput from "../../../../js/components/Form/Input.js";
 import Tag from '../../../../js/components/Tag/Tag.js';
 import FhcLoader from '../../../../js/components/Loader.js';
+import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
+import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
+import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
+
 
 
 import {formatter} from "../mixins/formatters";
@@ -51,7 +55,8 @@ export default {
 				lvstunden: 0,
 				lvstundenfaktor: '',
 				lv_id: '',
-				updatestudiensemester: ''
+				updatestudiensemester: '',
+				lehrform_kurzbz: '',
 
 			},
 			raumtypen: {
@@ -76,7 +81,7 @@ export default {
 		{
 			return {
 				index: "row_index",
-				maxHeight: "100%",
+				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: (row) =>
@@ -98,7 +103,11 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_12_03_pep_lehre",
+				persistenceID: "2024_12_11_pep_lehre",
+				columnDefaults: {
+					headerFilterFunc: extendedHeaderFilter,
+					tooltip: true
+				},
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -114,6 +123,7 @@ export default {
 						field: 'tags',
 						tooltip: false,
 						headerFilter: true,
+						headerFilterFunc: tagHeaderFilter,
 						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
 						width: 150
 					},
@@ -122,6 +132,7 @@ export default {
 						field: 'tagstatus',
 						tooltip: false,
 						headerFilter: true,
+						headerFilterFunc: tagHeaderFilter,
 						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
 						width: 150
 					},
@@ -161,6 +172,8 @@ export default {
 					{title: 'STG', field: 'stg_kuerzel', headerFilter: true},
 					{title: 'LV Organisationseinheit', field: 'lv_oe', headerFilter: true, visible: true},
 					{title: 'LV Bezeichnung', field: 'lv_bezeichnung', headerFilter: true},
+					{title: 'LV Kurzbz', field: 'lv_kurzbz', headerFilter: true, visible: false},
+					{title: 'LV Semester', field: 'lv_semester', headerFilter: true, visible:false},
 					{title: 'LE Semester', field: 'studiensemester_kurzbz', headerFilter: true, visible:false},
 					{title: 'Gruppe', field: 'gruppe', headerFilter: true, visible:false},
 					{title: 'LE ID', field: 'lehreinheit_id', headerFilter: true, visible:false},
@@ -168,11 +181,22 @@ export default {
 					{title: 'Lektor*in', field: 'lektor', headerFilter: true},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'lektor_nachname', headerFilter: true},
-					{title: 'Hinzugefuegt am', field: 'insertamum', headerFilter: true},
-					{title: 'Updated am', field: 'updateamum', headerFilter: true},
-					{title: 'Info LV-Planung', field: 'lv_anmerkung', headerFilter: "input", formatter: "textarea"},
+					{title: 'Hinzugefuegt am', field: 'insertamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
+					{title: 'Updated am', field: 'updateamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
+					{title: 'Info LV-Planung', field: 'lv_anmerkung', headerFilter: "input", tooltip: false,
+						formatter: function (cell, formatterParams, onRendered) {
+							const value = cell.getValue();
+							if (!value) return "";
+							const firstLine = value.split("\n")[0];
+							let hasMore = value.split("\n")[1] !== undefined;
+							const div = document.createElement("div");
+							div.title = value;
+							div.textContent = hasMore ? firstLine + " ..." : firstLine;
+							return div;
+						},
+					},
 					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", editor: "textarea", formatter: "textarea", visible: false},
-					{title: 'LV Leitung', field: 'lehrfunktion_kurzbz', headerFilter: true, viisble: false},
+					{title: 'LV Leitung', field: 'lehrfunktion_kurzbz', headerFilter: true, visible: false},
 					{title: 'Semesterstunden', field: 'lektor_stunden', headerFilter: true, bottomCalc: "sum", bottomCalcParams:{precision:2},visible: true, hozAlign:"right"},
 					{title: 'Realstunden', field: 'faktorstunden', headerFilter: true, visible: true, hozAlign:"right", bottomCalc: "sum", bottomCalcParams:{precision:2},
 						formatter: (cell) => {
@@ -192,7 +216,10 @@ export default {
 
 						}
 					},
-					{title: 'Faktor', field: 'faktor', headerFilter: true, visible: true, hozAlign:"right"},
+					{title: 'Faktor', field: 'faktor', headerFilter: true, visible: true, hozAlign:"right",
+						formatter: (cell) => {
+							return isNaN(cell.getValue()) || !cell.getValue()  ? '-' : parseFloat(cell.getValue()).toFixed(2);
+						}},
 					{title: 'LE Stundensatz', field: 'le_stundensatz', headerFilter: true, hozAlign:"right"},
 					{title: 'LV-Plan Stunden', field: 'lv_plan_stunden', headerFilter: true, hozAlign:"right"},
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
@@ -200,8 +227,8 @@ export default {
 					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
 					{title: 'Zrm - Stundensatz', field: 'zrm_stundensatz_lehre', headerFilter: "input", visible: false, hozAlign:"right", tooltip: formatter.stundensatzLehreToolTip},
 					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
-					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
-					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - OE Mitarbeiter*in', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - OE Mitarbeiter*in - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stunden', field: 'akt_stunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stundensatz - Lehre', field: 'akt_stundensaetze_lehre', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
 					{title: 'Vorjahres Lektoren', field: 'vorjahreslektoren', headerFilter: "input", visible: true},
@@ -219,11 +246,12 @@ export default {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
+				persistenceID: "2024_12_11_pep_lehre_faktor",
 				columns: [
-					{title: 'Lektor*in', field: 'kurzbz'},
-					{title: 'Vorname', field: 'vorname'},
-					{title: 'Nachname', field: 'nachname'},
-					{title: 'Faktor', field: 'faktor', hozAlign: "right",
+					{title: 'Lektor*in', field: 'kurzbz', width: 150},
+					{title: 'Vorname', field: 'vorname', width: 200},
+					{title: 'Nachname', field: 'nachname', width: 200},
+					{title: 'Faktor', field: 'faktor', hozAlign: "right", width: 100,
 						formatter: (cell) => {
 							return this.formDataFaktor.faktor
 						}
@@ -232,12 +260,13 @@ export default {
 						title: 'Semesterstunden',
 						field: 'semesterstunden',
 						hozAlign: "right",
-
+						width: 150
 					},
 					{
 						title: 'Realstunden',
 						field: 'faktorstunden',
 						hozAlign: "right",
+
 						formatter: (cell) => {
 							let data = cell.getData();
 							let realstunden = parseFloat(data.semesterstunden * this.formDataFaktor.faktor).toFixed(2)
@@ -293,14 +322,13 @@ export default {
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
+
 		},
 		recalcFaktor: function()
 		{
 			let stundenfaktor = this.formDataFaktor.lvstundenfaktor;
 			let stunden = this.formDataFaktor.lvstunden;
-			let faktor = this.formDataFaktor.faktor;
-
-			if (!stunden)
+			if (!stunden || isNaN(stunden) || stunden == "0.00")
 				return;
 			let newFaktor = stundenfaktor/stunden
 
@@ -310,13 +338,15 @@ export default {
 		},
 		editFaktor(data, row)
 		{
-			this.getLehreinheiten(data.lv_id)
+			this.getLehreinheiten(data.lv_id, data.lehrform_kurzbz, data.studiensemester_kurzbz)
 		},
-		getLehreinheiten(lv_id)
+		getLehreinheiten(lv_id, lehrform_kurzbz, studiensemester_kurzbz)
 		{
 			let data = {
 				'lehrveranstaltung_id': lv_id,
-				'studiensemester': this.studiensemester
+				'le_studiensemester_kurzbz': studiensemester_kurzbz,
+				'studiensemester': this.studiensemester,
+				'lehrform_kurzbz': lehrform_kurzbz
 			}
 
 			this.$fhcApi.factory.pep.getLehreinheiten(data)
@@ -363,7 +393,6 @@ export default {
 			this.formData.anmerkung = data.anmerkung;
 			this.formData.oldlektor = data.mitarbeiter_uid;
 			this.formData.studiensemester = this.studiensemester;
-			this.formData.studiensemester = this.studiensemester;
 
 			const selectedLektor = this.lektoren.find(lektor => lektor.uid === data.mitarbeiter_uid);
 			if (selectedLektor) {
@@ -396,12 +425,13 @@ export default {
 		{
 			this.formDataFaktor = {
 				bezeichnung: data[0].bezeichnung,
-				updatestudiensemester: data[0].updatestudiensemester,
+				updatestudiensemester: data[0].studiensemester_kurzbz,
 				lvstunden: data[0].lvstunden,
 				faktor: parseFloat(data[0].faktor).toFixed(2),
 				lvstundenfaktor: parseFloat(data[0].faktor * data[0].lvstunden).toFixed(2),
 				lv_id: data[0].lehrveranstaltung_id,
-				semester: this.studiensemester
+				semester: data[0].studiensemester_kurzbz,
+				lehrform_kurzbz: data[0].lehrform_kurzbz,
 			}
 
 			this.$refs.faktorModal.show();
@@ -490,12 +520,11 @@ export default {
 					lehreinheiten.push(rowData.lehreinheit_id)
 			})
 
-			let body = `Lehreinheiten: ${lehreinheiten.join('; ')}`
-			window.location.href = `mailto:${emails}?body=${body}`;
+			window.location.href = `mailto:${emails}`;
 		},
 		updateLehreinheit()
 		{
-			const selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
+			/*const selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
 
 			selectedRows.forEach(row => {
 				let rowData = row.getData()
@@ -507,10 +536,12 @@ export default {
 						uid: rowData.uid,
 						le_semester: rowData.studiensemester_kurzbz
 					})
-			})
+			})*/
 			this.$fhcApi.factory.pep.saveLehreinheit(this.formData)
 				.then(result => result.data)
 				.then(updateData => {
+					/*
+					Note (david): wechsel soll vorerst nur pro Zeile möglich sein
 					if (Array.isArray(updateData.lehreinheiten_ids) && updateData.lehreinheiten_ids.length !== 0)
 					{
 						updateData.lehreinheiten_ids.forEach(row => {
@@ -533,7 +564,7 @@ export default {
 						});
 					}
 					else
-					{
+					{*/
 						this.selectedRow.update({
 							'lektor' : updateData.lektor,
 							'vorname' : updateData.vorname,
@@ -551,11 +582,12 @@ export default {
 							'anmerkung' : updateData.anmerkung,
 							'updateamum' : updateData.updateamum,
 						})
-					}
+				/*	}*/
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 				})
 				.then(() => this.resetFormData())
 				.then(() => this.$refs.editModal.hide())
+				.then(() => this.theModel = { ...this.modelValue, needReload: true })
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
@@ -575,6 +607,7 @@ export default {
 
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
 				})
+				.then(() => this.theModel = { ...this.modelValue, needReload: true })
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
@@ -627,9 +660,21 @@ export default {
 			};
 			this.selectedRow = null;
 		},
-		//TODO (david) die Tag Logik gehört zsm gefasst
-		addedTag(addedTag)
+		resetFaktorFormData()
 		{
+			this.formDataFaktor = {
+				bezeichnung: '',
+				faktor: '',
+				lvstunden: 0,
+				lvstundenfaktor: '',
+				lv_id: '',
+				updatestudiensemester: '',
+				lehrform_kurzbz: '',
+			};
+			this.selectedRow = null;
+		},
+		//TODO (david) die Tag Logik gehört zsm gefasst
+		addedTag(addedTag) {
 			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
 				const rowData = row.getData();
 
@@ -708,15 +753,18 @@ export default {
 		}
 	},
 	template: `
+	
 		<core-base-layout>
 			<template #main>
-			<h5>{{$p.t('lehre', 'studiensemester')}}: {{studiensemester.join(', ')}}</h5>
+			<h5 
+			:class="theModel.config.matched ? '' : 'mismatch'"
+			:title="theModel.config.matched ? '' : 'Die Auswahl des Studienjahres im Start-Tab weicht ab'"
+			>{{$p.t('lehre', 'studiensemester')}}: {{studiensemester.join(', ')}} </h5>
 				<core-filter-cmpt
 						ref="lehreTable"
 						:tabulator-options="tabulatorOptions"
 						@nw-new-entry="newSideMenuEntryHandler"
 						:table-only=true
-						:hideTopMenu=false
 						:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited},
 											{ event: 'tableBuilt', handler: tableBuilt }, 
 											{ event: 'rowSelectionChanged', handler: updateSelectedRows }]"
@@ -734,7 +782,7 @@ export default {
 						></Tag>
 					</template>
 				</core-filter-cmpt>
-				<bs-modal ref="editModal" class="bootstrap-prompt" dialogClass="modal-lg" @hidden-bs-modal="reset">
+				<bs-modal ref="editModal" class="bootstrap-prompt" dialogClass="modal-lg" @hidden-bs-modal="resetFormData">
 					<template #title>{{ modalTitle }}</template>
 					<template #default>
 						<div class="row row-cols-2">
@@ -819,13 +867,20 @@ export default {
 					</template>
 				</bs-modal>
 
-				<bs-modal ref="faktorModal" class="bootstrap-prompt" dialogClass="modal-xl" @hidden-bs-modal="reset">
+				<bs-modal ref="faktorModal" class="bootstrap-prompt" dialogClass="modal-xl" @hidden-bs-modal="resetFaktorFormData">
 					<template #title>{{ modalTitle }} - {{ formDataFaktor.bezeichnung }}</template>
-						<div class="row row-cols-4">
+						<div class="row row-cols-5">
 							<div class="col">
 								<form-input
 									label="Gültig ab"
 									v-model="formDataFaktor.updatestudiensemester"
+									readonly
+								></form-input>
+							</div>
+							<div class="col">
+								<form-input
+									label="Lehrform"
+									v-model="formDataFaktor.lehrform_kurzbz"
 									readonly
 								></form-input>
 							</div>
@@ -859,7 +914,6 @@ export default {
 							ref="faktorTable"
 							:tabulator-options="faktorTabulatorOptions"
 							:table-only=true
-							:hideTopMenu=false
 							:sideMenu=false
 						/>
 					<template #footer>

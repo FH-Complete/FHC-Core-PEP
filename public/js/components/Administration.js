@@ -50,7 +50,7 @@ export default {
 				maxHeight: "100%",
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2024_12_03_pep_kategorie_administration",
+				persistenceID: "2024_12_11_pep_kategorie_administration",
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -153,8 +153,7 @@ export default {
 					ref="administrationTable"
 					:tabulator-options="tabulatorOptions"
 					:table-only=true
-					:side-menu="false"
-					:hideTopMenu=false>
+					:side-menu="false">
 					<template #actions>
 						<div class="d-flex gap-2 align-items-baseline">
 							<button class="btn btn-primary" @click="vorruecken">Vorrücken</button>
