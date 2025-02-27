@@ -132,7 +132,8 @@ class PEP_model extends DB_Model
 				person.vorname,
 				person.nachname,
 				STRING_AGG(DISTINCT leitungsperson.vorname || ' ' || leitungsperson.nachname,  E'\n') as leitung,
-				tbl_sap_projects_status_intern.description as status_sap_intern
+				tbl_sap_projects_status_intern.description as status_sap_intern,
+				ROUND(SUM(COALESCE(sapprojects.planstunden, 0)) - COALESCE(aktuellges.gearbeitete_stunden, 0), 2) as offenestunden
 			FROM semester_datum as dates,
 				sync.tbl_sap_projects_timesheets timesheetsproject
 				LEFT JOIN sync.tbl_projects_employees sapprojects ON timesheetsproject.project_task_id = sapprojects.project_task_id
