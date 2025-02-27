@@ -435,7 +435,7 @@ export default {
 				bezeichnung: data[0].bezeichnung,
 				updatestudiensemester: data[0].studiensemester_kurzbz,
 				lvstunden: data[0].lvstunden,
-				faktor: parseFloat(data[0].faktor).toFixed(2),
+				faktor: isNaN(parseFloat(data[0].faktor).toFixed(2)) ? "" : parseFloat(data[0].faktor).toFixed(2),
 				lvstundenfaktor: parseFloat(data[0].faktor * data[0].lvstunden).toFixed(2),
 				lv_id: data[0].lehrveranstaltung_id,
 				semester: data[0].studiensemester_kurzbz,

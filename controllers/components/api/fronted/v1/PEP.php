@@ -1004,12 +1004,11 @@ class PEP extends FHCAPI_Controller
 			{*/
 
 
+			$updateDatum = date('Y-m-d H:i:s');
 			$updateParams = array('mitarbeiter_uid' => $data->lektor->uid,
 				'anmerkung' => $data->anmerkung,
-				'updateamum' => date('Y-m-d H:i:s'),
+				'updateamum' => $updateDatum,
 				'updatevon' => $this->_uid);
-
-
 
 			if ($data->lektor->uid !== $data->oldlektor)
 			{
@@ -1077,12 +1076,12 @@ class PEP extends FHCAPI_Controller
 
 			$returnData->akt_orgbezeichnung = isset($dv->akt_orgbezeichnung) ? $dv->akt_orgbezeichnung : '-';
 			$returnData->akt_parentbezeichnung = isset($dv->akt_parentbezeichnung) ? $dv->akt_parentbezeichnung : '-';
-			$returnData->le_stundensatz = isset($stundensatzResult) ? $stundensatzResult : '0.00';
+			$returnData->le_stundensatz = isset($stundensatzResult) ? $stundensatzResult : null;
 			$returnData->akt_stunden = isset($dv->akt_stunden) ? $dv->akt_stunden : '-';
 
 			$returnData->akt_stundensaetze_lehre = isset($dv->akt_stundensaetze_lehre) ? $dv->akt_stundensaetze_lehre : '-';
 			$returnData->bezeichnung = isset($dv->bezeichnung) ? $dv->bezeichnung : '-';
-			$returnData->updateamum = date('d.m.Y H:i:s');
+			$returnData->updateamum = $updateDatum;
 			$returnData->anmerkung = $data->anmerkung;
 			$returnData->lehreinheiten_ids = $successUpdated;
 
