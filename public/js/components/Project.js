@@ -88,7 +88,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_12_03_pep_project",
+				persistenceID: "2025_02_28_pep_project",
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true
@@ -216,10 +216,11 @@ export default {
 					{title: 'Restlaufzeit in Monaten', field: 'restlaufzeit', headerFilter: true},
 					{title: 'Status lt. SAP', field: 'status', headerFilter: true},
 					{title: 'Status intern', field: 'status_sap_intern', headerFilter: true},
-					{title: 'Erster Stichtag (01.01)', field: 'erster', headerFilter: true},
-					{title: 'Zweiter Stichtag (01.06)', field: 'zweiter', headerFilter: true},
-					{title: 'im ausgewählten SJ gebuchte Stunden', field: 'aktuellestunden', headerFilter: true},
+					{title: 'Erster Stichtag (01.01) im ausgewählten SJ', field: 'erster', headerFilter: true},
+					{title: 'Zweiter Stichtag (01.06) im ausgewählten SJ', field: 'zweiter', headerFilter: true},
+					{title: 'gebuchte Stunden im ausgewählten SJ', field: 'aktuellestunden', headerFilter: true},
 					{title: 'bis heute gebuchte Gesamtstunden', field: 'aktuellestundengesamt', headerFilter: true},
+					{title: 'Offene Stunden', headerFilter: true, field: 'offenestunden'},
 					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
 					{title: 'Akt - OE Mitarbeiter*in', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - OE Mitarbeiter*in - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
