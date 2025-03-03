@@ -103,7 +103,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_12_11_pep_lehre",
+				persistenceID: "2025_02_28_pep_lehre",
 				persistence: {
 					sort: true,
 					columns: true,
@@ -191,6 +191,7 @@ export default {
 					{title: 'Nachname', field: 'lektor_nachname', headerFilter: true},
 					{title: 'Hinzugefuegt am', field: 'insertamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
 					{title: 'Updated am', field: 'updateamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
+					{title: 'Updated von', field: 'lehreinheitupdatevon', headerFilter: true},
 					{title: 'Info LV-Planung', field: 'lv_anmerkung', headerFilter: "input", tooltip: false,
 						formatter: function (cell, formatterParams, onRendered) {
 							const value = cell.getValue();
@@ -589,6 +590,7 @@ export default {
 							'uid' : updateData.uid,
 							'anmerkung' : updateData.anmerkung,
 							'updateamum' : updateData.updateamum,
+							'lehreinheitupdatevon' : updateData.lehreinheitupdatevon,
 						})
 				/*	}*/
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");

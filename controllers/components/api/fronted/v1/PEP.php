@@ -1056,6 +1056,10 @@ class PEP extends FHCAPI_Controller
 			/*}*/
 
 
+			$this->_ci->PersonModel->addSelect("(vorname || ' ' || nachname || ' ' || '(' || uid || ')') as lehreinheitupdatevon");
+			$this->_ci->PersonModel->addJoin('public.tbl_benutzer updatedbenutzer', 'updatedbenutzer.person_id = tbl_person.person_id');
+			$updatedPerson = $this->_ci->PersonModel->loadWhere(array('updatedbenutzer.uid' => $this->_uid));
+			$updatedPersonData = getData($updatedPerson)[0];
 			$this->_ci->PersonModel->addSelect('vorname, nachname, kurzbz as lektor, uid');
 			$this->_ci->PersonModel->addJoin('public.tbl_benutzer', 'person_id');
 			$this->_ci->PersonModel->addJoin('public.tbl_mitarbeiter', 'mitarbeiter_uid = tbl_benutzer.uid');
@@ -1084,6 +1088,7 @@ class PEP extends FHCAPI_Controller
 			$returnData->updateamum = $updateDatum;
 			$returnData->anmerkung = $data->anmerkung;
 			$returnData->lehreinheiten_ids = $successUpdated;
+			$returnData->lehreinheitupdatevon = $updatedPersonData->lehreinheitupdatevon;
 
 			$this->terminateWithSuccess($returnData);
 		}
@@ -1161,12 +1166,14 @@ class PEP extends FHCAPI_Controller
 		$qry = "
 			SELECT DISTINCT(project_id), start_date, end_date, name
 				FROM sync.tbl_sap_projects_timesheets
+				LEFT JOIN sync.tbl_sap_projects_status_intern ON NULLIF(tbl_sap_projects_timesheets.custom_fields->>'Status_KUT', '')::numeric = tbl_sap_projects_status_intern.status
 				WHERE project_task_id IS NULL
 				AND project_id ilike any (array['$projects'])
 				AND deleted is false
+				AND tbl_sap_projects_status_intern.status NOT IN ?
 				ORDER BY project_id";
 
-		$result = $dbModel->execReadOnlyQuery($qry);
+		$result = $dbModel->execReadOnlyQuery($qry, array($this->_ci->config->item('excluded_project_status')));
 		$this->terminateWithSuccess(hasData($result) ? getData($result) : []);
 	}
 

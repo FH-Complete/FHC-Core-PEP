@@ -41,3 +41,6 @@ $config['content_id'] = XXX
 
 //defines which tags are displayed in the "Planning Status" column
 $config['planungsstatus_tags'] = array('');
+
+// defines which project statuses are NOT loaded
+$config['excluded_project_status'] = array(0);

@@ -199,12 +199,13 @@ class PEP_model extends DB_Model
 					OR tbl_sap_organisationsstruktur.oe_kurzbz IN ". $this->_getRecursiveOE() ."
 				)
 				AND (timesheetsprojectinfos.start_date <= dates.ende OR timesheetsprojectinfos.start_date IS NULL)
-				AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)";
+				AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)
+				AND (tbl_sap_projects_status_intern.status NOT IN ? OR pepprojects.stunden IS NOT NULL)";
 
 		$query = $this->getProjectDataSql($where);
 
 
-		return $this->execQuery($query, array($studienjahr, $studienjahr, $mitarbeiter_uids, $org));
+		return $this->execQuery($query, array($studienjahr, $studienjahr, $mitarbeiter_uids, $org, $this->config->item('excluded_project_status')));
 
 	}
 
@@ -507,6 +508,7 @@ class PEP_model extends DB_Model
 			tbl_lehreinheitmitarbeiter.mitarbeiter_uid as uid,
 			tbl_lehreinheitmitarbeiter.insertamum as insertamum,
 			tbl_lehreinheitmitarbeiter.updateamum as updateamum,
+			(lehreinheitperson.vorname || ' ' || lehreinheitperson.nachname || ' ' || '(' || lehreinheitbenutzer.uid || ')') as lehreinheitupdatevon,
 			tbl_lehreinheitmitarbeiter.anmerkung,
 			tbl_mitarbeiter.kurzbz as lektor,
 			tbl_person.vorname as vorname,
@@ -756,6 +758,8 @@ class PEP_model extends DB_Model
 					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
 				WHERE typ_kurzbz IN ?
 			) AS tag_status_data ON tbl_lehreinheit.lehreinheit_id = tag_status_data.lehreinheit_id
+			LEFT JOIN public.tbl_benutzer lehreinheitbenutzer ON lehreinheitbenutzer.uid = tbl_lehreinheitmitarbeiter.updatevon
+			LEFT JOIN public.tbl_person lehreinheitperson ON lehreinheitperson.person_id = lehreinheitbenutzer.person_id
 		WHERE
 			tbl_lehreinheit.studiensemester_kurzbz IN ?
 		AND (
@@ -813,6 +817,7 @@ class PEP_model extends DB_Model
 				lv_org.oe_kurzbz,
 				tbl_lehreinheitmitarbeiter.insertamum,
 				tbl_lehreinheitmitarbeiter.updateamum,
+				lehreinheitupdatevon,
 				tbl_lehreinheitmitarbeiter.anmerkung,
 				tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz,
 				tbl_lehreinheitmitarbeiter.planstunden,
