@@ -153,8 +153,7 @@ export default {
 					ref="administrationTable"
 					:tabulator-options="tabulatorOptions"
 					:table-only=true
-					:side-menu="false"
-					:hideTopMenu=false>
+					:side-menu="false">
 					<template #actions>
 						<div class="d-flex gap-2 align-items-baseline">
 							<button class="btn btn-primary" @click="vorruecken">Vorrücken</button>

@@ -51,6 +51,19 @@ DO $$
     EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
+DO $$
+    BEGIN
+        ALTER TABLE extension.tbl_pep_kategorie_mitarbeiter ADD COLUMN oe_kurzbz character varying(32) DEFAULT NULL;
+    EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+DO $$
+    BEGIN
+        ALTER TABLE extension.tbl_pep_kategorie_mitarbeiter ADD CONSTRAINT tbl_pep_kategorie_mitarbeiter_oe_kurzbz_fkey
+        FOREIGN KEY (oe_kurzbz) REFERENCES public.tbl_organisationseinheit(oe_kurzbz) ON UPDATE CASCADE ON DELETE RESTRICT;
+    EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 
 
 GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE extension.tbl_pep_kategorie_mitarbeiter TO vilesci;

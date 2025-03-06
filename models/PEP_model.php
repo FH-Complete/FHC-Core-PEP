@@ -73,36 +73,67 @@ class PEP_model extends DB_Model
 				 FROM zeiterfassung
 				 WHERE zeitaufzeichnungende <= CURRENT_DATE
 				 GROUP BY projekt_kurzbz, uid
+			 ),
+			 aktuellges AS (
+				 SELECT
+					 SUM(EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden,
+					 projekt_kurzbz,
+					 uid
+				 FROM campus.tbl_zeitaufzeichnung
+				 WHERE tbl_zeitaufzeichnung.ende <= CURRENT_DATE
+				 GROUP BY projekt_kurzbz, uid
 			 )
 			SELECT
 				ROW_NUMBER() OVER () AS row_index,
 				pep_projects_employees_id,
 				timesheetsproject.project_id,
 				timesheetsprojectinfos.name,
-				TO_CHAR(MIN(timesheetsprojectinfos.start_date), 'DD.MM.YYYY') as start_date,
-				TO_CHAR(MAX(timesheetsprojectinfos.end_date), 'DD.MM.YYYY') as end_date,
+				MIN(timesheetsprojectinfos.start_date) as start_date,
+				MAX(timesheetsprojectinfos.end_date) as end_date,
 				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) AS mitarbeiter_uid,
 				SUM(COALESCE(sapprojects.planstunden, null)) AS summe_planstunden,
-				EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) * 12 +
-				EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) AS laufzeit,
-				EXTRACT(YEAR FROM age(CURRENT_DATE, MIN(timesheetsprojectinfos.start_date))) * 12 +
-				EXTRACT(MONTH FROM age(CURRENT_DATE, MIN(timesheetsprojectinfos.start_date))) AS verbrauchte_zeit,
-				ROUND(EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
-				EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE))  +
-				EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) / 30.0) AS restlaufzeit,
+
+				ROUND(EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) * 12 +
+					EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) + 
+					EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) / 30.0) AS laufzeit,
+
+				ROUND(LEAST(
+					(EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) * 12 +
+					EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) + 
+					EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), MIN(timesheetsprojectinfos.start_date))) / 30.0),
+
+					ROUND(EXTRACT(YEAR FROM age(CURRENT_DATE,  MIN(timesheetsprojectinfos.start_date))) * 12 +
+					EXTRACT(MONTH FROM age(CURRENT_DATE, MIN(timesheetsprojectinfos.start_date)))  +
+					EXTRACT(DAY FROM age(CURRENT_DATE, MIN(timesheetsprojectinfos.start_date))) / 30.0)
+				)) AS verbrauchte_zeit,
+				ROUND(CASE
+					WHEN (
+						 EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
+						 EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) +
+						 EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) / 30.0
+						 ) < 0.5
+					THEN 0
+				ELSE (
+						EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
+						EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) +
+						EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) / 30.0
+					)
+				END) AS restlaufzeit,
 				pepprojects.stunden AS stunden,
 				pepprojects.anmerkung,
 				tbl_sap_projects_status.description as status,
 				ROUND(ersterstichtag.gearbeitete_stunden, 2) as erster,
 				ROUND(zweiterstichtag.gearbeitete_stunden, 2) as zweiter,
 				ROUND(aktuell.gearbeitete_stunden, 2) as aktuellestunden,
-				av.orgbezeichnung as akt_orgbezeichnung,
-				av.parentbezeichnung as akt_parentbezeichnung,
+				ROUND(aktuellges.gearbeitete_stunden, 2) as aktuellestundengesamt,
+				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.orgbezeichnung ELSE av.oeorgbezeichnung END as akt_orgbezeichnung,
+				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.parentbezeichnung ELSE av.oeorgparentbezeichnung END as akt_parentbezeichnung,
 				av.bezeichnung as akt_bezeichnung,
 				person.vorname,
 				person.nachname,
 				STRING_AGG(DISTINCT leitungsperson.vorname || ' ' || leitungsperson.nachname,  E'\n') as leitung,
-				tbl_sap_projects_status_intern.description as status_sap_intern
+				tbl_sap_projects_status_intern.description as status_sap_intern,
+				ROUND(SUM(COALESCE(sapprojects.planstunden, 0)) - COALESCE(aktuellges.gearbeitete_stunden, 0), 2) as offenestunden
 			FROM semester_datum as dates,
 				sync.tbl_sap_projects_timesheets timesheetsproject
 				LEFT JOIN sync.tbl_projects_employees sapprojects ON timesheetsproject.project_task_id = sapprojects.project_task_id
@@ -114,7 +145,7 @@ class PEP_model extends DB_Model
 				LEFT JOIN aktVertrag av ON av.mitarbeiter_uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) AND av.rn = 1
 				JOIN public.tbl_benutzer benutzer ON mitarbeiter.mitarbeiter_uid = benutzer.uid
 				JOIN public.tbl_person person ON benutzer.person_id = person.person_id
-				LEFT JOIN sync.tbl_sap_projects_timesheets timesheetsprojectinfos ON timesheetsproject.project_id = timesheetsprojectinfos.project_id AND timesheetsprojectinfos.project_task_id IS NULL
+				LEFT JOIN sync.tbl_sap_projects_timesheets timesheetsprojectinfos ON timesheetsproject.project_id = timesheetsprojectinfos.project_id AND timesheetsprojectinfos.project_task_id IS NULL  AND timesheetsprojectinfos.deleted is false
 				LEFT JOIN sync.tbl_projects_timesheets_project  ON timesheetsprojectinfos.projects_timesheet_id = tbl_projects_timesheets_project.projects_timesheet_id
 				LEFT JOIN sync.tbl_sap_projects_status ON timesheetsprojectinfos.status = tbl_sap_projects_status.status
 				LEFT JOIN sync.tbl_sap_organisationsstruktur ON  timesheetsprojectinfos.responsible_unit = tbl_sap_organisationsstruktur.oe_kurzbz_sap
@@ -122,6 +153,7 @@ class PEP_model extends DB_Model
 				LEFT JOIN ersterstichtag ON tbl_projekt.projekt_kurzbz = ersterstichtag.projekt_kurzbz AND ersterstichtag.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 				LEFT JOIN zweiterstichtag ON tbl_projekt.projekt_kurzbz = zweiterstichtag.projekt_kurzbz AND zweiterstichtag.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 				LEFT JOIN aktuell ON tbl_projekt.projekt_kurzbz = aktuell.projekt_kurzbz AND aktuell.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
+				LEFT JOIN aktuellges ON tbl_projekt.projekt_kurzbz = aktuellges.projekt_kurzbz AND aktuellges.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 
 				LEFT JOIN tbl_benutzer leitungsbenutzer ON timesheetsprojectinfos.project_leader = leitungsbenutzer.uid
 				LEFT JOIN public.tbl_person leitungsperson ON leitungsbenutzer.person_id = leitungsperson.person_id
@@ -129,14 +161,17 @@ class PEP_model extends DB_Model
 				ON NULLIF(timesheetsprojectinfos.custom_fields->>'Status_KUT', '')::numeric = tbl_sap_projects_status_intern.status
 
 			WHERE
-				" . $where ."
+				timesheetsproject.deleted is false AND " . $where ."
 			GROUP BY
 				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid),
 				person.vorname,
 				person.nachname,
+				av.vertragsart_kurzbz ,
 				av.oe_kurzbz,
 				av.orgbezeichnung,
 				av.parentbezeichnung,
+				av.oeorgbezeichnung,
+				av.oeorgparentbezeichnung,
 				av.bezeichnung,
 				dates.start,
 				dates.ende,
@@ -148,6 +183,7 @@ class PEP_model extends DB_Model
 				ersterstichtag.gearbeitete_stunden,
 				zweiterstichtag.gearbeitete_stunden,
 				aktuell.gearbeitete_stunden,
+				aktuellges.gearbeitete_stunden,
 				tbl_sap_projects_status.description,
 				tbl_sap_projects_status_intern.description
 			ORDER BY timesheetsproject.project_id;
@@ -163,12 +199,13 @@ class PEP_model extends DB_Model
 					OR tbl_sap_organisationsstruktur.oe_kurzbz IN ". $this->_getRecursiveOE() ."
 				)
 				AND (timesheetsprojectinfos.start_date <= dates.ende OR timesheetsprojectinfos.start_date IS NULL)
-				AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)";
+				AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)
+				AND (tbl_sap_projects_status_intern.status NOT IN ? OR pepprojects.stunden IS NOT NULL)";
 
 		$query = $this->getProjectDataSql($where);
 
 
-		return $this->execQuery($query, array($studienjahr, $studienjahr, $mitarbeiter_uids, $org));
+		return $this->execQuery($query, array($studienjahr, $studienjahr, $mitarbeiter_uids, $org, $this->config->item('excluded_project_status')));
 
 	}
 
@@ -212,7 +249,7 @@ class PEP_model extends DB_Model
 					pk.kategorie_id,
 					pk.bezeichnung,
 					pk.bezeichnung_mehrsprachig,
-					CASE WHEN zv.relevante_vertragsart IN ('echterdv', 'dummy') THEN (
+					CASE WHEN zv.relevante_vertragsart IN ('echterdv', 'dummy', 'externerlehrender') THEN (
 						ROUND (COALESCE(SUM(pkm.stunden),
 							  CASE ". implode(" ", $caseStatements) . " END
 								), 2)
@@ -454,7 +491,8 @@ class PEP_model extends DB_Model
 					lehre.tbl_lehreinheitgruppe
 					LEFT JOIN public.tbl_studiengang USING(studiengang_kz)
 					LEFT JOIN public.tbl_gruppe USING(gruppe_kurzbz)
-				WHERE tbl_lehreinheitgruppe.lehreinheit_id = tbl_lehreinheit.lehreinheit_id) as gruppe,
+				WHERE tbl_lehreinheitgruppe.lehreinheit_id = tbl_lehreinheit.lehreinheit_id
+			) as gruppe,
 			(
 				SELECT upper(tbl_studiengang.typ::varchar(1) || tbl_studiengang.kurzbz) as stg_kuerzel
 				FROM lehre.tbl_lehrveranstaltung
@@ -468,8 +506,9 @@ class PEP_model extends DB_Model
 				WHERE tbl_lehrveranstaltung.lehrveranstaltung_id = tbl_lehreinheit.lehrveranstaltung_id
 			) as stg_email,
 			tbl_lehreinheitmitarbeiter.mitarbeiter_uid as uid,
-			TO_CHAR(tbl_lehreinheitmitarbeiter.insertamum, 'DD.MM.YYYY HH24:mm:ss') as insertamum,
-			TO_CHAR(tbl_lehreinheitmitarbeiter.updateamum, 'DD.MM.YYYY HH24:mm:ss') as updateamum,
+			tbl_lehreinheitmitarbeiter.insertamum as insertamum,
+			tbl_lehreinheitmitarbeiter.updateamum as updateamum,
+			(lehreinheitperson.vorname || ' ' || lehreinheitperson.nachname || ' ' || '(' || lehreinheitbenutzer.uid || ')') as lehreinheitupdatevon,
 			tbl_lehreinheitmitarbeiter.anmerkung,
 			tbl_mitarbeiter.kurzbz as lektor,
 			tbl_person.vorname as vorname,
@@ -548,6 +587,36 @@ class PEP_model extends DB_Model
 						FROM public.tbl_studiensemester
 						WHERE studiensemester_kurzbz =  tbl_lehreinheit.studiensemester_kurzbz
 					))
+				  AND (
+					lehrform_kurzbz = tbl_lehreinheit.lehrform_kurzbz
+						OR (
+							lehrform_kurzbz IS NULL
+								AND NOT EXISTS (
+									SELECT 1
+									FROM lehre.tbl_lehrveranstaltung_faktor lvfaktor2
+									LEFT JOIN public.tbl_studiensemester vonstsem2
+										ON lvfaktor2.studiensemester_kurzbz_von = vonstsem2.studiensemester_kurzbz
+									LEFT JOIN public.tbl_studiensemester bisstem2
+										ON lvfaktor2.studiensemester_kurzbz_bis = bisstem2.studiensemester_kurzbz
+									WHERE lvfaktor2.lehrveranstaltung_id = tbl_lehrveranstaltung_faktor.lehrveranstaltung_id
+									  AND lvfaktor2.lehrform_kurzbz = tbl_lehreinheit.lehrform_kurzbz
+		
+									 AND (
+										bisstem2.ende >= (
+											SELECT start
+											FROM public.tbl_studiensemester
+											WHERE studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz
+										)
+										OR bisstem2.ende IS NULL
+									)
+					
+									 AND vonstsem2.start <= (SELECT ende
+										FROM public.tbl_studiensemester
+										WHERE studiensemester_kurzbz =  tbl_lehreinheit.studiensemester_kurzbz
+									)
+							)
+						)
+					)
 				ORDER BY vonstsem.start DESC
 				LIMIT 1
 			) ELSE 0 END as faktor,
@@ -578,6 +647,36 @@ class PEP_model extends DB_Model
 						  )
 								OR vonstsem.start IS NULL
 								)
+						  AND (
+							lehrform_kurzbz = tbl_lehreinheit.lehrform_kurzbz
+								OR (
+									lehrform_kurzbz IS NULL
+										AND NOT EXISTS (
+											SELECT 1
+											FROM lehre.tbl_lehrveranstaltung_faktor lvfaktor2
+											LEFT JOIN public.tbl_studiensemester vonstsem2
+												ON lvfaktor2.studiensemester_kurzbz_von = vonstsem2.studiensemester_kurzbz
+											LEFT JOIN public.tbl_studiensemester bisstem2
+												ON lvfaktor2.studiensemester_kurzbz_bis = bisstem2.studiensemester_kurzbz
+											WHERE lvfaktor2.lehrveranstaltung_id = tbl_lehrveranstaltung_faktor.lehrveranstaltung_id
+											  AND lvfaktor2.lehrform_kurzbz = tbl_lehreinheit.lehrform_kurzbz
+				
+											 AND (
+												bisstem2.ende >= (
+													SELECT start
+													FROM public.tbl_studiensemester
+													WHERE studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz
+												)
+												OR bisstem2.ende IS NULL
+											)
+							
+											 AND vonstsem2.start <= (SELECT ende
+												FROM public.tbl_studiensemester
+												WHERE studiensemester_kurzbz =  tbl_lehreinheit.studiensemester_kurzbz
+											)
+									)
+								)
+							)
 					 ORDER BY vonstsem.start DESC
 					 LIMIT 1
 				), tbl_lehreinheitmitarbeiter.semesterstunden
@@ -642,7 +741,6 @@ class PEP_model extends DB_Model
 					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
 				WHERE typ_kurzbz NOT IN ? 
 			) AS tag_data ON tbl_lehreinheit.lehreinheit_id = tag_data.lehreinheit_id
-			
 			LEFT JOIN
 			(
 				SELECT
@@ -660,6 +758,8 @@ class PEP_model extends DB_Model
 					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
 				WHERE typ_kurzbz IN ?
 			) AS tag_status_data ON tbl_lehreinheit.lehreinheit_id = tag_status_data.lehreinheit_id
+			LEFT JOIN public.tbl_benutzer lehreinheitbenutzer ON lehreinheitbenutzer.uid = tbl_lehreinheitmitarbeiter.updatevon
+			LEFT JOIN public.tbl_person lehreinheitperson ON lehreinheitperson.person_id = lehreinheitbenutzer.person_id
 		WHERE
 			tbl_lehreinheit.studiensemester_kurzbz IN ?
 		AND (
@@ -717,6 +817,7 @@ class PEP_model extends DB_Model
 				lv_org.oe_kurzbz,
 				tbl_lehreinheitmitarbeiter.insertamum,
 				tbl_lehreinheitmitarbeiter.updateamum,
+				lehreinheitupdatevon,
 				tbl_lehreinheitmitarbeiter.anmerkung,
 				tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz,
 				tbl_lehreinheitmitarbeiter.planstunden,
@@ -738,11 +839,12 @@ class PEP_model extends DB_Model
 					JOIN lehre.tbl_lehreinheit ON tbl_lehreinheitmitarbeiter.lehreinheit_id = tbl_lehreinheit.lehreinheit_id
 					JOIN lehre.tbl_lehrveranstaltung ON tbl_lehreinheit.lehrveranstaltung_id = tbl_lehrveranstaltung.lehrveranstaltung_id
 					LEFT JOIN (
-						SELECT DISTINCT ON (tbl_lehrveranstaltung_faktor.lehrveranstaltung_id)
+						SELECT 
 							tbl_lehrveranstaltung_faktor.lehrveranstaltung_id,
 							tbl_lehrveranstaltung_faktor.faktor,
 							vonstsem.start AS von_start,
-							bisstem.ende AS bis_ende
+							bisstem.ende AS bis_ende,
+							lehrform_kurzbz
 						FROM lehre.tbl_lehrveranstaltung_faktor
 							LEFT JOIN public.tbl_studiensemester vonstsem
 								ON tbl_lehrveranstaltung_faktor.studiensemester_kurzbz_von = vonstsem.studiensemester_kurzbz
@@ -763,38 +865,41 @@ class PEP_model extends DB_Model
 						ORDER BY tbl_lehrveranstaltung_faktor.lehrveranstaltung_id, von_start DESC
 					) AS tbl_lehrveranstaltung_faktor
 					ON tbl_lehrveranstaltung.lehrveranstaltung_id = tbl_lehrveranstaltung_faktor.lehrveranstaltung_id
+					AND (
+					   tbl_lehrveranstaltung_faktor.lehrform_kurzbz = tbl_lehreinheit.lehrform_kurzbz
+						OR (
+							tbl_lehrveranstaltung_faktor.lehrform_kurzbz IS NULL
+						       AND NOT EXISTS (
+									SELECT 1
+									FROM lehre.tbl_lehrveranstaltung_faktor lvfaktor2
+									LEFT JOIN public.tbl_studiensemester vonstsem2
+										ON lvfaktor2.studiensemester_kurzbz_von = vonstsem2.studiensemester_kurzbz
+									LEFT JOIN public.tbl_studiensemester bisstem2
+										ON lvfaktor2.studiensemester_kurzbz_bis = bisstem2.studiensemester_kurzbz
+									WHERE lvfaktor2.lehrveranstaltung_id = tbl_lehrveranstaltung_faktor.lehrveranstaltung_id
+									  AND lvfaktor2.lehrform_kurzbz = tbl_lehreinheit.lehrform_kurzbz
+		
+									 AND (
+										bisstem2.ende >= (
+											SELECT start
+											FROM public.tbl_studiensemester
+											WHERE studiensemester_kurzbz = tbl_lehreinheit.studiensemester_kurzbz
+										)
+										OR bisstem2.ende IS NULL
+									)
+					
+									 AND vonstsem2.start <= (SELECT ende
+										FROM public.tbl_studiensemester
+										WHERE studiensemester_kurzbz =  tbl_lehreinheit.studiensemester_kurzbz
+									)
+							)
+						   )
+					   )
 				WHERE
 				  tbl_lehreinheit.studiensemester_kurzbz = ?
 				  AND tbl_lehreinheitmitarbeiter.mitarbeiter_uid = ?;";
 		return $this->execReadOnlyQuery($query, array($studiensemester, $studiensemester, $studiensemester, $uid));
 	}
-	public function getLehrauftraegeStunden2($uid, $studiensemester)
-	{
-		$query = "SELECT
-						COALESCE(SUM(tbl_lehreinheitmitarbeiter.semesterstunden * COALESCE(tbl_lehrveranstaltung_faktor.faktor, 1)), 0) AS stunden_mit_faktor,
-						COALESCE(SUM(tbl_lehreinheitmitarbeiter.semesterstunden), 0) AS stunden_ohne_faktor
-					FROM lehre.tbl_lehreinheitmitarbeiter
-							 JOIN lehre.tbl_lehreinheit ON tbl_lehreinheitmitarbeiter.lehreinheit_id = tbl_lehreinheit.lehreinheit_id
-							 JOIN lehre.tbl_lehrveranstaltung ON tbl_lehreinheit.lehrveranstaltung_id = tbl_lehrveranstaltung.lehrveranstaltung_id
-							 LEFT JOIN (
-								SELECT DISTINCT ON (lvf.lehrveranstaltung_id)
-										lvf.lehrveranstaltung_id,
-										lvf.faktor
-								FROM lehre.tbl_lehrveranstaltung_faktor lvf
-									LEFT JOIN public.tbl_studiensemester von ON lvf.studiensemester_kurzbz_von = von.studiensemester_kurzbz
-									LEFT JOIN public.tbl_studiensemester bis ON lvf.studiensemester_kurzbz_bis = bis.studiensemester_kurzbz
-								WHERE
-									(bis.ende >= (SELECT start FROM public.tbl_studiensemester WHERE studiensemester_kurzbz = ?) OR bis.ende IS NULL)
-								  AND (von.start <= (SELECT ende FROM public.tbl_studiensemester WHERE studiensemester_kurzbz = ?) OR von.start IS NULL)
-								ORDER BY lvf.lehrveranstaltung_id, von.start DESC
-							) AS tbl_lehrveranstaltung_faktor
-							ON tbl_lehrveranstaltung.lehrveranstaltung_id = tbl_lehrveranstaltung_faktor.lehrveranstaltung_id
-					WHERE
-						tbl_lehreinheit.studiensemester_kurzbz = ?
-					  AND tbl_lehreinheitmitarbeiter.mitarbeiter_uid = ?;";
-		return $this->execReadOnlyQuery($query, array($studiensemester, $studiensemester, $studiensemester, $uid));
-	}
-
 	public function getLehrauftraegeStundenWithoutFaktor($uid, $studiensemester)
 	{
 		$query = "SELECT COALESCE(SUM(tbl_lehreinheitmitarbeiter.semesterstunden), 0) as stunden
@@ -963,10 +1068,12 @@ class PEP_model extends DB_Model
 				zv.jahresstunden as zrm_jahresstunden,
 				zv.einzelnejahresstunden as zrm_einzeljahresstunden,
 				lehre_stundensatz.stunden as zrm_stundensatz_lehre,
+				
+				
 				av.oe_kurzbz,
-				av.orgbezeichnung as akt_orgbezeichnung,
-				av.parentbezeichnung as akt_parentbezeichnung,
 				av.bezeichnung as akt_bezeichnung,
+				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.orgbezeichnung ELSE av.oeorgbezeichnung END as akt_orgbezeichnung,
+				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.parentbezeichnung ELSE av.oeorgparentbezeichnung END as akt_parentbezeichnung,
 				akt_lehre_stundensatz.stundensatz as akt_stundensaetze_lehre,
 				av.wochenstunden as akt_stunden,
 				karenz.von as karenzvon,
@@ -1010,7 +1117,8 @@ class PEP_model extends DB_Model
 					(COALESCE(pkm.stunden,
 						CASE ". implode(" ", $caseStatements) . " END
 				), 2) AS stunden,
-				pkm.anmerkung
+				pkm.anmerkung,
+				pkm.oe_kurzbz as category_oe_kurzbz
 				FROM tbl_mitarbeiter
 					JOIN tbl_benutzer ON tbl_mitarbeiter.mitarbeiter_uid = tbl_benutzer.uid
 					JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
@@ -1068,9 +1176,12 @@ class PEP_model extends DB_Model
 					dv.mitarbeiter_uid,
 					va.bezeichnung,
 					dv.oe_kurzbz,
+					dv.vertragsart_kurzbz,
 					dv.dienstverhaeltnis_id,
 					funktion.orgbezeichnung,
 					funktion.parentbezeichnung,
+					oefunktion.orgbezeichnung as oeorgbezeichnung,
+					oefunktion.parentbezeichnung as oeorgparentbezeichnung,
 					stunden.wochenstunden AS wochenstunden,
 					CASE ". implode(" ", $caseStatements) . " END as jahresstunden,
 					ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST) AS rn
@@ -1088,6 +1199,18 @@ class PEP_model extends DB_Model
 							AND funktion_kurzbz = 'kstzuordnung'
 						ORDER BY vb.von DESC
 					) funktion ON funktion.dienstverhaeltnis_id = dv.dienstverhaeltnis_id
+					LEFT JOIN (
+						SELECT vb.dienstverhaeltnis_id, vb.von, org.bezeichnung as orgbezeichnung, parentorg.bezeichnung as parentbezeichnung
+						FROM hr.tbl_vertragsbestandteil vb
+							JOIN hr.tbl_vertragsbestandteil_funktion USING (vertragsbestandteil_id)
+							JOIN public.tbl_benutzerfunktion ON tbl_vertragsbestandteil_funktion.benutzerfunktion_id = tbl_benutzerfunktion.benutzerfunktion_id
+							JOIN tbl_organisationseinheit org ON tbl_benutzerfunktion.oe_kurzbz = org.oe_kurzbz
+							JOIN tbl_organisationseinheit parentorg ON org.oe_parent_kurzbz = parentorg.oe_kurzbz
+						WHERE vb.von <= NOW()
+						  AND (vb.bis >= NOW() OR vb.bis IS NULL)
+						  AND funktion_kurzbz = 'oezuordnung'
+						ORDER BY vb.von DESC
+					) oefunktion ON oefunktion.dienstverhaeltnis_id = dv.dienstverhaeltnis_id
 					LEFT JOIN (
 						SELECT vb.dienstverhaeltnis_id, vbs.wochenstunden, vb.von
 						FROM hr.tbl_vertragsbestandteil vb

@@ -114,7 +114,7 @@ export const formatter = {
 			return '-';
 
 	},
-	aktStundenFormatterTooltip: function(e, cell,)
+	aktStundenFormatterTooltip: function(e, cell)
 	{
 		var value = cell.getData().aktuelles_dv.stunden;
 		if (istGueltig(value))
@@ -123,6 +123,21 @@ export const formatter = {
 			return '-';
 	},
 
+	dateFormatter: function(cell)
+	{
+		let val = cell.getValue();
+		if (!val)
+			return '&nbsp;';
+
+		let date = new Date(val);
+
+		return date.toLocaleDateString('de-AT', {
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+		});
+
+	},
 	dvFormatter: function(cell, formatterParams, onRendered) {
 
 
@@ -454,37 +469,7 @@ export const formatter = {
 
 		return parseFloat(bottomsum).toFixed(2);
 	},
-	berechneSummeBottom: function(values, data, calcParams)
-	{
-		let bottomsum = 0;
-		var praefix = "studiensemester_";
-		data.forEach((row) => {
-			if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
-			{
-				if (row.releavante_vertragsart !== 'echterdv')
-					return '-';
-			}
-			else
-				return;
-			var summe = row.summe;
-			if (summe === undefined)
-				return;
-			for (var key in row)
-			{
-				if (row.hasOwnProperty(key) && key.startsWith(praefix))
-				{
-					var wert = row[key];
-					if (!isNaN(parseFloat(wert)))
-					{
-						summe -= parseFloat(wert);
-					}
-				}
-			}
-			bottomsum += summe;
-		});
 
-		return parseFloat(bottomsum).toFixed(2);
-	},
 	bottomCalcFormatter: function(cell, formatterParams)
 	{
 		let value = cell.getValue();

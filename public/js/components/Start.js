@@ -3,7 +3,8 @@ import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {formatter} from "../mixins/formatters";
 import FhcLoader from '../../../../js/components/Loader.js';
 import Tag from '../../../../js/components/Tag/Tag.js';
-
+import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
+import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
 
 export default {
 	name: "Start",
@@ -72,10 +73,11 @@ export default {
 			return {
 				layout: 'fitDataStretch',
 				height: '60vh',
+				selectableRows:true,
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: function(row) {
-					var data = row.getData();
-					var element = row.getElement();
+					let data = row.getData();
+					let element = row.getElement();
 					if (data.karenz === false && !element.classList.contains('calcs-bottom'))
 					{
 						row.getCells().forEach(function (cell) {
@@ -86,6 +88,18 @@ export default {
 					}
 				},
 				persistenceID: "2024_12_11_pep_start",
+				persistence: {
+					sort: true,
+					columns: true,
+					headerFilter: true,
+					filter: false,
+					group: false,
+					page: false,
+				},
+				columnDefaults: {
+					headerFilterFunc: extendedHeaderFilter,
+					tooltip: true
+				},
 				columns: [
 					{
 						formatter: 'rowSelection',
@@ -101,6 +115,7 @@ export default {
 						field: 'tags',
 						tooltip: false,
 						headerFilter: true,
+						headerFilterFunc: tagHeaderFilter,
 						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
 						width: 150,
 					},
@@ -108,13 +123,13 @@ export default {
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
 					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
 					{title: 'Karenz', field: 'karenz', visible: false, formatter: formatter.karenzFormatter, headerFilter:"input"},
-					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: "", headerTooltip: "Zeitraum - Dienstverhältnis"},
+					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", headerTooltip: "Zeitraum - Dienstverhältnis"},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", headerTooltip: "Zeitraum - Stunden pro Woche"},
 					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea",  headerTooltip: "Zeitraum - Stunden pro Jahr"},
 
 					{title: 'Akt - DV', field: 'akt_bezeichnung', headerFilter: "input", formatter: "textarea",  visible: false},
-					{title: 'Akt - Kostenstelle', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
-					{title: 'Akt - Kostenstelle - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - OE Mitarbeiter*in', field: 'akt_orgbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
+					{title: 'Akt - OE Mitarbeiter*in - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stunden', field: 'akt_stunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stundensatz - Lehre', field: 'akt_stundensaetze_lehre', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
 					{
@@ -357,11 +372,11 @@ export default {
 			</h5>
 				<core-filter-cmpt
 					ref="startTable"
+					:tableOnly=false
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'rowSelectionChanged', handler: updateSelectedRows }]"
 					:table-only=true
 					:side-menu="false"
-					:hideTopMenu=false
 				>
 				<template #actions>
 				<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
