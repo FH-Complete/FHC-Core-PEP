@@ -718,8 +718,6 @@ class PEP_model extends DB_Model
 			JOIN lehre.tbl_lehreinheitmitarbeiter USING (lehreinheit_id)
 			LEFT JOIN lehre.tbl_vertrag USING(vertrag_id)
 			JOIN tbl_mitarbeiter USING (mitarbeiter_uid)
-			LEFT JOIN lehre.tbl_lehreinheitgruppe USING (lehreinheit_id)
-			LEFT JOIN tbl_studiengang ON tbl_lehreinheitgruppe.studiengang_kz = tbl_studiengang.studiengang_kz
 			JOIN tbl_benutzer ON tbl_mitarbeiter.mitarbeiter_uid = tbl_benutzer.uid
 			JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
 			JOIN tbl_organisationseinheit lv_org ON lv_org.oe_kurzbz = lehrfach.oe_kurzbz
@@ -809,7 +807,6 @@ class PEP_model extends DB_Model
 				tbl_lehrveranstaltung.bezeichnung,
 				tbl_lehrveranstaltung.oe_kurzbz,
 				tbl_lehrveranstaltung.lehrveranstaltung_id,
-				tbl_lehreinheitgruppe.semester,
 				tbl_lehreinheit.studiensemester_kurzbz,
 				tbl_lehreinheitmitarbeiter.semesterstunden,
 				tbl_lehreinheitmitarbeiter.stundensatz,
