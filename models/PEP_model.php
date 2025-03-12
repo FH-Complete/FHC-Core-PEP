@@ -198,9 +198,14 @@ class PEP_model extends DB_Model
 					COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) IN ?
 					OR tbl_sap_organisationsstruktur.oe_kurzbz IN ". $this->_getRecursiveOE() ."
 				)
-				AND (timesheetsprojectinfos.start_date <= dates.ende OR timesheetsprojectinfos.start_date IS NULL)
-				AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)
-				AND (tbl_sap_projects_status_intern.status NOT IN ? OR pepprojects.stunden IS NOT NULL)";
+			AND (
+					(
+						(timesheetsprojectinfos.start_date <= dates.ende OR timesheetsprojectinfos.start_date IS NULL)
+						AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)
+						AND (tbl_sap_projects_status_intern.status NOT IN ?)
+					)
+					OR pepprojects.stunden IS NOT NULL
+				)";
 
 		$query = $this->getProjectDataSql($where);
 
