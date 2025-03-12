@@ -37,20 +37,15 @@ export default {
 				{
 					if (row.getElement().classList.contains("tabulator-calcs"))
 						return;
-
-					let data = row.getData();
 					let columns = row.getTable().getColumns();
 
-					if (data.kategorie_mitarbeiter_id === null || data.newentry === false)
-					{
-						this.columnsToMark.forEach((spaltenName) => {
-							let column = columns.find(col => col.getField() === spaltenName);
-							if (column) {
-								let cellElement = row.getCell(column).getElement();
-								cellElement.classList.add("highlight-warning");
-							}
-						});
-					}
+					this.columnsToMark.forEach((spaltenName) => {
+						let column = columns.find(col => col.getField() === spaltenName);
+						if (column) {
+							let cellElement = row.getCell(column).getElement();
+							cellElement.classList.add("highlight-warning");
+						}
+					});
 				},
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -137,9 +132,6 @@ export default {
 						hozAlign: "right",
 						formatter: function (cell, formatterParams, onRendered)
 						{
-
-
-
 							var value = cell.getValue();
 							if (value === null || isNaN(value) || value === "")
 							{
@@ -252,7 +244,7 @@ export default {
 				.then(response => {
 					this.orgListe = response.data
 						.reduce((acc, org) => {
-							const orgName = `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung}`;
+							const orgName = `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung} ${org.stgbezeichnung}`;
 							acc[org.oe_kurzbz] = org.aktiv ? orgName : `<s>${orgName}</s>`;
 							return acc;
 						}, {});

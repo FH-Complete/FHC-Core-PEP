@@ -147,8 +147,15 @@ class PEP extends FHCAPI_Controller
 
 	public function getOrgForCategories()
 	{
-		$this->_ci->OrganisationseinheitModel->addSelect('organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz, aktiv');
-		$this->_ci->OrganisationseinheitModel->addOrder('aktiv', 'DESC');
+		$this->_ci->OrganisationseinheitModel->addJoin('tbl_studiengang', 'oe_kurzbz', 'LEFT');
+
+		$this->_ci->OrganisationseinheitModel->addSelect('public.tbl_organisationseinheit.organisationseinheittyp_kurzbz, 
+															public.tbl_organisationseinheit.bezeichnung,
+															public.tbl_organisationseinheit.oe_kurzbz,
+															public.tbl_organisationseinheit.aktiv,
+															COALESCE(public.tbl_studiengang.bezeichnung, \'\') as stgbezeichnung
+															');
+		$this->_ci->OrganisationseinheitModel->addOrder('public.tbl_organisationseinheit.aktiv', 'DESC');
 		$this->_ci->OrganisationseinheitModel->addOrder('organisationseinheittyp_kurzbz');
 		$organisationen = $this->_ci->OrganisationseinheitModel->load();
 		$this->terminateWithSuccess(getData($organisationen));
