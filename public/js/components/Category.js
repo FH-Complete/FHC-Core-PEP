@@ -237,6 +237,15 @@ export default {
 				}
 			});
 			this.mitarbeiterListe = mitarbeiter;
+
+			const column = this.$refs.categoryTable?.tabulator?.getColumn("mitarbeiter_uid");
+			if (column)
+			{
+				this.$refs.categoryTable.tabulator.updateColumnDefinition("mitarbeiter_uid",
+					{headerFilterParams: { values: this.mitarbeiterListe }}
+				);
+			}
+
 		},
 		async fetchOrganisationen()
 		{
