@@ -102,6 +102,7 @@ export default {
 						title: 'UID',
 						field: 'mitarbeiter_uid',
 						headerFilter: true,
+						headerFilterParams: { values: {} },
 						editor: "list",
 						width: 50,
 						editorParams:() => {
@@ -227,23 +228,20 @@ export default {
 		},
 		async getMitarbeiterListe(data)
 		{
-			let mitarbeiter = {};
-
-			data.forEach(row => {
+			this.mitarbeiterListe = data.reduce((mitarbeiter, row) => {
 				if (row.mitarbeiter_uid && row.vorname && row.nachname)
 				{
-					if (!(mitarbeiter[row.mitarbeiter_uid]))
-						mitarbeiter[row.mitarbeiter_uid] = `${row.vorname} ${row.nachname}`;
+					mitarbeiter[row.mitarbeiter_uid] = `${row.vorname} ${row.nachname}`;
 				}
-			});
-			this.mitarbeiterListe = mitarbeiter;
+				return mitarbeiter;
+			}, {});
 
 			const column = this.$refs.categoryTable?.tabulator?.getColumn("mitarbeiter_uid");
 			if (column)
 			{
 				this.$refs.categoryTable.tabulator.updateColumnDefinition("mitarbeiter_uid",
 					{headerFilterParams: { values: this.mitarbeiterListe }}
-				);
+				).then(() => this.$refs.categoryTable.tabulator.redraw(true));
 			}
 
 		},
