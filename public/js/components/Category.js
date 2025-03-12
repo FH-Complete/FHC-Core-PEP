@@ -31,15 +31,8 @@ export default {
 				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2024_12_11_pep_kategorie_" + this.config.category_id,
-				persistence: {
-					sort: true,
-					columns: true,
-					headerFilter: true,
-					filter: false,
-					group: false,
-					page: false,
-				},
+				persistenceID: "2025_03_12_pep_kategorie_" + this.config.category_id,
+				persistence: true,
 				rowFormatter: (row) =>
 				{
 					if (row.getElement().classList.contains("tabulator-calcs"))

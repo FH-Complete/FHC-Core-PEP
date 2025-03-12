@@ -103,15 +103,8 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2025_02_28_pep_lehre",
-				persistence: {
-					sort: true,
-					columns: true,
-					headerFilter: true,
-					filter: false,
-					group: false,
-					page: false,
-				},
+				persistenceID: "2025_03_12_pep_lehre",
+				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true

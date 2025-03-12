@@ -88,7 +88,8 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2025_02_28_pep_project",
+				persistenceID: "2025_03_12_pep_project",
+				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true
