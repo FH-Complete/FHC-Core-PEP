@@ -826,7 +826,7 @@ class PEP extends FHCAPI_Controller
 				'kategorie_id' =>  $mitarbeiterCategory->kategorie,
 				'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
 				'studienjahr_kurzbz' => $mitarbeiterCategory->studienjahr,
-				'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
+				'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : number_format($mitarbeiterCategory->stunden, 2),
 				'oe_kurzbz' => isEmptyString($mitarbeiterCategory->category_oe_kurzbz) ? null : $mitarbeiterCategory->category_oe_kurzbz,
 				'anmerkung' => $mitarbeiterCategory->anmerkung,
 				'insertamum' => date('Y-m-d H:i:s'),
@@ -870,7 +870,7 @@ class PEP extends FHCAPI_Controller
 					$result = $this->_ci->PEPKategorieMitarbeiterModel->update(
 						array($stunden_exists->kategorie_mitarbeiter_id),
 						array(
-							'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
+							'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : number_format($mitarbeiterCategory->stunden, 2),
 							'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
 							'anmerkung' => $mitarbeiterCategory->anmerkung,
 							'oe_kurzbz' => isEmptyString($mitarbeiterCategory->category_oe_kurzbz) ? null : $mitarbeiterCategory->category_oe_kurzbz,
