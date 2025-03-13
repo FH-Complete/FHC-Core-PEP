@@ -67,17 +67,7 @@ export default {
 						return;
 					let data = row.getData();
 					let columns = row.getTable().getColumns();
-					if ((data.stunden === null && data.anmerkung === null) && data.summe_planstunden !== null)
-					{
-						this.columnsToMark.forEach((spaltenName) => {
-							let column = columns.find(col => col.getField() === spaltenName);
-							if (column) {
-								let cellElement = row.getCell(column).getElement();
-								cellElement.classList.add("highlight-warning");
-							}
-						});
-					}
-					else if (data.stunden !== null && data.summe_planstunden === null)
+					if (data.stunden !== null && data.summe_planstunden === null)
 					{
 						this.columnsToMark.forEach((spaltenName) => {
 							let column = columns.find(col => col.getField() === spaltenName);
@@ -87,8 +77,19 @@ export default {
 							}
 						});
 					}
+					else
+					{
+						this.columnsToMark.forEach((spaltenName) => {
+							let column = columns.find(col => col.getField() === spaltenName);
+							if (column) {
+								let cellElement = row.getCell(column).getElement();
+								cellElement.classList.add("highlight-warning");
+							}
+						});
+					}
 				},
-				persistenceID: "2025_02_28_pep_project",
+				persistenceID: "2025_03_12_pep_project",
+				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true
@@ -121,7 +122,6 @@ export default {
 								});
 								container.append(deleteButton);
 							}
-
 							return container;
 						},
 					},

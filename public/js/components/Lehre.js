@@ -89,29 +89,18 @@ export default {
 					if (row.getElement().classList.contains("tabulator-calcs"))
 						return;
 
-					let data = row.getData();
 					let columns = row.getTable().getColumns();
 
-					if (data.anmerkung === null || data.anmerkung.trim() === "")
-					{
-						this.columnsToMark.forEach((spaltenName) => {
-							let column = columns.find(col => col.getField() === spaltenName);
-							if (column) {
-								let cellElement = row.getCell(column).getElement();
-								cellElement.classList.add("highlight-warning");
-							}
-						});
-					}
+					this.columnsToMark.forEach((spaltenName) => {
+						let column = columns.find(col => col.getField() === spaltenName);
+						if (column) {
+							let cellElement = row.getCell(column).getElement();
+							cellElement.classList.add("highlight-warning");
+						}
+					});
 				},
-				persistenceID: "2025_02_28_pep_lehre",
-				persistence: {
-					sort: true,
-					columns: true,
-					headerFilter: true,
-					filter: false,
-					group: false,
-					page: false,
-				},
+				persistenceID: "2025_03_12_pep_lehre",
+				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true

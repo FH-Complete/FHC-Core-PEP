@@ -87,15 +87,8 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_12_11_pep_start",
-				persistence: {
-					sort: true,
-					columns: true,
-					headerFilter: true,
-					filter: false,
-					group: false,
-					page: false,
-				},
+				persistenceID: "2025_03_12_pep_start",
+				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true

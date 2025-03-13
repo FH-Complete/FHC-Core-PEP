@@ -83,7 +83,7 @@ export default {
 				oe_kurzbz: org.oe_kurzbz,
 				bezeichnung: org.bezeichnung,
 				active: org.aktiv,
-				displayName: `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung}`
+				displayName: `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung} ${org.stgbezeichnung}`
 			}));
 		},
 
@@ -176,7 +176,7 @@ export default {
 
 			return selected
 				? {
-					displayName: `[${selected.organisationseinheittyp_kurzbz}] ${selected.bezeichnung}`,
+					displayName: `[${selected.organisationseinheittyp_kurzbz}] ${selected.bezeichnung} ${selected.stgbezeichnung}`,
 					active: selected.aktiv,
 					oe_kurzbz: selected.oe_kurzbz
 				}

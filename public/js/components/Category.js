@@ -31,33 +31,21 @@ export default {
 				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2024_12_11_pep_kategorie_" + this.config.category_id,
-				persistence: {
-					sort: true,
-					columns: true,
-					headerFilter: true,
-					filter: false,
-					group: false,
-					page: false,
-				},
+				persistenceID: "2025_03_12_pep_kategorie_" + this.config.category_id,
+				persistence: true,
 				rowFormatter: (row) =>
 				{
 					if (row.getElement().classList.contains("tabulator-calcs"))
 						return;
-
-					let data = row.getData();
 					let columns = row.getTable().getColumns();
 
-					if (data.kategorie_mitarbeiter_id === null || data.newentry === false)
-					{
-						this.columnsToMark.forEach((spaltenName) => {
-							let column = columns.find(col => col.getField() === spaltenName);
-							if (column) {
-								let cellElement = row.getCell(column).getElement();
-								cellElement.classList.add("highlight-warning");
-							}
-						});
-					}
+					this.columnsToMark.forEach((spaltenName) => {
+						let column = columns.find(col => col.getField() === spaltenName);
+						if (column) {
+							let cellElement = row.getCell(column).getElement();
+							cellElement.classList.add("highlight-warning");
+						}
+					});
 				},
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -114,6 +102,7 @@ export default {
 						title: 'UID',
 						field: 'mitarbeiter_uid',
 						headerFilter: true,
+						headerFilterParams: { values: {} },
 						editor: "list",
 						width: 50,
 						editorParams:() => {
@@ -144,9 +133,6 @@ export default {
 						hozAlign: "right",
 						formatter: function (cell, formatterParams, onRendered)
 						{
-
-
-
 							var value = cell.getValue();
 							if (value === null || isNaN(value) || value === "")
 							{
@@ -242,16 +228,22 @@ export default {
 		},
 		async getMitarbeiterListe(data)
 		{
-			let mitarbeiter = {};
-
-			data.forEach(row => {
+			this.mitarbeiterListe = data.reduce((mitarbeiter, row) => {
 				if (row.mitarbeiter_uid && row.vorname && row.nachname)
 				{
-					if (!(mitarbeiter[row.mitarbeiter_uid]))
-						mitarbeiter[row.mitarbeiter_uid] = `${row.vorname} ${row.nachname}`;
+					mitarbeiter[row.mitarbeiter_uid] = `${row.vorname} ${row.nachname}`;
 				}
-			});
-			this.mitarbeiterListe = mitarbeiter;
+				return mitarbeiter;
+			}, {});
+
+			const column = this.$refs.categoryTable?.tabulator?.getColumn("mitarbeiter_uid");
+			if (column)
+			{
+				this.$refs.categoryTable.tabulator.updateColumnDefinition("mitarbeiter_uid",
+					{headerFilterParams: { values: this.mitarbeiterListe }}
+				).then(() => this.$refs.categoryTable.tabulator.redraw(true));
+			}
+
 		},
 		async fetchOrganisationen()
 		{
@@ -259,7 +251,7 @@ export default {
 				.then(response => {
 					this.orgListe = response.data
 						.reduce((acc, org) => {
-							const orgName = `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung}`;
+							const orgName = `[${org.organisationseinheittyp_kurzbz}] ${org.bezeichnung} ${org.stgbezeichnung}`;
 							acc[org.oe_kurzbz] = org.aktiv ? orgName : `<s>${orgName}</s>`;
 							return acc;
 						}, {});

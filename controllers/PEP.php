@@ -36,10 +36,16 @@ class PEP extends Auth_Controller
 		$studiensemestern = getData($this->_ci->StudiensemesterModel->load());
 
 		$oeKurzbz = $this->_ci->permissionlib->getOE_isEntitledFor(self::BERECHTIGUNG_KURZBZ);
-		$this->_ci->OrganisationseinheitModel->addSelect("organisationseinheittyp_kurzbz, bezeichnung, oe_kurzbz, aktiv");
-		$this->_ci->OrganisationseinheitModel->addOrder('aktiv', 'DESC');
-		$this->_ci->OrganisationseinheitModel->addOrder('organisationseinheittyp_kurzbz');
-		$organisationen = getData($this->_ci->OrganisationseinheitModel->loadWhere("oe_kurzbz IN ('". implode("', '", $oeKurzbz) . "')"));
+		$this->_ci->OrganisationseinheitModel->addJoin('tbl_studiengang', 'oe_kurzbz', 'LEFT');
+
+		$this->_ci->OrganisationseinheitModel->addSelect('public.tbl_organisationseinheit.organisationseinheittyp_kurzbz,
+															public.tbl_organisationseinheit.bezeichnung,
+															public.tbl_organisationseinheit.oe_kurzbz,
+															public.tbl_organisationseinheit.aktiv,
+															COALESCE(public.tbl_studiengang.bezeichnung, \'\') as stgbezeichnung');
+		$this->_ci->OrganisationseinheitModel->addOrder('tbl_organisationseinheit.aktiv', 'DESC');
+		$this->_ci->OrganisationseinheitModel->addOrder('tbl_organisationseinheit.organisationseinheittyp_kurzbz');
+		$organisationen = getData($this->_ci->OrganisationseinheitModel->loadWhere("tbl_organisationseinheit.oe_kurzbz IN ('". implode("', '", $oeKurzbz) . "')"));
 
 		$data = [
 			'studienjahre' => $studienjahre,
