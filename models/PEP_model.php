@@ -29,7 +29,7 @@ class PEP_model extends DB_Model
 
 		$query = $this->getProjectDataSql($where);
 
-		return $this->execQuery($query, array($studienjahr, $studienjahr, $project_employee_id));
+		return $this->execQuery($query, array($studienjahr, '', $studienjahr, $project_employee_id));
 
 	}
 	private function getProjectDataSql($where)
@@ -37,7 +37,8 @@ class PEP_model extends DB_Model
 		$query = "
 			". $this->_getStartCTE() . ",
 			". $this->_getAktuelleDaten() .",
-			". $this->_getStudienjahrDates() .",
+			". $this->_getStudienjahrDates() .", 
+			organisationseinheiten AS " . $this->_getRecursiveOE() . ",
 			zeiterfassung AS (
 				 SELECT
 					 uid,
@@ -47,36 +48,27 @@ class PEP_model extends DB_Model
 					 tbl_zeitaufzeichnung.ende as zeitaufzeichnungende
 				 FROM campus.tbl_zeitaufzeichnung JOIN semester_datum dates ON tbl_zeitaufzeichnung.start >= dates.start
 			 ),
-			 ersterstichtag AS (
-				 SELECT
-					 SUM(gearbeitete_stunden) AS gearbeitete_stunden,
-					 projekt_kurzbz,
-					 uid
-				 FROM zeiterfassung
-				 WHERE zeitaufzeichnungende <= date_trunc('year', ende) + INTERVAL '0' DAY
-				 GROUP BY projekt_kurzbz, uid
-			 ),
-			 zweiterstichtag AS (
-				 SELECT
-					 SUM(gearbeitete_stunden) AS gearbeitete_stunden,
-					 projekt_kurzbz,
-					 uid
-				 FROM zeiterfassung
-				 WHERE zeitaufzeichnungende <= date_trunc('year', ende) + INTERVAL '5 month'
-				 GROUP BY projekt_kurzbz, uid
-			 ),
-			 aktuell AS (
-				 SELECT
-					 SUM(gearbeitete_stunden) AS gearbeitete_stunden,
-					 projekt_kurzbz,
-					 uid
-				 FROM zeiterfassung
-				 WHERE zeitaufzeichnungende <= CURRENT_DATE
-				 GROUP BY projekt_kurzbz, uid
-			 ),
-			 aktuellges AS (
-				 SELECT
-					 SUM(EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden,
+			stichtage AS (
+				SELECT
+					zeitaufzeichnung.uid,
+					zeitaufzeichnung.projekt_kurzbz,
+
+					SUM(CASE WHEN zeitaufzeichnung.ende <= date_trunc('year', semester_datum.ende) + INTERVAL '0' DAY
+							THEN EXTRACT(EPOCH FROM (zeitaufzeichnung.ende - zeitaufzeichnung.start)) / 3600 ELSE 0 END) AS erster,
+
+					SUM(CASE WHEN zeitaufzeichnung.ende <= date_trunc('year', semester_datum.ende) + INTERVAL '5 month'
+							THEN EXTRACT(EPOCH FROM (zeitaufzeichnung.ende - zeitaufzeichnung.start)) / 3600 ELSE 0 END) AS zweiter,
+
+					SUM(CASE WHEN zeitaufzeichnung.ende <= CURRENT_DATE
+							THEN EXTRACT(EPOCH FROM (zeitaufzeichnung.ende - zeitaufzeichnung.start)) / 3600 ELSE 0 END) AS aktuell
+
+				FROM campus.tbl_zeitaufzeichnung zeitaufzeichnung
+					JOIN semester_datum ON zeitaufzeichnung.start >= semester_datum.start
+				GROUP BY zeitaufzeichnung.projekt_kurzbz, zeitaufzeichnung.uid
+			),
+			aktuellges AS (
+				SELECT
+					SUM(EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden,
 					 projekt_kurzbz,
 					 uid
 				 FROM campus.tbl_zeitaufzeichnung
@@ -122,9 +114,9 @@ class PEP_model extends DB_Model
 				pepprojects.stunden AS stunden,
 				pepprojects.anmerkung,
 				tbl_sap_projects_status.description as status,
-				ROUND(ersterstichtag.gearbeitete_stunden, 2) as erster,
-				ROUND(zweiterstichtag.gearbeitete_stunden, 2) as zweiter,
-				ROUND(aktuell.gearbeitete_stunden, 2) as aktuellestunden,
+				ROUND(stichtage.erster, 2) as erster,
+				ROUND(stichtage.zweiter, 2) as zweiter,
+				ROUND(stichtage.aktuell, 2) as aktuellestunden,
 				ROUND(aktuellges.gearbeitete_stunden, 2) as aktuellestundengesamt,
 				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.orgbezeichnung ELSE av.oeorgbezeichnung END as akt_orgbezeichnung,
 				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.parentbezeichnung ELSE av.oeorgparentbezeichnung END as akt_parentbezeichnung,
@@ -145,28 +137,33 @@ class PEP_model extends DB_Model
 				LEFT JOIN aktVertrag av ON av.mitarbeiter_uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) AND av.rn = 1
 				JOIN public.tbl_benutzer benutzer ON mitarbeiter.mitarbeiter_uid = benutzer.uid
 				JOIN public.tbl_person person ON benutzer.person_id = person.person_id
-				LEFT JOIN sync.tbl_sap_projects_timesheets timesheetsprojectinfos ON timesheetsproject.project_id = timesheetsprojectinfos.project_id AND timesheetsprojectinfos.project_task_id IS NULL  AND timesheetsprojectinfos.deleted is false
+				
+				LEFT JOIN (SELECT DISTINCT ON (project_id) *, COALESCE(tbl_sap_projects_timesheets.custom_fields->>'Status_KUT', '') as internstatus
+							FROM sync.tbl_sap_projects_timesheets
+							WHERE project_task_id IS NULL
+							ORDER BY project_id, deleted, start_date DESC
+				) timesheetsprojectinfos ON timesheetsproject.project_id = timesheetsprojectinfos.project_id
+				
 				LEFT JOIN sync.tbl_projects_timesheets_project  ON timesheetsprojectinfos.projects_timesheet_id = tbl_projects_timesheets_project.projects_timesheet_id
 				LEFT JOIN sync.tbl_sap_projects_status ON timesheetsprojectinfos.status = tbl_sap_projects_status.status
 				LEFT JOIN sync.tbl_sap_organisationsstruktur ON  timesheetsprojectinfos.responsible_unit = tbl_sap_organisationsstruktur.oe_kurzbz_sap
 				LEFT JOIN fue.tbl_projekt ON tbl_projects_timesheets_project.projekt_id = tbl_projekt.projekt_id
-				LEFT JOIN ersterstichtag ON tbl_projekt.projekt_kurzbz = ersterstichtag.projekt_kurzbz AND ersterstichtag.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
-				LEFT JOIN zweiterstichtag ON tbl_projekt.projekt_kurzbz = zweiterstichtag.projekt_kurzbz AND zweiterstichtag.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
-				LEFT JOIN aktuell ON tbl_projekt.projekt_kurzbz = aktuell.projekt_kurzbz AND aktuell.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
+				
+				LEFT JOIN stichtage ON tbl_projekt.projekt_kurzbz = stichtage.projekt_kurzbz AND stichtage.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 				LEFT JOIN aktuellges ON tbl_projekt.projekt_kurzbz = aktuellges.projekt_kurzbz AND aktuellges.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 
 				LEFT JOIN tbl_benutzer leitungsbenutzer ON timesheetsprojectinfos.project_leader = leitungsbenutzer.uid
 				LEFT JOIN public.tbl_person leitungsperson ON leitungsbenutzer.person_id = leitungsperson.person_id
 				LEFT JOIN sync.tbl_sap_projects_status_intern
-				ON NULLIF(timesheetsprojectinfos.custom_fields->>'Status_KUT', '')::numeric = tbl_sap_projects_status_intern.status
+				ON timesheetsprojectinfos.internstatus = tbl_sap_projects_status_intern.status::text
 
 			WHERE
-				timesheetsproject.deleted is false AND " . $where ."
+				" . $where ."
 			GROUP BY
 				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid),
 				person.vorname,
 				person.nachname,
-				av.vertragsart_kurzbz ,
+				av.vertragsart_kurzbz,
 				av.oe_kurzbz,
 				av.orgbezeichnung,
 				av.parentbezeichnung,
@@ -179,10 +176,9 @@ class PEP_model extends DB_Model
 				timesheetsproject.project_id,
 				timesheetsprojectinfos.name,
 				pepprojects.stunden,
-				timesheetsprojectinfos.status,
-				ersterstichtag.gearbeitete_stunden,
-				zweiterstichtag.gearbeitete_stunden,
-				aktuell.gearbeitete_stunden,
+				stichtage.erster,
+				stichtage.zweiter,
+				stichtage.aktuell,
 				aktuellges.gearbeitete_stunden,
 				tbl_sap_projects_status.description,
 				tbl_sap_projects_status_intern.description
@@ -196,13 +192,14 @@ class PEP_model extends DB_Model
 	{
 		$where = " (
 					COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) IN ?
-					OR tbl_sap_organisationsstruktur.oe_kurzbz IN ". $this->_getRecursiveOE() ."
+					 OR tbl_sap_organisationsstruktur.oe_kurzbz IN (SELECT oe_kurzbz FROM organisationseinheiten)
 				)
 			AND (
 					(
 						(timesheetsprojectinfos.start_date <= dates.ende OR timesheetsprojectinfos.start_date IS NULL)
 						AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)
-						AND (tbl_sap_projects_status_intern.status NOT IN ?)
+						AND ((tbl_sap_projects_status_intern.status NOT IN ? OR tbl_sap_projects_status_intern.status IS NULL))
+						AND timesheetsproject.deleted IS FALSE
 					)
 					OR pepprojects.stunden IS NOT NULL
 				)";
@@ -210,7 +207,7 @@ class PEP_model extends DB_Model
 		$query = $this->getProjectDataSql($where);
 
 
-		return $this->execQuery($query, array($studienjahr, $studienjahr, $mitarbeiter_uids, $org, $this->config->item('excluded_project_status')));
+		return $this->execQuery($query, array($studienjahr, $org, $studienjahr, $mitarbeiter_uids, $this->config->item('excluded_project_status')));
 
 	}
 

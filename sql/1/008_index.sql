@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_tbl_zeitaufzeichnung_projekt_kurzbz_uid ON campus.tbl_zeitaufzeichnung USING btree (projekt_kurzbz, uid);

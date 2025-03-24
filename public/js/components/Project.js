@@ -5,7 +5,7 @@ import FormInput from "../../../../js/components/Form/Input.js";
 import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
 import {formatter} from "../mixins/formatters";
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
-
+import focusMixin from "../mixins/focus";
 export default {
 	props: {
 		config: null,
@@ -20,6 +20,7 @@ export default {
 		BsModal,
 		FormInput
 	},
+	mixins: [focusMixin],
 	data: function() {
 		return{
 			formData: {
@@ -46,8 +47,8 @@ export default {
 				von: '',
 				bis: ''
 			},
-			columnsToMark: ['stunden', 'anmerkung']
-
+			columnsToMark: ['stunden', 'anmerkung'],
+			focusFields: ["anmerkung", "stunden"]
 		}
 	},
 	mounted() {
@@ -90,6 +91,7 @@ export default {
 				},
 				persistenceID: "2025_03_12_pep_project",
 				persistence: true,
+				keybindings: false,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
 					tooltip: true
@@ -206,8 +208,15 @@ export default {
 						},
 						]
 					},
-					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", visible: true, editor: "textarea",
-						formatter: "textarea"
+					{title: 'Anmerkung',
+						field: 'anmerkung',
+						headerFilter: "input",
+						visible: true,
+						editor: "textarea",
+						formatter: "textarea",
+						editorParams: {
+							shiftEnterSubmit: true
+						},
 					},
 					{title: 'Startdatum', field: 'start_date', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter, visible: false},
 					{title: 'Enddatum', field: 'end_date', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter, visible: false},
@@ -241,6 +250,7 @@ export default {
 	methods: {
 		tableBuilt(){
 			this.theModel = { ...this.modelValue, loadDataReady: true };
+			this.addFocus('projectTable', this.focusFields)
 		},
 
 
@@ -376,9 +386,7 @@ export default {
 					this.$fhcAlert.alertWarning("Fehler beim Löschen")
 				else
 				{
-					row.update({'pep_projects_employees_id': response.data}).then(() => {
-						row.reformat()
-					})
+					row.update({'pep_projects_employees_id': response.data});
 
 					this.theModel = { ...this.modelValue, needReload: true };
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert")
