@@ -29,7 +29,7 @@ class PEP_model extends DB_Model
 
 		$query = $this->getProjectDataSql($where);
 
-		return $this->execQuery($query, array($studienjahr, '', $studienjahr, $project_employee_id));
+		return $this->execQuery($query, array($studienjahr, '', $this->config->item('excluded_project_status'), $studienjahr, $project_employee_id));
 
 	}
 	private function getProjectDataSql($where)
@@ -125,7 +125,17 @@ class PEP_model extends DB_Model
 				person.nachname,
 				STRING_AGG(DISTINCT leitungsperson.vorname || ' ' || leitungsperson.nachname,  E'\n') as leitung,
 				tbl_sap_projects_status_intern.description as status_sap_intern,
-				ROUND(SUM(COALESCE(sapprojects.planstunden, 0)) - COALESCE(aktuellges.gearbeitete_stunden, 0), 2) as offenestunden
+				ROUND(SUM(COALESCE(sapprojects.planstunden, 0)) - COALESCE(aktuellges.gearbeitete_stunden, 0), 2) as offenestunden,
+				CASE 
+					WHEN pepprojects.stunden IS NOT NULL
+						AND NOT (
+							(timesheetsprojectinfos.start_date <= dates.ende OR timesheetsprojectinfos.start_date IS NULL)
+							AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)
+							AND (tbl_sap_projects_status_intern.status NOT IN ? OR tbl_sap_projects_status_intern.status IS NULL)
+						)
+				THEN true
+				ELSE false
+			  END AS only_pep
 			FROM semester_datum as dates,
 				sync.tbl_sap_projects_timesheets timesheetsproject
 				LEFT JOIN sync.tbl_projects_employees sapprojects ON timesheetsproject.project_task_id = sapprojects.project_task_id
@@ -158,6 +168,7 @@ class PEP_model extends DB_Model
 				ON timesheetsprojectinfos.internstatus = tbl_sap_projects_status_intern.status::text
 
 			WHERE
+				timesheetsproject.deleted is false AND 
 				" . $where ."
 			GROUP BY
 				COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid),
@@ -174,14 +185,18 @@ class PEP_model extends DB_Model
 				dates.ende,
 				pep_projects_employees_id,
 				timesheetsproject.project_id,
+				timesheetsprojectinfos.project_id,
 				timesheetsprojectinfos.name,
+				timesheetsprojectinfos.start_date,
+				timesheetsprojectinfos.end_date,
+				timesheetsproject.deleted,
 				pepprojects.stunden,
 				stichtage.erster,
 				stichtage.zweiter,
 				stichtage.aktuell,
 				aktuellges.gearbeitete_stunden,
 				tbl_sap_projects_status.description,
-				tbl_sap_projects_status_intern.description
+				tbl_sap_projects_status_intern.status
 			ORDER BY timesheetsproject.project_id;
 		";
 
@@ -199,7 +214,6 @@ class PEP_model extends DB_Model
 						(timesheetsprojectinfos.start_date <= dates.ende OR timesheetsprojectinfos.start_date IS NULL)
 						AND (timesheetsprojectinfos.end_date >= dates.start OR timesheetsprojectinfos.end_date IS NULL)
 						AND ((tbl_sap_projects_status_intern.status NOT IN ? OR tbl_sap_projects_status_intern.status IS NULL))
-						AND timesheetsproject.deleted IS FALSE
 					)
 					OR pepprojects.stunden IS NOT NULL
 				)";
@@ -207,7 +221,7 @@ class PEP_model extends DB_Model
 		$query = $this->getProjectDataSql($where);
 
 
-		return $this->execQuery($query, array($studienjahr, $org, $studienjahr, $mitarbeiter_uids, $this->config->item('excluded_project_status')));
+		return $this->execQuery($query, array($studienjahr, $org, $this->config->item('excluded_project_status'), $studienjahr, $mitarbeiter_uids, $this->config->item('excluded_project_status')));
 
 	}
 
@@ -496,7 +510,7 @@ class PEP_model extends DB_Model
 				WHERE tbl_lehreinheitgruppe.lehreinheit_id = tbl_lehreinheit.lehreinheit_id
 			) as gruppe,
 			(
-				SELECT upper(tbl_studiengang.typ::varchar(1) || tbl_studiengang.kurzbz) as stg_kuerzel
+				SELECT upper(tbl_studiengang.typ::varchar(1) || tbl_studiengang.kurzbz || ':'||tbl_studiengang.orgform_kurzbz) as stg_kuerzel
 				FROM lehre.tbl_lehrveranstaltung
 					JOIN tbl_studiengang ON tbl_lehrveranstaltung.studiengang_kz = tbl_studiengang.studiengang_kz
 				WHERE tbl_lehrveranstaltung.lehrveranstaltung_id = tbl_lehreinheit.lehrveranstaltung_id
@@ -525,6 +539,7 @@ class PEP_model extends DB_Model
 			tbl_lehrveranstaltung.bezeichnung as lv_bezeichnung,
 			tbl_lehrveranstaltung.lehrveranstaltung_id as lv_id,
 			tbl_lehrveranstaltung.semester as lv_semester,
+			tbl_lehreinheit.sprache as le_unterrichtssprache,
 			tbl_lehreinheit.anmerkung as lv_anmerkung,
 			lv_org.bezeichnung as lv_oe,
 			(

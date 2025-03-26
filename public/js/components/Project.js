@@ -68,7 +68,14 @@ export default {
 						return;
 					let data = row.getData();
 					let columns = row.getTable().getColumns();
-					if (data.stunden !== null && data.summe_planstunden === null)
+					if (data.only_pep)
+					{
+						columns.forEach((column) => {
+							let cellElement = row.getCell(column).getElement();
+							cellElement.classList.add("highlight-error");
+						});
+					}
+					else if (data.stunden !== null && data.summe_planstunden === null)
 					{
 						this.columnsToMark.forEach((spaltenName) => {
 							let column = columns.find(col => col.getField() === spaltenName);
