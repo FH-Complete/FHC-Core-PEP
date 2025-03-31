@@ -1,6 +1,7 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import { extendedHeaderFilter } from "../../../..//js/tabulator/filters/extendedHeaderFilter";
+import focusMixin from "../mixins/focus";
 
 export default {
 	props: {
@@ -14,6 +15,7 @@ export default {
 		CoreFilterCmpt,
 		CoreBaseLayout
 	},
+	mixins: [focusMixin],
 	data: function() {
 		return{
 			studienjahr: null,
@@ -21,7 +23,9 @@ export default {
 			columnsToMark: ['stunden', 'anmerkung', 'category_oe_kurzbz', 'mitarbeiter_uid'],
 			tableData: [],
 			mitarbeiterListe: {},
-			orgListe: null
+			orgListe: null,
+			activeCell: null,
+			focusFields: ["anmerkung", "category_oe_kurzbz", "stunden"]
 		}
 	},
 	computed: {
@@ -33,6 +37,7 @@ export default {
 				placeholder: "Keine Daten verfügbar",
 				persistenceID: "2025_03_12_pep_kategorie_" + this.config.category_id,
 				persistence: true,
+				keybindings: false,
 				rowFormatter: (row) =>
 				{
 					if (row.getElement().classList.contains("tabulator-calcs"))
@@ -189,10 +194,16 @@ export default {
 							return this.orgListe[value] || null;
 						},
 					},
-					{title: 'Anmerkung', field: 'anmerkung', headerFilter: "input", visible: true, editor: "textarea",
-						formatter: "textarea"
+					{title: 'Anmerkung',
+						field: 'anmerkung',
+						headerFilter: "input",
+						visible: true,
+						editor: "textarea",
+						formatter: "textarea",
+						editorParams: {
+							shiftEnterSubmit: true
+						},
 					},
-
 				]
 			}
 		},
@@ -452,7 +463,8 @@ export default {
 		tableBuilt()
 		{
 			this.theModel = { ...this.modelValue, loadDataReady: true }
-		}
+			this.addFocus("categoryTable", this.focusFields);
+		},
 	},
 	template: `
 		<core-base-layout>
@@ -462,7 +474,10 @@ export default {
 					v-if="orgListe"
 					ref="categoryTable"
 					:tabulator-options="tabulatorOptions"
-					:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited }, { event: 'tableBuilt', handler: tableBuilt }]"
+					:tabulator-events="[
+										{ event: 'cellEdited', handler: onCellEdited }, 
+										{ event: 'tableBuilt', handler: tableBuilt },
+						]"
 					:table-only=true
 					:side-menu="false"
 					:countOnly="true">

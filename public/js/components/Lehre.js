@@ -99,7 +99,7 @@ export default {
 						}
 					});
 				},
-				persistenceID: "2025_03_12_pep_lehre",
+				persistenceID: "2025_03_26_pep_lehre",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -172,6 +172,7 @@ export default {
 					{title: 'LV Kurzbz', field: 'lv_kurzbz', headerFilter: true, visible: false},
 					{title: 'LV Semester', field: 'lv_semester', headerFilter: true, visible:false},
 					{title: 'LE Semester', field: 'studiensemester_kurzbz', headerFilter: true, visible:false},
+					{title: 'LE Unterrichtssprache', field: 'le_unterrichtssprache', headerFilter: true},
 					{title: 'Gruppe', field: 'gruppe', headerFilter: true, visible:false},
 					{title: 'LE ID', field: 'lehreinheit_id', headerFilter: true, visible:false},
 					{title: 'LE Lehrform', field: 'lehrform_kurzbz', headerFilter: true},

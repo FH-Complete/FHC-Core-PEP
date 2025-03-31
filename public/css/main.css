@@ -54,6 +54,12 @@
 	transition: background-color 0.5s ease-in-out;
 }
 
+.highlight-error {
+	color: #721c24 !important;
+	background-color: #f8d7da !important;
+	transition: background-color 0.5s ease-in-out;
+}
+
 .resetHoursButton{
 	opacity: 0.5
 }

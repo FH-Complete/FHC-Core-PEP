@@ -624,7 +624,7 @@ class PEP extends FHCAPI_Controller
 			$result = $this->_ci->PEPProjectsEmployeesModel->insert(array(
 				'projekt_id' => $data->project,
 				'mitarbeiter_uid' => $data->lektor,
-				'stunden' => $data->stunden,
+				'stunden' => number_format($data->stunden, 2, '.', ''),
 				'anmerkung' => isset($data->anmerkung) ? $data->anmerkung: null,
 				'studienjahr_kurzbz' => $data->studienjahr,
 				'insertamum' => date('Y-m-d H:i:s'),
@@ -680,7 +680,7 @@ class PEP extends FHCAPI_Controller
 					$updateResult = $this->_ci->PEPProjectsEmployeesModel->update(
 						array('pep_projects_employees_id' => $data->id),
 						array(
-							'stunden' => is_numeric($data->stunden) ? $data->stunden : 0,
+							'stunden' => is_numeric($data->stunden) ? number_format($data->stunden, 2, '.', '') : 0,
 							'anmerkung' => isset($data->anmerkung) ? ($data->anmerkung) : null,
 							'updatevon' => $this->_uid,
 							'updateamum' => date('Y-m-d H:i:s'),
@@ -695,7 +695,7 @@ class PEP extends FHCAPI_Controller
 				$result = $this->_ci->PEPProjectsEmployeesModel->insert(array(
 					'projekt_id' => $data->project_id,
 					'mitarbeiter_uid' => $data->uid,
-					'stunden' => is_numeric($data->stunden) ? $data->stunden : 0,
+					'stunden' => is_numeric($data->stunden) ? number_format($data->stunden, 2, '.', '') : 0,
 					'anmerkung' => isset($data->anmerkung) ? ($data->anmerkung) : null,
 					'studienjahr_kurzbz' =>  $data->studienjahr,
 					'insertamum' => date('Y-m-d H:i:s'),
@@ -826,7 +826,7 @@ class PEP extends FHCAPI_Controller
 				'kategorie_id' =>  $mitarbeiterCategory->kategorie,
 				'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
 				'studienjahr_kurzbz' => $mitarbeiterCategory->studienjahr,
-				'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
+				'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : number_format($mitarbeiterCategory->stunden, 2, '.', ''),
 				'oe_kurzbz' => isEmptyString($mitarbeiterCategory->category_oe_kurzbz) ? null : $mitarbeiterCategory->category_oe_kurzbz,
 				'anmerkung' => $mitarbeiterCategory->anmerkung,
 				'insertamum' => date('Y-m-d H:i:s'),
@@ -870,7 +870,7 @@ class PEP extends FHCAPI_Controller
 					$result = $this->_ci->PEPKategorieMitarbeiterModel->update(
 						array($stunden_exists->kategorie_mitarbeiter_id),
 						array(
-							'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : $mitarbeiterCategory->stunden,
+							'stunden' => is_null($mitarbeiterCategory->stunden) ? 0 : number_format($mitarbeiterCategory->stunden, 2, '.', ''),
 							'mitarbeiter_uid' => $mitarbeiterCategory->mitarbeiter_uid,
 							'anmerkung' => $mitarbeiterCategory->anmerkung,
 							'oe_kurzbz' => isEmptyString($mitarbeiterCategory->category_oe_kurzbz) ? null : $mitarbeiterCategory->category_oe_kurzbz,
@@ -1177,7 +1177,7 @@ class PEP extends FHCAPI_Controller
 				WHERE project_task_id IS NULL
 				AND project_id ilike any (array['$projects'])
 				AND deleted is false
-				AND tbl_sap_projects_status_intern.status NOT IN ?
+				AND (tbl_sap_projects_status_intern.status NOT IN ? OR tbl_sap_projects_status_intern.status IS NULL)
 				ORDER BY project_id";
 
 		$result = $dbModel->execReadOnlyQuery($qry, array($this->_ci->config->item('excluded_project_status')));
