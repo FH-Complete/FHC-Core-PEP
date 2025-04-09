@@ -87,7 +87,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2025_03_12_pep_start",
+				persistenceID: "2025_04_09_pep_start",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -127,22 +127,28 @@ export default {
 					{title: 'Akt - Stundensatz - Lehre', field: 'akt_stundensaetze_lehre', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
 					{
 						title: 'Offene Stunden',
+						mutator: formatter.mutatorBerechneSumme,
 						formatter: formatter.berechneSumme,
 						field: 'summe',
+						headerFilter: true,
 						hozAlign:"right",
 						bottomCalc: "sum",
 						bottomCalcFormatter: formatter.bottomCalcFormatter,
 						bottomCalcParams: {precision:2},
-						visible: true
+						visible: true,
+						sorter:"number",
 					},
 					{
 						title: 'Verplante Stunden',
+						headerFilter: true,
+						mutator: formatter.mutatorBerechneSummeVerplant,
 						formatter: formatter.berechneSummeVerplant,
 						field: 'summeverplant',
 						hozAlign:"right",
-						bottomCalc: formatter.berechneSummeBottomVerplant,
+						bottomCalc: "sum",
 						bottomCalcParams: {precision:2},
-						visible: true
+						visible: true,
+						sorter:"number",
 					}
 				],
 			}

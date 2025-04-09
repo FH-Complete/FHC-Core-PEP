@@ -391,63 +391,78 @@ export const formatter = {
 			return '-';
 	},
 
-	berechneSumme: function(cell, formatterParams, onRendered)
+	mutatorBerechneSumme: function(value, data, type, params, component)
 	{
-		var row = cell.getRow().getData();
-
-		if (istGueltig((row.releavante_vertragsart)) && istGueltig(row.releavante_vertragsart))
+		if (istGueltig(data.releavante_vertragsart) && data.releavante_vertragsart)
 		{
-			if (!["echterdv", "dummy"].includes(row.releavante_vertragsart))
-				return '-';
+			if (!["echterdv", "dummy"].includes(data.releavante_vertragsart))
+				return null;
 		}
 		else
-			return '-';
+		{
+			return null;
+		}
 
 		var praefix = "studiensemester_";
 
-		var summe = cell.getRow().getData().summe;
+		var summe = data.summe;
 		if (summe === undefined)
-			return '-';
-		for (var key in row)
+			return null;
+
+		for (var key in data)
 		{
-			if (row.hasOwnProperty(key) && key.startsWith(praefix))
+			if (data.hasOwnProperty(key) && key.startsWith(praefix))
 			{
-				var wert = row[key];
+				var wert = data[key];
 				if (!isNaN(parseFloat(wert)))
 				{
 					summe -= parseFloat(wert);
 				}
 			}
 		}
-		let calcsum = parseFloat(summe).toFixed(2);
-		if (calcsum < 0)
-			cell.getElement().classList.add('text-danger');
-		else if (calcsum == 0)
-			cell.getElement().classList.add('text-success');
-		return calcsum;
+		return parseFloat(summe);
 	},
-	berechneSummeVerplant: function(cell, formatterParams, onRendered)
+	berechneSumme: function(cell, formatterParams, onRendered)
 	{
-		var row = cell.getRow().getData();
-
-		let summe = 0;
-		var prefix = "studiensemester_";
-
-		for (var key in row)
+		var value = cell.getValue();
+		if (value === null)
 		{
-			if (row.hasOwnProperty(key) && key.startsWith(prefix))
+			return '-';
+		}
+		let formatted = value.toFixed(2);
+
+		if (value < 0) {
+			cell.getElement().classList.add('text-danger');
+		} else if (value === 0) {
+			cell.getElement().classList.add('text-success');
+		}
+		return formatted;
+	},
+	mutatorBerechneSummeVerplant: function(value, data, type, params, component) {
+		let summe = 0;
+		const prefix = "studiensemester_";
+		for (let key in data)
+		{
+			if (data.hasOwnProperty(key) && key.startsWith(prefix))
 			{
-				var wert = row[key];
-				if (!isNaN(parseFloat(wert)))
-				{
+				const wert = data[key];
+				if (!isNaN(parseFloat(wert))) {
 					summe += parseFloat(wert);
 				}
 			}
 		}
-		let calcsum = parseFloat(summe).toFixed(2);
-		return calcsum;
+		return summe;
 	},
-	berechneSummeBottomVerplant: function(values, data, calcParams)
+	berechneSummeVerplant: function(cell, formatterParams, onRendered)
+	{
+		let value = cell.getValue();
+		if (value === null || isNaN(value))
+		{
+			return '-';
+		}
+		return parseFloat(value).toFixed(2);
+	},
+	berechneSummeBottomVerplant: function(value, data, calcParams)
 	{
 		let bottomsum = 0;
 		var prefix = "studiensemester_";

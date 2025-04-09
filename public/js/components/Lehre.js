@@ -167,6 +167,7 @@ export default {
 					{title: 'Fakultaet', field: 'fakultaet', headerFilter: true},
 					{title: 'LVID', field: 'lv_id', headerFilter: true},
 					{title: 'STG', field: 'stg_kuerzel', headerFilter: true},
+					{title: 'LV Org Form', field: 'lv_orgform', headerFilter: true},
 					{title: 'LV Organisationseinheit', field: 'lv_oe', headerFilter: true, visible: true},
 					{title: 'LV Bezeichnung', field: 'lv_bezeichnung', headerFilter: true},
 					{title: 'LV Kurzbz', field: 'lv_kurzbz', headerFilter: true, visible: false},

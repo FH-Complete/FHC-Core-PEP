@@ -131,8 +131,8 @@ export default {
 					{
 						title: 'Stunden',
 						field: 'stunden',
-						headerFilter: true,
 						editor: "number",
+						headerFilter: "input",
 						bottomCalcParams: {precision: 2},
 						bottomCalc: "sum",
 						hozAlign: "right",
@@ -154,7 +154,6 @@ export default {
 						validator: ["numeric", {
 							type: function(cell, value, parameters)
 							{
-
 								if (value === "")
 									return true;
 								if (isNaN(value))
@@ -175,9 +174,13 @@ export default {
 						title: 'Organisation',
 						field: 'category_oe_kurzbz',
 						editor: "list",
-						headerFilter: true,
+						headerFilter: "input",
 						width: 400,
 						headerFilterParams: { values: this.orgListe },
+						mutator: (value, data, type, params, component) =>
+						{
+							return this.orgListe[value] || null;
+						},
 						editorParams:() => {
 							return {
 								values: this.orgListe,
@@ -188,10 +191,6 @@ export default {
 								dropdownAlign: "left",
 
 							}
-						},
-						formatter: (cell, formatterParams, onRendered) => {
-							const value = cell.getValue();
-							return this.orgListe[value] || null;
 						},
 					},
 					{title: 'Anmerkung',

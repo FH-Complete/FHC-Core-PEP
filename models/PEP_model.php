@@ -510,11 +510,12 @@ class PEP_model extends DB_Model
 				WHERE tbl_lehreinheitgruppe.lehreinheit_id = tbl_lehreinheit.lehreinheit_id
 			) as gruppe,
 			(
-				SELECT upper(tbl_studiengang.typ::varchar(1) || tbl_studiengang.kurzbz || ':'||tbl_studiengang.orgform_kurzbz) as stg_kuerzel
+				SELECT upper(tbl_studiengang.typ::varchar(1) || tbl_studiengang.kurzbz) as stg_kuerzel
 				FROM lehre.tbl_lehrveranstaltung
 					JOIN tbl_studiengang ON tbl_lehrveranstaltung.studiengang_kz = tbl_studiengang.studiengang_kz
 				WHERE tbl_lehrveranstaltung.lehrveranstaltung_id = tbl_lehreinheit.lehrveranstaltung_id
 			) as stg_kuerzel,
+			tbl_lehrveranstaltung.orgform_kurzbz as lv_orgform,
 			(
 				SELECT tbl_studiengang.email
 				FROM lehre.tbl_lehrveranstaltung
@@ -823,6 +824,7 @@ class PEP_model extends DB_Model
 				tbl_lehreinheit.lehrveranstaltung_id,
 				tbl_lehrveranstaltung.bezeichnung,
 				tbl_lehrveranstaltung.oe_kurzbz,
+				tbl_lehrveranstaltung.orgform_kurzbz,
 				tbl_lehrveranstaltung.lehrveranstaltung_id,
 				tbl_lehreinheit.studiensemester_kurzbz,
 				tbl_lehreinheitmitarbeiter.semesterstunden,
