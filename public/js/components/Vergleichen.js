@@ -1,6 +1,6 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
-import {formatter} from "../mixins/formatters";
+import {formatter} from "../mixins/formatters.js";
 
 
 export default {

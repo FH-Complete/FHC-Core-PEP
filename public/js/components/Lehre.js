@@ -5,13 +5,13 @@ import BsModal from '../../../../js/components/Bootstrap/Modal.js';
 import FormInput from "../../../../js/components/Form/Input.js";
 import Tag from '../../../../js/components/Tag/Tag.js';
 import FhcLoader from '../../../../js/components/Loader.js';
-import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
-import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
+import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
+import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
 
 
 
-import {formatter} from "../mixins/formatters";
+import {formatter} from "../mixins/formatters.js";
 
 
 export default {
