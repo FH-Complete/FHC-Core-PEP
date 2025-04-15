@@ -17,7 +17,7 @@
 
 import PepReport from '../components/PepReport.js';
 import FhcAlert from '../../../../js/plugin/FhcAlert.js';
-import fhcapifactory from "../api/fhcapifactory";
+import fhcapifactory from "../api/fhcapifactory.js";
 import Phrasen from '../../../../js/plugin/Phrasen.js';
 import FhcApi from '../../../../js/plugin/FhcApi.js';
 
