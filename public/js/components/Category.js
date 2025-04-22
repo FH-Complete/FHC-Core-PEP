@@ -1,7 +1,7 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
-import { extendedHeaderFilter } from "../../../..//js/tabulator/filters/extendedHeaderFilter";
-import focusMixin from "../mixins/focus";
+import { extendedHeaderFilter } from "../../../..//js/tabulator/filters/extendedHeaderFilter.js";
+import focusMixin from "../mixins/focus.js";
 
 export default {
 	props: {

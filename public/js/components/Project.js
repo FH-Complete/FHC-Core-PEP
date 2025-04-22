@@ -2,10 +2,10 @@ import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import BsModal from '../../../../js/components/Bootstrap/Modal.js';
 import FormInput from "../../../../js/components/Form/Input.js";
-import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter";
-import {formatter} from "../mixins/formatters";
+import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
+import {formatter} from "../mixins/formatters.js";
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
-import focusMixin from "../mixins/focus";
+import focusMixin from "../mixins/focus.js";
 export default {
 	props: {
 		config: null,
