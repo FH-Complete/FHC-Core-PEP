@@ -176,10 +176,14 @@ export default {
 						editor: "list",
 						headerFilter: "input",
 						width: 400,
-						headerFilterParams: { values: this.orgListe },
-						mutator: (value, data, type, params, component) =>
-						{
-							return this.orgListe[value] || null;
+						headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
+							if (!headerValue) return true;
+							if (!rowValue) return false;
+
+							let key = rowValue?.toString().toLowerCase();
+							let display = (this.orgListe[rowValue] || "").toLowerCase();
+							let input = headerValue.toLowerCase();
+							return key.includes(input) || display.includes(input);
 						},
 						editorParams:() => {
 							return {
@@ -191,6 +195,10 @@ export default {
 								dropdownAlign: "left",
 
 							}
+						},
+						formatter: (cell, formatterParams, onRendered) => {
+							const value = cell.getValue();
+							return this.orgListe[value] || null;
 						},
 					},
 					{title: 'Anmerkung',
