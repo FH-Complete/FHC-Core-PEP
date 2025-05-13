@@ -144,7 +144,7 @@ export default {
 					{
 						title: 'PEP - Stunden',
 						field: 'stunden',
-						headerFilter: true,
+						headerFilter: "input",
 						editor: "number",
 						bottomCalcParams: {precision: 2},
 						bottomCalc: "sum",
@@ -152,7 +152,6 @@ export default {
 						cellEdited: (cell) => {
 							let value = cell.getValue();
 							let oldValue = cell.getOldValue();
-
 
 							if (oldValue === null && value === null)
 							{
