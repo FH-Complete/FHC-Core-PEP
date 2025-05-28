@@ -16,10 +16,9 @@
  */
 
 import PepReport from '../components/PepReport.js';
-import FhcAlert from '../../../../js/plugin/FhcAlert.js';
-import fhcapifactory from "../api/fhcapifactory.js";
-import Phrasen from '../../../../js/plugin/Phrasen.js';
-import FhcApi from '../../../../js/plugin/FhcApi.js';
+import FhcAlert from '../../../../js/plugins/FhcAlert.js';
+import Phrasen from '../../../../js/plugins/Phrasen.js';
+import FhcApi from '../../../../js/plugins/Api.js';
 
 
 const pepAPP = Vue.createApp({
@@ -31,6 +30,6 @@ const pepAPP = Vue.createApp({
 pepAPP
 	.use(primevue.config.default)
 	.use(FhcAlert)
-	.use(FhcApi, {factory: fhcapifactory})
+	.use(FhcApi)
 	.use(Phrasen)
 	.mount('#main');

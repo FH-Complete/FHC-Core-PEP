@@ -17,9 +17,9 @@ class PEP_Kategorie_Mitarbeiter_model extends DB_Model
 
 		$query = "INSERT INTO extension.tbl_pep_kategorie_mitarbeiter
 				(
-					kategorie_id, mitarbeiter_uid, studienjahr_kurzbz, stunden, anmerkung, insertvon
+					kategorie_id, mitarbeiter_uid, studienjahr_kurzbz, stunden, anmerkung, oe_kurzbz, insertvon
 				)
-				SELECT kategorie_id, mitarbeiter_uid, ?, stunden, anmerkung, ?
+				SELECT kategorie_id, mitarbeiter_uid, ?, stunden, anmerkung, oe_kurzbz, ?
 				FROM extension.tbl_pep_kategorie_mitarbeiter
 				WHERE kategorie_id = ? 
 				  AND mitarbeiter_uid IN ?

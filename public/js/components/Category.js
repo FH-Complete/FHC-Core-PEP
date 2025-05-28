@@ -2,6 +2,7 @@ import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import { extendedHeaderFilter } from "../../../..//js/tabulator/filters/extendedHeaderFilter.js";
 import focusMixin from "../mixins/focus.js";
+import ApiCategory from "../api/category.js";
 
 export default {
 	props: {
@@ -232,7 +233,7 @@ export default {
 		{
 			this.theModel.config.category_id = this.config.category_id
 			data.category_id = this.config.category_id
-			await this.$fhcApi.factory.pep.getCategory(data)
+			await this.$api.call(ApiCategory.getCategory(data))
 				.then(response => {
 					this.$refs.categoryTable.tabulator.setData(response.data).then(() => this.getMitarbeiterListe(response.data));
 					if (!this.rowCount[this.config.category_id])
@@ -265,7 +266,7 @@ export default {
 		},
 		async fetchOrganisationen()
 		{
-			await this.$fhcApi.factory.pep.getOrgForCategories()
+			await this.$api.call(ApiCategory.getOrgForCategories())
 				.then(response => {
 					this.orgListe = response.data
 						.reduce((acc, org) => {
@@ -289,7 +290,7 @@ export default {
 				acceptClass: 'btn btn-danger',
 			}) === false)
 				return;
-			this.$fhcApi.factory.pep.stundenzuruecksetzen(this.theModel.config)
+			this.$api.call(ApiCategory.stundenzuruecksetzen(this.theModel.config))
 				.then(response => {
 					if (response.data === true)
 					{
@@ -351,7 +352,7 @@ export default {
 			if (remove)
 				data.delete = true;
 
-			await this.$fhcApi.factory.pep.saveMitarbeiter(data)
+			await this.$api.call(ApiCategory.saveMitarbeiter(data))
 				.then(response => {
 
 					if (data.kategorie_mitarbeiter_id === null)
