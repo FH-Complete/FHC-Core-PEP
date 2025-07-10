@@ -21,6 +21,7 @@ class Start extends FHCAPI_Controller
 
 		$this->_ci->load->model('organisation/Studiensemester_model', 'StudiensemesterModel');
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_model', 'PEPModel');
+		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_LV_Entwicklung_model', 'PEPLVEntwicklungModel');
 
 		$this->_ci->load->library('AuthLib');
 		$this->_ci->load->library('PermissionLib');
@@ -44,7 +45,7 @@ class Start extends FHCAPI_Controller
 	{
 		$columns = array();
 		$this->_ci->PEPModel->addSelect('kategorie_id, array_to_json(bezeichnung_mehrsprachig::varchar[])->>0 as beschreibung');
-		$categoryColumns = $this->_ci->PEPModel->load();
+		$categoryColumns = $this->_ci->PEPModel->loadWhere(array('aktiv' => true));
 
 		if (hasData($categoryColumns))
 		{
@@ -58,6 +59,12 @@ class Start extends FHCAPI_Controller
 		{
 			$columns['projects'] = true;
 			$columns['mode']['projects'] = $this->_ci->config->item('projects_columns');
+		}
+
+		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
+		{
+			$columns['lventwicklung'] = true;
+			$columns['mode']['lventwicklung'] = $this->_ci->config->item('lvenwticklung_columns');
 		}
 
 		$this->terminateWithSuccess($columns);
@@ -107,6 +114,7 @@ class Start extends FHCAPI_Controller
 		$mitarbeiterDataArray = array();
 		$projectColumnsStudiensemester = $this->_ci->config->item('projects_columns') === 'studiensemester';
 		$categoriesColumnsStudiensemester = $this->_ci->config->item('category_columns') === 'studiensemester';
+		$lvenwicklungColumnsStudiensemester = $this->_ci->config->item('lvenwticklung_columns') === 'studiensemester';
 		foreach (getData($allMitarbeiter) as $mitarbeiter)
 		{
 			$mitarbeiterData = $mitarbeiter;
@@ -114,8 +122,8 @@ class Start extends FHCAPI_Controller
 			$mitarbeiterData->karenz = isEmptyString($mitarbeiter->karenzvon);
 
 			$this->getLehrauftraegeEachStudiensemester($mitarbeiterData, $studiensemester, $oldSemester);
-			$this->getColumnsEachStudiensemester($mitarbeiterData, $studiensemester, $projectColumnsStudiensemester, $categoriesColumnsStudiensemester);
-			$this->getColumnsEachStudienjahr($mitarbeiterData, $studienjahr, !$projectColumnsStudiensemester, !$categoriesColumnsStudiensemester);
+			$this->getColumnsEachStudiensemester($mitarbeiterData, $studiensemester, $projectColumnsStudiensemester, $categoriesColumnsStudiensemester, $lvenwicklungColumnsStudiensemester);
+			$this->getColumnsEachStudienjahr($mitarbeiterData, $studienjahr, !$projectColumnsStudiensemester, !$categoriesColumnsStudiensemester, !$lvenwicklungColumnsStudiensemester);
 			$mitarbeiterData->summe = $mitarbeiter->zrm_einzeljahresstunden;
 
 			$mitarbeiterDataArray[] = $mitarbeiterData;
@@ -124,7 +132,7 @@ class Start extends FHCAPI_Controller
 		$this->terminateWithSuccess($mitarbeiterDataArray);
 	}
 
-	private function getColumnsEachStudienjahr(&$mitarbeiterData, $studienjahr, $projects = false, $categories = false)
+	private function getColumnsEachStudienjahr(&$mitarbeiterData, $studienjahr, $projects = false, $categories = false, $lventwicklung = false)
 	{
 		if ($projects)
 			$this->getProjectStundenByYear($mitarbeiterData, $mitarbeiterData->uid, $studienjahr);
@@ -142,6 +150,9 @@ class Start extends FHCAPI_Controller
 				}
 			}
 		}
+
+		if ($lventwicklung)
+			$this->getLVEntwicklungStundenByYear($mitarbeiterData, $mitarbeiterData->uid, $studienjahr);
 	}
 
 	private function getLehrauftraegeEachStudiensemester(&$mitarbeiterData, $studiensemester, $oldSemester = false)
@@ -196,7 +207,7 @@ class Start extends FHCAPI_Controller
 		}
 	}
 
-	private function getColumnsEachStudiensemester(&$mitarbeiterData, $studiensemester, $projects = false, $categories = false)
+	private function getColumnsEachStudiensemester(&$mitarbeiterData, $studiensemester, $projects = false, $categories = false, $lventwicklung = false)
 	{
 		$ststemDV = $this->_ci->PEPModel->getDVForSemester($mitarbeiterData->uid, $studiensemester);
 
@@ -231,7 +242,36 @@ class Start extends FHCAPI_Controller
 				{
 					$this->getProjectStundenBySemester($mitarbeiterData, $mitarbeiterData->uid, $key, $ststem);
 				}
+
+				if ($lventwicklung)
+				{
+					$this->getLVEntwicklungStundenBySemester($mitarbeiterData, $mitarbeiterData->uid, $key, $ststem);
+				}
 			}
+		}
+	}
+
+	private function getLVEntwicklungStundenBySemester(&$mitarbeiterData, $uid, $key, $ststem)
+	{
+		if ($this->_ci->config->item('enable_lv_entwicklung_tab'))
+		{
+			$lventiwcklungstunden = 0;
+			$keyproject = "studiensemester_" . $key . "_lv_entwicklung";
+			$lventwicklung =  $this->_ci->PEPLVEntwicklungModel->getLVEntwicklungStundenByEmployee($uid, $ststem);
+			$lventiwcklungstunden = hasData($lventwicklung) ? getData($lventwicklung)[0]->stunden : $lventiwcklungstunden;
+			$mitarbeiterData->$keyproject = $lventiwcklungstunden;
+		}
+	}
+
+	private function getLVEntwicklungStundenByYear(&$mitarbeiterData, $uid, $studienjahr)
+	{
+		if ($this->_ci->config->item('enable_lv_entwicklung_tab'))
+		{
+			$lventiwcklungstunden = 0;
+			$keyproject = "studiensemester_lv_entwicklung";
+			$lventwicklung =  $this->_ci->PEPLVEntwicklungModel->getLVEntwicklungStundenByEmployee($uid, null, $studienjahr);
+			$lventiwcklungstunden = hasData($lventwicklung) ? getData($lventwicklung)[0]->stunden : $lventiwcklungstunden;
+			$mitarbeiterData->$keyproject = $lventiwcklungstunden;
 		}
 	}
 

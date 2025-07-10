@@ -4,7 +4,18 @@ export const formatter = {
 		let tags = cell.getValue();
 		let container = document.createElement('div');
 		container.className = "d-flex gap-1";
-		let parsedTags = JSON.parse(tags);
+		let parsedTags = [];
+
+		try {
+			if (tags) {
+				parsedTags = JSON.parse(tags);
+				if (!Array.isArray(parsedTags)) {
+					parsedTags = [];
+				}
+			}
+		} catch (e) {
+			parsedTags = [];
+		}
 		let maxVisibleTags = 2;
 
 		if (cell._expanded === undefined)

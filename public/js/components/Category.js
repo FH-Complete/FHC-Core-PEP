@@ -72,7 +72,8 @@ export default {
 						field: 'actions',
 						width: 100,
 						formatter: (cell, formatterParams, onRendered) => {
-
+							if (!this.isActive())
+								return;
 							if (cell.getData().disabled)
 								return;
 							if (cell.getData().editable === false)
@@ -119,7 +120,7 @@ export default {
 							}
 						},
 						editable:(cell) => {
-							return ((cell.getData().kategorie_mitarbeiter_id !== null || cell.getData().newentry === true))
+							return this.isActive() && ((cell.getData().kategorie_mitarbeiter_id !== null || cell.getData().newentry === true))
 						},
 					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
@@ -133,6 +134,9 @@ export default {
 						title: 'Stunden',
 						field: 'stunden',
 						editor: "number",
+						editable: () => {
+							return this.isActive()
+						},
 						headerFilter: "input",
 						bottomCalcParams: {precision: 2},
 						bottomCalc: "sum",
@@ -175,6 +179,9 @@ export default {
 						title: 'Organisation',
 						field: 'category_oe_kurzbz',
 						editor: "list",
+						editable: () => {
+							return this.isActive()
+						},
 						headerFilter: "input",
 						width: 400,
 						headerFilterFunc: (headerValue, rowValue, rowData, filterParams) => {
@@ -207,6 +214,9 @@ export default {
 						headerFilter: "input",
 						visible: true,
 						editor: "textarea",
+						editable: () => {
+							return this.isActive()
+						},
 						formatter: "textarea",
 						editorParams: {
 							shiftEnterSubmit: true
@@ -245,6 +255,10 @@ export default {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
+		isActive()
+		{
+			return this.config.aktiv === true
+		},
 		async getMitarbeiterListe(data)
 		{
 			this.mitarbeiterListe = data.reduce((mitarbeiter, row) => {
@@ -258,11 +272,13 @@ export default {
 			const column = this.$refs.categoryTable?.tabulator?.getColumn("mitarbeiter_uid");
 			if (column)
 			{
+
+				this.headerFilterMiterabreiterListe = { "": "Alle", ...this.mitarbeiterListe }
+
 				this.$refs.categoryTable.tabulator.updateColumnDefinition("mitarbeiter_uid",
-					{headerFilterParams: { values: this.mitarbeiterListe }}
+					{headerFilterParams: { values: this.headerFilterMiterabreiterListe }}
 				).then(() => this.$refs.categoryTable.tabulator.redraw(true));
 			}
-
 		},
 		async fetchOrganisationen()
 		{
@@ -281,6 +297,8 @@ export default {
 		},
 		async resetHours()
 		{
+			if (!this.isActive())
+				return;
 			if (this.$refs.categoryTable.tabulator.getRows().length == 0)
 				return;
 			this.theModel.config.category_id = this.config.category_id
@@ -309,6 +327,8 @@ export default {
 
 		onCellEdited(cell)
 		{
+			if (!this.isActive())
+				return;
 			let value = cell.getValue();
 			let field = cell.getField();
 			let oldValue = cell.getOldValue();
@@ -389,6 +409,8 @@ export default {
 		},
 		duplicateRow(cell)
 		{
+			if (!this.isActive())
+				return;
 			let row = cell.getRow()
 			let rowData = row.getData();
 			if (!rowData.stunden || rowData.stunden === "0.00")
@@ -417,6 +439,8 @@ export default {
 		},
 		deleteRow(cell)
 		{
+			if (!this.isActive())
+				return;
 			let row = cell.getRow();
 			let data = row.getData();
 

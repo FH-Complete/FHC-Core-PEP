@@ -168,6 +168,20 @@ class Category extends FHCAPI_Controller
 	{
 		$mitarbeiterCategory = $this->getPostJson();
 
+		if (isset($mitarbeiterCategory->kategorie))
+		{
+			$category = $this->_ci->PEPModel->loadWhere(array('kategorie_id' => $mitarbeiterCategory->kategorie));
+
+			if (isError($category))
+				$this->terminateWithError($category, self::ERROR_TYPE_GENERAL);
+
+			if (!hasData($category))
+				$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
+
+			$category = getData($category)[0];
+			if ($category->aktiv === false)
+				$this->terminateWithError($this->p->t('ui', 'readonlycategory'), self::ERROR_TYPE_GENERAL);
+		}
 		if (is_null($mitarbeiterCategory->kategorie_mitarbeiter_id))
 		{
 			$result = $this->_ci->PEPKategorieMitarbeiterModel->insert(array(
