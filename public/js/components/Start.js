@@ -1,6 +1,7 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {formatter} from "../mixins/formatters.js";
+import tagMixin from "../mixins/tag.js";
 import FhcLoader from '../../../../js/components/Loader.js';
 import Tag from '../../../../js/components/Tag/Tag.js';
 import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
@@ -23,6 +24,7 @@ export default {
 		FhcLoader,
 		Tag,
 	},
+	mixins: [tagMixin],
 	watch: {
 		loadedData: {
 			handler(newValue) {
@@ -117,7 +119,7 @@ export default {
 					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
-					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
+					{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true, visible: false},
 					{title: 'Karenz', field: 'karenz', visible: false, formatter: formatter.karenzFormatter, headerFilter:"input"},
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", headerTooltip: "Zeitraum - Dienstverhältnis"},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", headerTooltip: "Zeitraum - Stunden pro Woche"},
@@ -170,21 +172,6 @@ export default {
 			this.selectedRows = this.$refs.startTable.tabulator.getSelectedRows();
 			this.selectedColumnValues = this.selectedRows.map(row => row.getData().uid);
 		},
-		addedTag(addedTag)
-		{
-			this.selectedRows.forEach(row => {
-				const rowData = row.getData();
-				addedTag.response.forEach(tag => {
-					if (rowData.uid === tag.mitarbeiter_uid) {
-						let tags = JSON.parse(rowData.tags);
-						addedTag.id = tag.id;
-						tags.push(addedTag);
-						rowData.tags = JSON.stringify(tags);
-						row.update(rowData);
-					}
-				});
-			});
-		},
 		lektorMail()
 		{
 			const selectedRows = this.$refs.startTable.tabulator.getSelectedRows();
@@ -197,34 +184,15 @@ export default {
 			})
 			window.location.href = `mailto:${emails}`;
 		},
-		deletedTag(deletedTag)
-		{
-			this.$refs.startTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-				let tags = JSON.parse(rowData.tags);
-				tags = tags.filter(tag => tag?.id !== deletedTag);
-				const updatedTags = JSON.stringify(tags);
-				if (updatedTags !== rowData.tags) {
-					rowData.tags = updatedTags;
-					row.update(rowData);
-				}
-			});
+
+		addedTag(addedTag) {
+			this.addTagInTable(addedTag, 'startTable', 'mitarbeiter_uid', 'response');
+		},
+		deletedTag(deletedTag) {
+			this.deleteTagInTable(deletedTag, 'startTable');
 		},
 		updatedTag(updatedTag) {
-			this.$refs.startTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-				let tags = JSON.parse(rowData.tags);
-				const tagIndex = tags.findIndex(tag => tag?.id === updatedTag.id);
-				if (tagIndex !== -1) {
-					tags[tagIndex] = updatedTag;
-					const updatedTags = JSON.stringify(tags);
-					if (updatedTags !== rowData.tags)
-					{
-						rowData.tags = updatedTags;
-						row.update(rowData);
-					}
-				}
-			});
+			this.updateTagInTable(updatedTag, 'startTable');
 		},
 		async loadData(data)
 		{
@@ -340,6 +308,11 @@ export default {
 				this.columnsConfig.categories.forEach(kategorie => {
 					this.createColumns('kategorie', kategorie.beschreibung, formatter.checkStunden, this.columnsConfig.mode.categories, kategorie);
 				});
+			}
+
+			if (this.columnsConfig.lventwicklung)
+			{
+				this.createColumns('lv_entwicklung', 'LV-Entwicklung Neu', formatter.checkStunden, this.columnsConfig.mode.lventwicklung);
 			}
 		},
 		async getCategoriesConfig()

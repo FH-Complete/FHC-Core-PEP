@@ -1169,6 +1169,63 @@ class PEP_model extends DB_Model
 		return $this->execQuery($query, array($studienjahr, $studienjahr, $category_id, $category_id, $studienjahr, $studienjahr, $mitarbeiter_uids));
 	}
 
+	public function getMitarbeiterData($mitarbeiter_uid, $studiensemester = null, $studienjahr = null)
+	{
+		if (is_null($studienjahr))
+			$dates = $studiensemester;
+		else
+			$dates = $studienjahr;
+
+		$query = "
+			". $this->_getStartCTE() .",
+			". $this->_getAktuelleDaten() . ",
+			". (is_null($studienjahr) ? $this->_getStudiensemesterDates() : $this->_getStudienjahrDates()) .",
+			". $this->_getZeitraumDaten() .
+
+			",
+			akt_lehre_stundensatz AS (
+						SELECT stundensatz,
+								uid,
+								ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_von DESC, gueltig_bis DESC NULLS FIRST) AS rn
+						FROM hr.tbl_stundensatz
+						JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
+						AND (tbl_stundensatz.gueltig_von <= NOW() OR tbl_stundensatz.gueltig_von IS NULL)
+						AND (tbl_stundensatz.gueltig_bis >= NOW() OR tbl_stundensatz.gueltig_bis IS NULL)
+						AND tbl_stundensatz.stundensatztyp = 'lehre'
+				)
+			SELECT 
+				av.oe_kurzbz,
+				av.bezeichnung as akt_bezeichnung,
+				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.orgbezeichnung ELSE av.oeorgbezeichnung END as akt_orgbezeichnung,
+				CASE WHEN av.vertragsart_kurzbz = 'echterdv' THEN av.parentbezeichnung ELSE av.oeorgparentbezeichnung END as akt_parentbezeichnung,
+				av.wochenstunden as akt_stunden,
+				zv.bezeichnung AS bezeichnung,
+				zv.relevante_vertragsart as releavante_vertragsart,
+				zv.oe_kurzbz as oe_kurzbz,
+				zv.alle_vertraege as zrm_vertraege,
+				zv.alle_vertraege_kurzbz as zrm_vertraege_kurzbz,
+				zv.wochenstunden as zrm_wochenstunden,
+				zv.jahresstunden as zrm_jahresstunden,
+				zv.einzelnejahresstunden as zrm_einzeljahresstunden,
+				vorname,
+				nachname,
+				ma.mitarbeiter_uid,
+				akt_lehre_stundensatz.stundensatz as akt_stundensaetze_lehre
+			
+
+			FROM tbl_mitarbeiter ma
+				JOIN tbl_benutzer ON ma.mitarbeiter_uid = tbl_benutzer.uid
+				JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
+				LEFT JOIN aktVertrag av ON ma.mitarbeiter_uid = av.mitarbeiter_uid AND av.rn = 1
+				LEFT JOIN zeitraumVertrag zv ON ma.mitarbeiter_uid = zv.mitarbeiter_uid AND zv.rn = 1
+				LEFT JOIN akt_lehre_stundensatz ON ma.mitarbeiter_uid = akt_lehre_stundensatz.uid AND akt_lehre_stundensatz.rn = 1
+			WHERE
+				ma.mitarbeiter_uid IN ?";
+
+		return $this->execReadOnlyQuery($query, array($dates, isEmptyArray($mitarbeiter_uid) ? array('') : $mitarbeiter_uid));
+
+	}
+
 	private function _getStartCTE()
 	{
 		return "WITH tmp AS (SELECT true)";
@@ -1274,6 +1331,7 @@ class PEP_model extends DB_Model
 						 va.vertragsart_kurzbz AS relevante_vertragsart,
 						 dv.oe_kurzbz,
 						 ARRAY_TO_STRING(ARRAY_AGG(va.bezeichnung) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege,
+						 ARRAY_TO_STRING(ARRAY_AGG(va.vertragsart_kurzbz) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege_kurzbz,
 						 ARRAY_TO_STRING(ARRAY_AGG(stunden.wochenstunden) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST), E'\n') AS wochenstunden,
 						 ARRAY_TO_STRING(ARRAY_AGG(
 								CASE ". implode(" ", $caseStatements) . " END) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST),

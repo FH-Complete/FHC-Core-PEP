@@ -72,7 +72,7 @@ export default {
 		};
 	},
 	async created() {
-		await this.$p.loadCategory(['ui']);
+		await this.$p.loadCategory(['ui', 'lehre']);
 
 		await this.loadTabConfig()
 			.then(() => this.checkVars());

@@ -60,6 +60,15 @@ class TabsConfig extends FHCAPI_Controller
 		if ($this->_ci->config->item('enable_projects') === true)
 			$this->_getProjects($tabs);
 
+		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
+		{
+			$tabs['lv_entwicklung_new'] = array (
+				'title' =>  'LV-Entwicklung',
+				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/LVEntwicklung.js',
+				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true,  'allow_volume_edit_contracts' => $this->_ci->config->item('lventwicklung_allow_ects_volume_edit')]
+			);
+		}
+
 		$this->_getCategories($tabs);
 
 		if ($this->_ci->config->item('enable_compare_tab') === true)
@@ -113,7 +122,8 @@ class TabsConfig extends FHCAPI_Controller
 		$this->_ci->PEPModel->addSelect(
 			'kategorie_id,
 			bezeichnung,
-			bezeichnung_mehrsprachig[('.$language.')] as tabname
+			bezeichnung_mehrsprachig[('.$language.')] as tabname,
+			aktiv
 			'
 		);
 
@@ -131,7 +141,8 @@ class TabsConfig extends FHCAPI_Controller
 					'category_id' => $category->kategorie_id,
 					'studienjahr' => true,
 					'dropdowns' => true,
-					'reload' => true
+					'reload' => true,
+					'aktiv' => $category->aktiv
 				];
 
 				$tab = [

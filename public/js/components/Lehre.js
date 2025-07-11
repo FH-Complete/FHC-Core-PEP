@@ -11,6 +11,7 @@ import ApiLehre from "../api/lehre.js";
 import Tag from '../../../../js/components/Tag/Tag.js';
 
 import {formatter} from "../mixins/formatters.js";
+import tagMixin from "../mixins/tag.js";
 
 
 export default {
@@ -30,6 +31,7 @@ export default {
 			required: true
 		},
 	},
+	mixins: [tagMixin],
 	mounted(){
 		//this.getRaumtypen();
 		this.getLektoren();
@@ -674,85 +676,15 @@ export default {
 			};
 			this.selectedRow = null;
 		},
-		//TODO (david) die Tag Logik gehört zsm gefasst
 		addedTag(addedTag) {
-			console.time('tag');
-			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-
-				if (Array.isArray(addedTag.response))
-				{
-					addedTag.response.forEach(tag => {
-						if (rowData.lehreinheit_id === tag.lehreinheit_id)
-						{
-							let tags = JSON.parse(rowData.tags);
-							let tagstatus = JSON.parse(rowData.tagstatus);
-
-							addedTag.id = tag.id;
-
-							if (this.config.planungsstatus.includes(addedTag.tag_typ_kurzbz))
-							{
-								tagstatus.push(addedTag);
-							}
-							else
-							{
-								tags.push(addedTag);
-							}
-							rowData.tags = JSON.stringify(tags);
-							rowData.tagstatus = JSON.stringify(tagstatus);
-							row.update(rowData);
-						}
-					});
-
-				}
-			});
-			console.timeEnd('tag');
+			this.addTagInTable(addedTag, 'lehreTable', 'lehreinheit_id', 'response', tag => this.config.planungsstatus.includes(tag.tag_typ_kurzbz) ? 'tagstatus' : 'tags');
 		},
 		deletedTag(deletedTag) {
-			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-				let tags = JSON.parse(rowData.tags);
-				tags = tags.filter(tag => tag?.id !== deletedTag);
-				const updatedTags = JSON.stringify(tags);
+			this.deleteTagInTable(deletedTag, 'lehreTable', ['tags', 'tagstatus'])
 
-				let tagstatus = JSON.parse(rowData.tagstatus);
-				tagstatus = tagstatus.filter(tag => tag?.id !== deletedTag);
-				const updatedTagstatus = JSON.stringify(tagstatus);
-
-				if (updatedTags !== rowData.tags || updatedTagstatus !== rowData.tagstatus)
-				{
-					rowData.tags = updatedTags;
-					rowData.tagstatus = updatedTagstatus;
-					row.update(rowData);
-				}
-			});
 		},
 		updatedTag(updatedTag) {
-			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-
-				let tags = JSON.parse(rowData.tags);
-				const tagIndex = tags.findIndex(tag => tag?.id === updatedTag.id);
-
-				if (tagIndex !== -1)
-					tags[tagIndex] = updatedTag;
-
-				let tagstatus = JSON.parse(rowData.tagstatus);
-				const tagstatusIndex = tagstatus.findIndex(tag => tag?.id === updatedTag.id);
-
-				if (tagstatusIndex !== -1)
-					tagstatus[tagstatusIndex] = updatedTag;
-
-				const updatedTags = JSON.stringify(tags);
-				const updatedTagstatus = JSON.stringify(tagstatus);
-
-				if (updatedTags !== rowData.tags || updatedTagstatus !== rowData.tagstatus)
-				{
-					rowData.tags = updatedTags;
-					rowData.tagstatus = updatedTagstatus;
-					row.update(rowData);
-				}
-			});
+			this.updateTagInTable(updatedTag, 'lehreTable', ['tags', 'tagstatus'])
 		}
 	},
 	template: `
