@@ -92,7 +92,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2025_04_09_pep_start",
+				persistenceID: "2025_07_11_pep_start",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -303,6 +303,11 @@ export default {
 				this.createColumns('project', 'Projekte', formatter.checkStunden, this.columnsConfig.mode.projects);
 			}
 
+			if (this.columnsConfig.lventwicklung)
+			{
+				this.createColumns('lv_entwicklung', 'LV-Entwicklung', formatter.checkStunden, this.columnsConfig.mode.lventwicklung);
+			}
+
 			if (this.columnsConfig.categories)
 			{
 				this.columnsConfig.categories.forEach(kategorie => {
@@ -310,10 +315,7 @@ export default {
 				});
 			}
 
-			if (this.columnsConfig.lventwicklung)
-			{
-				this.createColumns('lv_entwicklung', 'LV-Entwicklung Neu', formatter.checkStunden, this.columnsConfig.mode.lventwicklung);
-			}
+
 		},
 		async getCategoriesConfig()
 		{

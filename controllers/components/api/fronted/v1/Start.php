@@ -45,7 +45,7 @@ class Start extends FHCAPI_Controller
 	{
 		$columns = array();
 		$this->_ci->PEPModel->addSelect('kategorie_id, array_to_json(bezeichnung_mehrsprachig::varchar[])->>0 as beschreibung');
-		$categoryColumns = $this->_ci->PEPModel->loadWhere(array('aktiv' => true));
+		$categoryColumns = $this->_ci->PEPModel->load();
 
 		if (hasData($categoryColumns))
 		{
