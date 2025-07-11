@@ -553,7 +553,7 @@ export default {
 				.then(response => {
 					if (response.data.length === 0)
 					{
-						this.$fhcAlert.alertInfo("Lehre: Keine Daten vorhanden");
+						this.$fhcAlert.alertInfo("LVEntwicklung: Keine Daten vorhanden");
 						this.$refs.lventwicklungtable.tabulator.setData([]);
 					}
 					else
