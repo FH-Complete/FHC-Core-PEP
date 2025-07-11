@@ -158,8 +158,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 				alleLVs AS (
 					SELECT
 						lv.lehrveranstaltung_id,
-						lv.bezeichnung,
-						CASE WHEN lv.lehrtyp_kurzbz = 'tpl' THEN true ELSE false END as istemplate
+						lv.bezeichnung
 					FROM lehre.tbl_lehrveranstaltung lv
 					WHERE lehrveranstaltung_id = ?
 				),
@@ -177,7 +176,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						$this->_getOEBezeichnungSelect() . ", 
 					tbl_lehrveranstaltung.lehrveranstaltung_id,
 					tbl_lehrveranstaltung.bezeichnung as lvbezeichnung,
-					CASE WHEN tbl_lehrveranstaltung.lehrtyp_kurzbz = 'tpl' THEN true ELSE false END as template,
+					CASE WHEN tbl_lehrveranstaltung.lehrtyp_kurzbz = 'tpl' THEN true ELSE false END as istemplate,
 					module.bezeichnung as modulbezeichnung,
 					tbl_lehrveranstaltung.kurzbz as lv_kurzbz,
 					tbl_lehrveranstaltung.sprache as lv_sprache,
