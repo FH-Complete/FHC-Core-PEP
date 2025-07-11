@@ -640,7 +640,8 @@ export default {
 							akt_orgbezeichnung: null,
 							akt_parentbezeichnung: null,
 							akt_stunden: null,
-							anmerkung: null
+							anmerkung: null,
+							tags:null
 						})
 
 						setTimeout(function(){
