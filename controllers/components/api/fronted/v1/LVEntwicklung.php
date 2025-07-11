@@ -254,10 +254,10 @@ class LVEntwicklung extends FHCAPI_Controller
 			{
 				$match = array_intersect($this->_ci->config->item('lventwicklung_allow_ects_volume_edit'), explode("\n", $stammdaten->zrm_vertraege_kurzbz));
 
-				if (empty($match) && ((isset($lv_entwicklung_post->werkvertrag_ects)  && !isEmptyString($lv_entwicklung_post->werkvertrag_ects)) || (isset($lv_entwicklung_post->status_kurzbz) && !isEmptyString($lv_entwicklung_post->status_kurzbz))))
-					$this->terminateWithError("Werkvertrags ECTs UND Status darf bei internen Personen nicht ausgefüllt sein!");
-				else if (!empty($match) && isset($lv_entwicklung_post->stunden) && !isEmptyString($lv_entwicklung_post->stunden))
-					$this->terminateWithError("Stunden dürfen bei externen Personen nicht ausgefüllt sein!");
+				if (empty($match) && ((isset($lv_entwicklung_post->werkvertrag_ects)  && !isEmptyString(strval($lv_entwicklung_post->werkvertrag_ects))) || (isset($lv_entwicklung_post->status_kurzbz) && !isEmptyString($lv_entwicklung_post->status_kurzbz))))
+					$this->terminateWithError("Für interne Personen dürfen das Werkvertragsvolumen in ECTS sowie der Status nicht ausgefüllt werden.");
+				else if (!empty($match) && isset($lv_entwicklung_post->stunden) && !isEmptyString(strval($lv_entwicklung_post->stunden)))
+					$this->terminateWithError("Für externe Personen dürfen keine Stunden erfasst werden.");
 			}
 
 			$updateData['lehrveranstaltung_id'] = $lv_entwicklung_post->lehrveranstaltung_id;
@@ -323,7 +323,7 @@ class LVEntwicklung extends FHCAPI_Controller
 	{
 		$lv_entwicklung_post = $this->getPostJson();
 
-		if (isEmptyString($lv_entwicklung_post->pep_lv_entwicklung_id))
+		if (!isset($lv_entwicklung_post->pep_lv_entwicklung_id) || isEmptyString(strval($lv_entwicklung_post->pep_lv_entwicklung_id)))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
 		$result = $this->_ci->PEPLVEntwicklungModel->loadWhere(array('pep_lv_entwicklung_id' => $lv_entwicklung_post->pep_lv_entwicklung_id));
