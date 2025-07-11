@@ -71,8 +71,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						 
 						COALESCE(tags_lv_entwicklung.tags_json, '[]'::json) AS tags,
 						CASE WHEN tbl_lehrveranstaltung.lehrtyp_kurzbz = 'tpl' THEN true ELSE false END as istemplate,
-						geloescht,
-						
+						CASE WHEN  studienplan_lvs.lehrveranstaltung_id IS NULL THEN TRUE ELSE FALSE END as geloescht,
 						alleLVs_distinct.lehrveranstaltung_id as allelvsid,
 						module.bezeichnung as modulbezeichnung
 				FROM
@@ -80,10 +79,9 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						FULL JOIN  extension.tbl_pep_lv_entwicklung using(lehrveranstaltung_id)
 						JOIN lehre.tbl_lehrveranstaltung using(lehrveranstaltung_id)
 						LEFT JOIN module USING(lehrveranstaltung_id)
+						LEFT JOIN studienplan_lvs using(lehrveranstaltung_id)
 						LEFT JOIN tags_lv_entwicklung ON tags_lv_entwicklung.pep_lv_entwicklung_id = tbl_pep_lv_entwicklung.pep_lv_entwicklung_id
 						JOIN public.tbl_organisationseinheit oelv ON tbl_lehrveranstaltung.oe_kurzbz = oelv.oe_kurzbz
-
-					
 			WHERE (tbl_pep_lv_entwicklung.studiensemester_kurzbz IN ? OR tbl_pep_lv_entwicklung.pep_lv_entwicklung_id IS NULL)
 				  AND (tbl_pep_lv_entwicklung.mitarbeiter_uid IN ? OR
 						(EXISTS
@@ -272,13 +270,22 @@ class PEP_LV_Entwicklung_model extends DB_Model
 								 JOIN templates ON studienplan.lehrveranstaltung_id = templates.lehrveranstaltung_id
 								 JOIN lehre.tbl_lehrveranstaltung ON templates.lehrveranstaltung_template_id = tbl_lehrveranstaltung.lehrveranstaltung_id
 					 ),
+					pep_lvs AS (
+						SELECT
+							pep.lehrveranstaltung_id,
+							pep.studiensemester_kurzbz
+						FROM extension.tbl_pep_lv_entwicklung pep
+						WHERE NOT EXISTS (
+							SELECT 1 FROM studienplan sp
+							WHERE sp.lehrveranstaltung_id = pep.lehrveranstaltung_id
+						)
+					),
 					studienplan_lvs AS (
 						SELECT allWithoutTemplates.lehrveranstaltung_id,
 							allWithoutTemplates.bezeichnung,
 							studienplan.studiensemester_kurzbz,
 							null as lvwithtemplate,
-							studienplan.studienplan_id,
-							false as geloescht
+							studienplan.studienplan_id
 						FROM
 							studienplan
 								LEFT JOIN allWithoutTemplates USING(lehrveranstaltung_id)
@@ -287,30 +294,18 @@ class PEP_LV_Entwicklung_model extends DB_Model
 							templateslvs.bezeichnung,
 							templateslvs.studiensemester_kurzbz,
 							lvwithtemplate,
-							studienplan_id,
-							false as geloescht
+							studienplan_id
 						FROM
 							templateslvs
 					),
-					pep_lvs AS (
-						SELECT
-							pep.lehrveranstaltung_id,
-							pep.studiensemester_kurzbz,
-							true as geloescht
-						FROM extension.tbl_pep_lv_entwicklung pep
-						WHERE NOT EXISTS (
-							SELECT 1 FROM studienplan sp
-							WHERE sp.lehrveranstaltung_id = pep.lehrveranstaltung_id
-						)
-					),
+					
 					alleLVs AS (
 						SELECT
 							lv.lehrveranstaltung_id,
 							lv.bezeichnung,
 							pep_lvs.studiensemester_kurzbz,
 							NULL AS lvwithtemplate,
-							NULL AS studienplan_id,
-							geloescht
+							NULL AS studienplan_id
 						 FROM pep_lvs
 							JOIN lehre.tbl_lehrveranstaltung lv USING (lehrveranstaltung_id)
 						
@@ -324,8 +319,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 							lehrveranstaltung_id,
 							bezeichnung,
 							studiensemester_kurzbz,
-							lvwithtemplate,
-							geloescht
+							lvwithtemplate
 						FROM alleLVs
 						ORDER BY lehrveranstaltung_id, studienplan_id
 					),
