@@ -30,7 +30,6 @@ class Tags extends Tag_Controller
 		$this->load->model('extensions/FHC-Core-PEP/PEP_Notiz_Mitarbeiter_model', 'PEPNotizMitarbeiterModel');
 	}
 
-
 	public function addMitarbeiterTag()
 	{
 		$postData = $this->getPostJson();
@@ -51,6 +50,7 @@ class Tags extends Tag_Controller
 		}
 		$this->terminateWithSuccess($return);
 	}
+
 	public function deleteMitarbeiterTag()
 	{
 		$postData = $this->getPostJson();
@@ -63,6 +63,5 @@ class Tags extends Tag_Controller
 		{
 			parent::deleteTag(false);
 		}
-
 	}
 }

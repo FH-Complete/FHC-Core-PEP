@@ -5,6 +5,8 @@ import FhcLoader from '../../../../js/components/Loader.js';
 import Tag from '../../../../js/components/Tag/Tag.js';
 import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
+import ApiStartTag from "../api/startTabTags.js";
+import ApiStart from "../api/start.js";
 
 export default {
 	name: "Start",
@@ -64,6 +66,7 @@ export default {
 			oldStudiensemester: "",
 			isOldSemesterLoaded: false,
 			selectedColumnValues: [],
+			tagEndpoint: ApiStartTag,
 		}
 	},
 
@@ -229,7 +232,7 @@ export default {
 				await this.loadStudiensemester(data.studienjahr)
 			data.oldSemester = this.loadedData.oldSemester;
 			this.loadedData = data;
-			await this.$fhcApi.factory.pep.getStart(data)
+			await this.$api.call(ApiStart.getStart(data))
 				.then(response => {
 					if (response.data.length === 0)
 					{
@@ -248,7 +251,7 @@ export default {
 			let data = {
 				'studienjahr': studienjahr
 			}
-			await this.$fhcApi.factory.pep.getStudiensemester(data)
+			await this.$api.call(ApiStart.getStudiensemester(data))
 				.then(response => {
 					this.semester = response.data
 				})
@@ -343,7 +346,7 @@ export default {
 		{
 			if (Object.keys(this.columnsConfig).length !== 0)
 				return;
-			await this.$fhcApi.factory.pep.getCategories()
+			await this.$api.call(ApiStart.getCategories())
 				.then(response => {
 					this.columnsConfig = response.data
 				})
@@ -380,7 +383,7 @@ export default {
 				<template #actions>
 				<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
 				<Tag ref="tagComponent"
-					:endpoint="$fhcApi.factory.pep_start_tab_tags"
+					:endpoint="tagEndpoint"
 					:values="selectedColumnValues"
 					@added="addedTag"
 					@deleted="deletedTag"

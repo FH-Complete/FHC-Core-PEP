@@ -2,6 +2,7 @@ import FhcTabs from '../../../../js/components/Tabs.js';
 import {CoreNavigationCmpt} from '../../../../js/components/navigation/Navigation.js';
 import FhcLoader from '../../../../js/components/Loader.js';
 import FormInput from "../../../../js/components/Form/Input.js";
+import ApiSetup from "../api/setup.js"
 
 
 export default {
@@ -222,7 +223,7 @@ export default {
 			}
 		},
 		async loadTabConfig() {
-			await this.$fhcApi.factory.pep.getConfig()
+			await this.$api.call(ApiSetup.getConfig())
 				.then(response => {this.tabsConfig = response.data})
 				.then(() => this.updateTab("start"))
 		},
@@ -390,7 +391,7 @@ export default {
 				'var_studiensemester' : this.selectedStsem,
 				'var_organisation' : this.selectedOrg
 			}
-			this.$fhcApi.factory.pep.setVar(variables);
+			this.$api.call(ApiSetup.setVar(variables));
 		},
 	},
 	template: `
