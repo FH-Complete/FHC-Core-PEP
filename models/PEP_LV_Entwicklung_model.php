@@ -73,7 +73,9 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						CASE WHEN tbl_lehrveranstaltung.lehrtyp_kurzbz = 'tpl' THEN true ELSE false END as istemplate,
 						CASE WHEN  studienplan_lvs.lehrveranstaltung_id IS NULL THEN TRUE ELSE FALSE END as geloescht,
 						alleLVs_distinct.lehrveranstaltung_id as allelvsid,
-						module.bezeichnung as modulbezeichnung
+						module.bezeichnung as modulbezeichnung,
+						tbl_pep_lv_entwicklung.insertamum as insertamum,
+						tbl_pep_lv_entwicklung.updateamum as updateamum
 				FROM
 					alleLVs_distinct
 						FULL JOIN  extension.tbl_pep_lv_entwicklung using(lehrveranstaltung_id)
