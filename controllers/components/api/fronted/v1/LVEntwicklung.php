@@ -248,6 +248,11 @@ class LVEntwicklung extends FHCAPI_Controller
 				$updateData[$field] = null;
 		}
 
+		if (array_key_exists('stunden', $updateData))
+		{
+			$updateData['stunden'] = is_null($updateData['stunden']) ? null : number_format($updateData['stunden'], 2, '.', '');
+		}
+
 		if (!isset($lv_entwicklung_post->pep_lv_entwicklung_id) || is_null($lv_entwicklung_post->pep_lv_entwicklung_id))
 		{
 			if (isset($stammdaten->zrm_vertraege_kurzbz))
@@ -307,7 +312,10 @@ class LVEntwicklung extends FHCAPI_Controller
 					$updateData['status_kurzbz'] = null;
 				}
 				else
+				{
+					$stammdaten->stunden = null;
 					$updateData['stunden'] = null;
+				}
 			}
 
 			$result = $this->_ci->PEPLVEntwicklungModel->update(array('pep_lv_entwicklung_id' => $lv_entwicklung_post->pep_lv_entwicklung_id), $updateData);
