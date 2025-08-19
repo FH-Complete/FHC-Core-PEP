@@ -51,6 +51,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 					)
 				SELECT tbl_lehrveranstaltung.lehrveranstaltung_id,
 						tbl_lehrveranstaltung.bezeichnung as lvbezeichnung,
+						tbl_lehrveranstaltung.bezeichnung_english as lvbezeichnungeng,
 						tbl_pep_lv_entwicklung.pep_lv_entwicklung_id,
 						COALESCE(tbl_pep_lv_entwicklung.studiensemester_kurzbz, alleLVs_distinct.studiensemester_kurzbz) as studiensemester_kurzbz,
 						tbl_pep_lv_entwicklung.mitarbeiter_uid,

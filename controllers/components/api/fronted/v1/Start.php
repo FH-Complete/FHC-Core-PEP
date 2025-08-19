@@ -43,8 +43,10 @@ class Start extends FHCAPI_Controller
 
 	public function getCategories()
 	{
+		$language = getUserLanguage() == 'German' ? 0 : 1;
+
 		$columns = array();
-		$this->_ci->PEPModel->addSelect('kategorie_id, array_to_json(bezeichnung_mehrsprachig::varchar[])->>0 as beschreibung');
+		$this->_ci->PEPModel->addSelect('kategorie_id, array_to_json(bezeichnung_mehrsprachig::varchar[])->>'. $language. ' as beschreibung');
 		$categoryColumns = $this->_ci->PEPModel->load();
 
 		if (hasData($categoryColumns))
@@ -233,7 +235,7 @@ class Start extends FHCAPI_Controller
 						foreach(getData($kategorien) as $kategorie)
 						{
 							$categorykeyname = "studiensemester_" . $key . "_kategorie_" . $kategorie->kategorie_id;
-							$mitarbeiterData->$categorykeyname = ($kategorie->stunden / 2);;
+							$mitarbeiterData->$categorykeyname = ($kategorie->stunden / 2);
 						}
 					}
 				}
