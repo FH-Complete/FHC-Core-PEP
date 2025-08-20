@@ -34,6 +34,7 @@ export default {
 			filteredLektor: [],
 			lektor_input: null,
 			tagEndpoint: ApiSelfOverviewTag,
+			showInfo: false,
 
 		};
 	},
@@ -199,8 +200,14 @@ export default {
 				<div class="row">
 					<div class="col-12">
 						<h4 class="page-header">
-						Personaleinsatzplanung
+						Ausblick auf Ihre mögliche LV-Planung
+						<i class="fa fa-info-circle ml-2" @click="showInfo = !showInfo"></i>
 						</h4>
+						<div v-if="showInfo" class="alert alert-info mt-2">
+							<b>Achtung:</b> die vorliegenden Informationen stellen eine Vorabplanung dar und sind als Anfrage an Sie gedacht. <br /> <br />
+							Die Beauftragung der tatsächlichen Lehrveranstaltungen erfolgt durch Ihre Kompetenzfeldleitung. <br /> <br />
+							Ihre aktuell gültigen Lehraufträge und den LV Plan des aktuellen Semesters (Termine) finden Sie wie gewohnt unter „mein CIS“ -> „LV-Plan Hauptmenü“ bzw. „Lehrauftragsverwaltung“.
+						</div>
 					</div>
 				</div>
 				<hr />
