@@ -8,6 +8,7 @@ import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedH
 import Tag from '../../../../js/components/Tag/Tag.js';
 import { ApiLVEntwicklungTag } from "../api/lventwicklungTabTags.js";
 
+import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
 import {formatter} from "../mixins/formatters.js";
 import ApiLehre from "../api/lehre.js";
 import ApiLVEntwicklung from "../api/lventwicklung.js";
@@ -354,9 +355,7 @@ export default {
 						},
 						editable: (cell) => {
 							const rowData = cell.getRow().getData();
-							const vertragsListe = (rowData.zrm_vertraege_kurzbz || '').split('\n');
-							const ectsvorhanden = !!cell.getValue();
-							return !!rowData.mitarbeiter_uid && (vertragsListe.some(vertrag => this.config.allow_volume_edit_contracts.includes(vertrag)) || ectsvorhanden);
+							return !!rowData.mitarbeiter_uid;
 						},
 						formatter: (cell, formatterParams, onRendered) => {
 							return this.statusListe ? this.statusListe[cell.getValue()] : cell.getData().status_kurzbz;
@@ -438,6 +437,8 @@ export default {
 					{title: 'LV Lehrform', field: 'lv_lehrform_kurzbz', headerFilter: true},
 					{title: 'Modul', field: 'modulbezeichnung', headerFilter: "input", formatter: "textarea"},
 
+					{title: 'Hinzugefuegt am', field: 'insertamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
+					{title: 'Updated am', field: 'updateamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
 
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
@@ -641,7 +642,9 @@ export default {
 							akt_parentbezeichnung: null,
 							akt_stunden: null,
 							anmerkung: null,
-							tags:null
+							tags:null,
+							insertamum: null,
+							updateamum: null
 						})
 
 						setTimeout(function(){
@@ -819,7 +822,6 @@ export default {
 					if (match.length === 0)
 					{
 						data.werkvertrag_ects = null;
-						data.status_kurzbz = null;
 						data.volumen_eur = null;
 					} else
 					{

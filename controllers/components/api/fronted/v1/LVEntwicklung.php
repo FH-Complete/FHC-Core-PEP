@@ -248,14 +248,19 @@ class LVEntwicklung extends FHCAPI_Controller
 				$updateData[$field] = null;
 		}
 
+		if (array_key_exists('stunden', $updateData))
+		{
+			$updateData['stunden'] = is_null($updateData['stunden']) ? null : number_format($updateData['stunden'], 2, '.', '');
+		}
+
 		if (!isset($lv_entwicklung_post->pep_lv_entwicklung_id) || is_null($lv_entwicklung_post->pep_lv_entwicklung_id))
 		{
 			if (isset($stammdaten->zrm_vertraege_kurzbz))
 			{
 				$match = array_intersect($this->_ci->config->item('lventwicklung_allow_ects_volume_edit'), explode("\n", $stammdaten->zrm_vertraege_kurzbz));
 
-				if (empty($match) && ((isset($lv_entwicklung_post->werkvertrag_ects)  && !isEmptyString(strval($lv_entwicklung_post->werkvertrag_ects))) || (isset($lv_entwicklung_post->status_kurzbz) && !isEmptyString($lv_entwicklung_post->status_kurzbz))))
-					$this->terminateWithError("Für interne Personen dürfen das Werkvertragsvolumen in ECTS sowie der Status nicht ausgefüllt werden.");
+				if (empty($match) && ((isset($lv_entwicklung_post->werkvertrag_ects)  && !isEmptyString(strval($lv_entwicklung_post->werkvertrag_ects)))))
+					$this->terminateWithError("Für interne Personen darf das Werkvertragsvolumen in ECTS nicht erfasst werden.");
 				else if (!empty($match) && isset($lv_entwicklung_post->stunden) && !isEmptyString(strval($lv_entwicklung_post->stunden)))
 					$this->terminateWithError("Für externe Personen dürfen keine Stunden erfasst werden.");
 			}
@@ -263,7 +268,8 @@ class LVEntwicklung extends FHCAPI_Controller
 			$updateData['lehrveranstaltung_id'] = $lv_entwicklung_post->lehrveranstaltung_id;
 			$updateData['weiterentwicklung'] = true;
 			$updateData['insertvon'] = getAuthUID();
-			$updateData['insertamum'] = date('Y-m-d H:i:s');
+			$insertvon = date('Y-m-d H:i:s');
+			$updateData['insertamum'] = $insertvon;
 			$result = $this->_ci->PEPLVEntwicklungModel->insert($updateData);
 
 			if (isError($result))
@@ -288,11 +294,13 @@ class LVEntwicklung extends FHCAPI_Controller
 			$emptyArray = [];
 			$json = json_encode($emptyArray);
 			$stammdaten->tags = $json;
+			$stammdaten->insertvon = $insertvon;
 		}
 		else
 		{
 			$updateData['updatevon'] = getAuthUID();
-			$updateData['updateamum'] = date('Y-m-d H:i:s');
+			$updateamum = date('Y-m-d H:i:s');;
+			$updateData['updateamum'] = $updateamum;
 
 			if (isset($stammdaten->zrm_vertraege_kurzbz))
 			{
@@ -304,7 +312,10 @@ class LVEntwicklung extends FHCAPI_Controller
 					$updateData['status_kurzbz'] = null;
 				}
 				else
+				{
+					$stammdaten->stunden = null;
 					$updateData['stunden'] = null;
+				}
 			}
 
 			$result = $this->_ci->PEPLVEntwicklungModel->update(array('pep_lv_entwicklung_id' => $lv_entwicklung_post->pep_lv_entwicklung_id), $updateData);
@@ -313,6 +324,7 @@ class LVEntwicklung extends FHCAPI_Controller
 				$this->terminateWithError(getError($result));
 
 			$stammdaten->pep_lv_entwicklung_id = $lv_entwicklung_post->pep_lv_entwicklung_id;
+			$stammdaten->updateamum = $updateamum;
 		}
 
 

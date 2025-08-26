@@ -51,6 +51,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 					)
 				SELECT tbl_lehrveranstaltung.lehrveranstaltung_id,
 						tbl_lehrveranstaltung.bezeichnung as lvbezeichnung,
+						tbl_lehrveranstaltung.bezeichnung_english as lvbezeichnungeng,
 						tbl_pep_lv_entwicklung.pep_lv_entwicklung_id,
 						COALESCE(tbl_pep_lv_entwicklung.studiensemester_kurzbz, alleLVs_distinct.studiensemester_kurzbz) as studiensemester_kurzbz,
 						tbl_pep_lv_entwicklung.mitarbeiter_uid,
@@ -73,7 +74,9 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						CASE WHEN tbl_lehrveranstaltung.lehrtyp_kurzbz = 'tpl' THEN true ELSE false END as istemplate,
 						CASE WHEN  studienplan_lvs.lehrveranstaltung_id IS NULL THEN TRUE ELSE FALSE END as geloescht,
 						alleLVs_distinct.lehrveranstaltung_id as allelvsid,
-						module.bezeichnung as modulbezeichnung
+						module.bezeichnung as modulbezeichnung,
+						tbl_pep_lv_entwicklung.insertamum as insertamum,
+						tbl_pep_lv_entwicklung.updateamum as updateamum
 				FROM
 					alleLVs_distinct
 						FULL JOIN  extension.tbl_pep_lv_entwicklung using(lehrveranstaltung_id)

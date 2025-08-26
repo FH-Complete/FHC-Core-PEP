@@ -16,6 +16,7 @@ class PEP extends Auth_Controller
 		parent::__construct(
 			array(
 			'index' => 'extension/pep:r',
+			'self' => ['extension/pep:r', 'extension/pep_selfoverview:r'],
 			)
 		);
 		$this->_ci = &get_instance();
@@ -56,6 +57,27 @@ class PEP extends Auth_Controller
 			'var_organisation' => $this->_ci->variablelib->getVar('pep_abteilung')
 		];
 		$this->load->view('extensions/FHC-Core-PEP/pep.php',
+			$data
+		);
+	}
+
+	public function self()
+	{
+		$this->_ci->load->library('PermissionLib');
+
+		$this->_ci->StudienjahrModel->addOrder('studienjahr_kurzbz', 'DESC');
+		$studienjahre = getData($this->_ci->StudienjahrModel->load());
+		$this->_ci->StudiensemesterModel->addOrder("start", "DESC");
+		$studiensemestern = getData($this->_ci->StudiensemesterModel->load());
+
+		$data = [
+			'studienjahre' => $studienjahre,
+			'mitarbeiter_auswahl' => $this->_ci->permissionlib->isBerechtigt(self::BERECHTIGUNG_KURZBZ),
+			'mitarbeiter_auswahl_reload' => !$this->_ci->permissionlib->isBerechtigt('admin')
+		];
+
+
+		$this->load->view('extensions/FHC-Core-PEP/self.php',
 			$data
 		);
 	}

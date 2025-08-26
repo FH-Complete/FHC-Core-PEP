@@ -23,13 +23,13 @@ class PEP_model extends DB_Model
 		return $this->execQuery($query, array($org, $project));
 	}
 
-	public function getProjectRow($studienjahr, $project_employee_id)
+	public function getProjectRow($studienjahr, $project_employee_id, $withZeiterfassung = true)
 	{
 		$where = " pep_projects_employees_id = ? ";
 
 		$query = $this->getProjectDataSql($where);
 
-		return $this->execQuery($query, array($studienjahr, '', $this->config->item('excluded_project_status'), $studienjahr, $project_employee_id));
+		return $this->execQuery($query, array($studienjahr, '', $withZeiterfassung, $withZeiterfassung, $withZeiterfassung, $this->config->item('excluded_project_status'), $studienjahr, $project_employee_id));
 
 	}
 	private function getProjectDataSql($where)
@@ -40,13 +40,14 @@ class PEP_model extends DB_Model
 			". $this->_getStudienjahrDates() .", 
 			organisationseinheiten AS " . $this->_getRecursiveOE() . ",
 			zeiterfassung AS (
-				 SELECT
-					 uid,
-					 projekt_kurzbz,
-					 dates.ende,
-					 (EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden,
-					 tbl_zeitaufzeichnung.ende as zeitaufzeichnungende
-				 FROM campus.tbl_zeitaufzeichnung JOIN semester_datum dates ON tbl_zeitaufzeichnung.start >= dates.start
+				SELECT
+					uid,
+					projekt_kurzbz,
+					dates.ende,
+					(EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden,
+					tbl_zeitaufzeichnung.ende as zeitaufzeichnungende
+				FROM campus.tbl_zeitaufzeichnung JOIN semester_datum dates ON tbl_zeitaufzeichnung.start >= dates.start
+				WHERE ?
 			 ),
 			stichtage AS (
 				SELECT
@@ -64,16 +65,17 @@ class PEP_model extends DB_Model
 
 				FROM campus.tbl_zeitaufzeichnung zeitaufzeichnung
 					JOIN semester_datum ON zeitaufzeichnung.start >= semester_datum.start
+				WHERE ?
 				GROUP BY zeitaufzeichnung.projekt_kurzbz, zeitaufzeichnung.uid
 			),
 			aktuellges AS (
 				SELECT
 					SUM(EXTRACT(EPOCH FROM (tbl_zeitaufzeichnung.ende - tbl_zeitaufzeichnung.start)) / 3600) AS gearbeitete_stunden,
-					 projekt_kurzbz,
-					 uid
-				 FROM campus.tbl_zeitaufzeichnung
-				 WHERE tbl_zeitaufzeichnung.ende <= CURRENT_DATE
-				 GROUP BY projekt_kurzbz, uid
+					projekt_kurzbz,
+					uid
+				FROM campus.tbl_zeitaufzeichnung
+				WHERE tbl_zeitaufzeichnung.ende <= CURRENT_DATE AND ?
+				GROUP BY projekt_kurzbz, uid
 			 )
 			SELECT
 				ROW_NUMBER() OVER () AS row_index,
@@ -100,10 +102,10 @@ class PEP_model extends DB_Model
 				)) AS verbrauchte_zeit,
 				ROUND(CASE
 					WHEN (
-						 EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
-						 EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) +
-						 EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) / 30.0
-						 ) < 0.5
+						EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
+						EXTRACT(MONTH FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) +
+						EXTRACT(DAY FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) / 30.0
+						) < 0.5
 					THEN 0
 				ELSE (
 						EXTRACT(YEAR FROM age(MAX(timesheetsprojectinfos.end_date), CURRENT_DATE)) * 12 +
@@ -158,7 +160,7 @@ class PEP_model extends DB_Model
 				LEFT JOIN sync.tbl_sap_projects_status ON timesheetsprojectinfos.status = tbl_sap_projects_status.status
 				LEFT JOIN sync.tbl_sap_organisationsstruktur ON  timesheetsprojectinfos.responsible_unit = tbl_sap_organisationsstruktur.oe_kurzbz_sap
 				LEFT JOIN fue.tbl_projekt ON tbl_projects_timesheets_project.projekt_id = tbl_projekt.projekt_id
-				
+
 				LEFT JOIN stichtage ON tbl_projekt.projekt_kurzbz = stichtage.projekt_kurzbz AND stichtage.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 				LEFT JOIN aktuellges ON tbl_projekt.projekt_kurzbz = aktuellges.projekt_kurzbz AND aktuellges.uid = COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid)
 
@@ -203,11 +205,11 @@ class PEP_model extends DB_Model
 		return $query;
 
 	}
-	public function getProjectData($mitarbeiter_uids, $studienjahr, $org)
+	public function getProjectData($mitarbeiter_uids, $studienjahr, $org, $withZeiterfassung = true)
 	{
 		$where = " (
 					COALESCE(sapprojects.mitarbeiter_uid, pepprojects.mitarbeiter_uid) IN ?
-					 OR tbl_sap_organisationsstruktur.oe_kurzbz IN (SELECT oe_kurzbz FROM organisationseinheiten)
+					OR tbl_sap_organisationsstruktur.oe_kurzbz IN (SELECT oe_kurzbz FROM organisationseinheiten)
 				)
 			AND (
 					(
@@ -221,7 +223,7 @@ class PEP_model extends DB_Model
 		$query = $this->getProjectDataSql($where);
 
 
-		return $this->execQuery($query, array($studienjahr, $org, $this->config->item('excluded_project_status'), $studienjahr, $mitarbeiter_uids, $this->config->item('excluded_project_status')));
+		return $this->execQuery($query, array($studienjahr, $org, $withZeiterfassung, $withZeiterfassung, $withZeiterfassung, $this->config->item('excluded_project_status'), $studienjahr, $mitarbeiter_uids, $this->config->item('excluded_project_status')));
 
 	}
 
@@ -229,16 +231,16 @@ class PEP_model extends DB_Model
 	{
 		return "(WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) AS (
 					SELECT oe_kurzbz,
-						   oe_parent_kurzbz
+						oe_parent_kurzbz
 					FROM PUBLIC.tbl_organisationseinheit
 					WHERE oe_kurzbz = ?
 
 					UNION ALL
 
 					SELECT o.oe_kurzbz,
-						   o.oe_parent_kurzbz
+						o.oe_parent_kurzbz
 					FROM PUBLIC.tbl_organisationseinheit o,
-						 oes
+						oes
 					WHERE o.oe_parent_kurzbz = oes.oe_kurzbz
 				)
 				SELECT oe_kurzbz
@@ -278,7 +280,6 @@ class PEP_model extends DB_Model
 			$this->getCategoryStundenBySemester($query, $params, $dates, $mitarbeiter);
 		else
 			$this->getCategoryStundenByJahr($query, $params, $dates, $mitarbeiter);
-
 
 		$query .= "	GROUP BY
 					pk.kategorie_id,
@@ -326,6 +327,7 @@ class PEP_model extends DB_Model
 					OR (pkm.mitarbeiter_uid = ? AND pkm.studienjahr_kurzbz = ?)";
 		$params = array($dates, $dates, $mitarbeiter, $mitarbeiter, $dates, $dates, $mitarbeiter, $dates);
 	}
+
 	private function getCategoryStundenBySemester(&$query, &$params, $dates, $mitarbeiter)
 	{
 		$query .= "
@@ -356,8 +358,6 @@ class PEP_model extends DB_Model
 					OR (pkm.mitarbeiter_uid = ? AND pkm.studienjahr_kurzbz = (SELECT studienjahr_kurzbz FROM tbl_studiensemester WHERE studiensemester_kurzbz = ?))";
 		$params = array(array($dates), $dates, $mitarbeiter, $mitarbeiter, $dates, $dates, $mitarbeiter, $dates);
 	}
-
-
 
 	public function checkStunden($studienjahr, $kategorie, $mitarbeiter_uid)
 	{
@@ -432,7 +432,11 @@ class PEP_model extends DB_Model
 				)
 		";
 
-		if ($recursive)
+		if (is_array($org))
+		{
+			$additionalQuery = " AND funktion.oe_kurzbz IN ?";
+		}
+		else if ($recursive)
 		{
 			$additionalQuery = "
 				AND funktion.oe_kurzbz IN
@@ -538,6 +542,7 @@ class PEP_model extends DB_Model
 			lv_org.oe_kurzbz,
 			tbl_lehrveranstaltung.kurzbz as lv_kurzbz,
 			tbl_lehrveranstaltung.bezeichnung as lv_bezeichnung,
+			tbl_lehrveranstaltung.bezeichnung_english as lv_bezeichnung_eng,
 			tbl_lehrveranstaltung.lehrveranstaltung_id as lv_id,
 			tbl_lehrveranstaltung.semester as lv_semester,
 			tbl_lehreinheit.sprache as le_unterrichtssprache,
@@ -1026,17 +1031,17 @@ class PEP_model extends DB_Model
 						AND tbl_stundensatz.stundensatztyp = 'lehre'
 				),
 				 lehre_stundensatz AS (
-					 SELECT
-						 ARRAY_TO_STRING(ARRAY_AGG(stundensatz) OVER (PARTITION BY uid), E'\n') AS stunden,
+					SELECT
+						ARRAY_TO_STRING(ARRAY_AGG(stundensatz) OVER (PARTITION BY uid), E'\n') AS stunden,
 							uid,
 							ROW_NUMBER() OVER (PARTITION BY uid ORDER BY gueltig_von DESC, gueltig_bis DESC NULLS FIRST) AS rn
-					 FROM hr.tbl_stundensatz
+					FROM hr.tbl_stundensatz
 					JOIN hr.tbl_stundensatztyp ON tbl_stundensatz.stundensatztyp = tbl_stundensatztyp.stundensatztyp
 						AND tbl_stundensatz.stundensatztyp = 'lehre'
 					 WHERE
-						 (gueltig_von <= ( SELECT ende FROM semester_datum) OR gueltig_von IS NULL)
-						 AND (gueltig_bis >= (SELECT start FROM semester_datum) OR gueltig_bis IS NULL)
-					 ORDER BY gueltig_von DESC
+						(gueltig_von <= ( SELECT ende FROM semester_datum) OR gueltig_von IS NULL)
+						AND (gueltig_bis >= (SELECT start FROM semester_datum) OR gueltig_bis IS NULL)
+					ORDER BY gueltig_von DESC
 				 ),
 				karenz AS (
 					SELECT hr.tbl_vertragsbestandteil.*,
@@ -1153,11 +1158,11 @@ class PEP_model extends DB_Model
 						(default_pk.gueltig_bis_studienjahr IN (
 							SELECT tbl_studienjahr.studienjahr_kurzbz
 							FROM tbl_studiensemester
-									 JOIN tbl_studienjahr ON tbl_studiensemester.studienjahr_kurzbz = tbl_studienjahr.studienjahr_kurzbz
+									JOIN tbl_studienjahr ON tbl_studiensemester.studienjahr_kurzbz = tbl_studienjahr.studienjahr_kurzbz
 							WHERE ende >= (SELECT start FROM tbl_studiensemester WHERE tbl_studiensemester.studienjahr_kurzbz = ? ORDER BY start LIMIT 1)
 						)
 							OR
-						 default_pk.gueltig_bis_studienjahr IS NULL
+							default_pk.gueltig_bis_studienjahr IS NULL
 							)
 						)
 				WHERE
@@ -1223,7 +1228,27 @@ class PEP_model extends DB_Model
 				ma.mitarbeiter_uid IN ?";
 
 		return $this->execReadOnlyQuery($query, array($dates, isEmptyArray($mitarbeiter_uid) ? array('') : $mitarbeiter_uid));
+	}
 
+	public function getRelevanteVertragsart($uid, $studiensemester)
+	{
+		$query = "
+			". $this->_getStartCTE() .",
+			". $this->_getStudiensemesterDates() .",
+			". $this->_getZeitraumDaten() . "
+			SELECT 
+				zv.relevante_vertragsart as releavante_vertragsart,
+				vorname,
+				nachname,
+				ma.mitarbeiter_uid,
+				tbl_benutzer.uid
+			FROM tbl_mitarbeiter ma
+				JOIN tbl_benutzer ON ma.mitarbeiter_uid = tbl_benutzer.uid
+				JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
+				LEFT JOIN zeitraumVertrag zv ON ma.mitarbeiter_uid = zv.mitarbeiter_uid AND zv.rn = 1
+			WHERE
+				ma.mitarbeiter_uid IN ?";
+		return $this->execReadOnlyQuery($query, array($studiensemester, isEmptyArray($uid) ? array('') : $uid));
 	}
 
 	private function _getStartCTE()
@@ -1280,8 +1305,8 @@ class PEP_model extends DB_Model
 							JOIN tbl_organisationseinheit org ON tbl_benutzerfunktion.oe_kurzbz = org.oe_kurzbz
 							JOIN tbl_organisationseinheit parentorg ON org.oe_parent_kurzbz = parentorg.oe_kurzbz
 						WHERE vb.von <= NOW()
-						  AND (vb.bis >= NOW() OR vb.bis IS NULL)
-						  AND funktion_kurzbz = 'oezuordnung'
+							AND (vb.bis >= NOW() OR vb.bis IS NULL)
+							AND funktion_kurzbz = 'oezuordnung'
 						ORDER BY vb.von DESC
 					) oefunktion ON oefunktion.dienstverhaeltnis_id = dv.dienstverhaeltnis_id
 					LEFT JOIN (
@@ -1321,38 +1346,38 @@ class PEP_model extends DB_Model
 		$caseStatements = $this->_getJahresstunden();
 
 		return "
-				 zeitraumVertrag AS (
-					 SELECT
-						 dv.dienstverhaeltnis_id,
-						 dv.von,
-						 dv.bis,
-						 dv.mitarbeiter_uid,
-						 va.bezeichnung,
-						 va.vertragsart_kurzbz AS relevante_vertragsart,
-						 dv.oe_kurzbz,
-						 ARRAY_TO_STRING(ARRAY_AGG(va.bezeichnung) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege,
-						 ARRAY_TO_STRING(ARRAY_AGG(va.vertragsart_kurzbz) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege_kurzbz,
-						 ARRAY_TO_STRING(ARRAY_AGG(stunden.wochenstunden) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST), E'\n') AS wochenstunden,
-						 ARRAY_TO_STRING(ARRAY_AGG(
+				zeitraumVertrag AS (
+					SELECT
+						dv.dienstverhaeltnis_id,
+						dv.von,
+						dv.bis,
+						dv.mitarbeiter_uid,
+						va.bezeichnung,
+						va.vertragsart_kurzbz AS relevante_vertragsart,
+						dv.oe_kurzbz,
+						ARRAY_TO_STRING(ARRAY_AGG(va.bezeichnung) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege,
+						ARRAY_TO_STRING(ARRAY_AGG(va.vertragsart_kurzbz) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege_kurzbz,
+						ARRAY_TO_STRING(ARRAY_AGG(stunden.wochenstunden) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST), E'\n') AS wochenstunden,
+						ARRAY_TO_STRING(ARRAY_AGG(
 								CASE ". implode(" ", $caseStatements) . " END) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST),
 								 E'\n'
 						) AS jahresstunden,
 						(
 							CASE ". implode(" ", $caseStatements) . " END
 						) as einzelnejahresstunden,
-						 ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST) AS rn
+						ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST) AS rn
 					 FROM hr.tbl_dienstverhaeltnis dv
-							  JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
-							  LEFT JOIN (
-									 SELECT vb.dienstverhaeltnis_id, vbs.wochenstunden, vb.von
-									 FROM hr.tbl_vertragsbestandteil vb
-											  JOIN hr.tbl_vertragsbestandteil_stunden vbs USING(vertragsbestandteil_id)
-									 WHERE vb.von <= (SELECT ende FROM semester_datum)
+							JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
+							LEFT JOIN (
+									SELECT vb.dienstverhaeltnis_id, vbs.wochenstunden, vb.von
+									FROM hr.tbl_vertragsbestandteil vb
+											JOIN hr.tbl_vertragsbestandteil_stunden vbs USING(vertragsbestandteil_id)
+									WHERE vb.von <= (SELECT ende FROM semester_datum)
 										AND (vb.bis >= (SELECT start FROM semester_datum) OR vb.bis IS NULL)
-									 ORDER BY vb.von DESC
-					 ) stunden ON stunden.dienstverhaeltnis_id = dv.dienstverhaeltnis_id
-					 WHERE (dv.von <= (SELECT ende FROM semester_datum) OR dv.von IS NULL)
+									ORDER BY vb.von DESC
+					) stunden ON stunden.dienstverhaeltnis_id = dv.dienstverhaeltnis_id
+					WHERE (dv.von <= (SELECT ende FROM semester_datum) OR dv.von IS NULL)
 						AND (dv.bis >= (SELECT start FROM semester_datum) OR dv.bis IS NULL)
-				 )";
+				)";
 	}
 }
