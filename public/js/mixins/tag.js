@@ -38,7 +38,7 @@ export default {
 
 					if (fieldData.some(tag => tag?.id === newTag.id)) return;
 
-					fieldData.push(newTag);
+					fieldData.unshift(newTag);
 					rowData[field] = JSON.stringify(fieldData);
 					updated = true;
 				})
