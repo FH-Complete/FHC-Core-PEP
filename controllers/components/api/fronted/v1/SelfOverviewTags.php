@@ -22,7 +22,7 @@ class SelfOverviewTags extends Tag_Controller
 
 	}
 
-	public function getTag()
+	public function getTag($readonly_tags = null)
 	{
 		$id = $this->input->get('id');
 		$notiz = $this->NotizModel->load($id);
