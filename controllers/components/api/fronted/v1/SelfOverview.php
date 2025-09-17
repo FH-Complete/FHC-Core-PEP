@@ -89,12 +89,12 @@ class SelfOverview extends FHCAPI_Controller
 
 		$language = getUserLanguage() == 'German' ? 0 : 1;
 
+		$result['config']['echterdv'] = $mitarbeiter_data->releavante_vertragsart === 'echterdv';
 		if (hasData($lehrauftraege))
 		{
 			foreach (getData($lehrauftraege) as $lehrauftrag)
 			{
-
-				$result[] = array('typ' => $this->p->t('ui', 'lehrauftrag'),
+				$result['data'][] = array('typ' => $this->p->t('ui', 'lehrauftrag'),
 					'beschreibung' => $language === 0 ? $lehrauftrag->lv_bezeichnung : (!isEmptyString($lehrauftrag->lv_bezeichnung_eng) ? $lehrauftrag->lv_bezeichnung_eng : $lehrauftrag->lv_bezeichnung),
 					'stunden' => $lehrauftrag->faktorstunden,
 					'zeit' => $lehrauftrag->studiensemester_kurzbz,
@@ -102,12 +102,40 @@ class SelfOverview extends FHCAPI_Controller
 					'lehrform' => $lehrauftrag->lehrform_kurzbz,
 					'gruppe' => $lehrauftrag->gruppe,
 					'info' => $this->_filterTags($lehrauftrag->tags),
-					'tags' => $this->_filterTags($lehrauftrag->tags, true)
 				);
 			}
 		}
 
+		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
+		{
+			$lventwicklung_data = $this->_ci->PEPLVEntwicklungModel->getLVEntwicklung(array(''), $studiensemester, array($mitarbeiter_data->uid), '', false);
 
+			if (hasData($lventwicklung_data))
+			{
+				foreach (getData($lventwicklung_data) as $data)
+				{
+					$lventwicklungarray = array('typ' => $this->p->t('ui', 'lventwicklung'),
+						'beschreibung' => $language === 0 ? $data->lvbezeichnung : (!isEmptyString($data->lvbezeichnungeng) ? $data->lvbezeichnungeng : $data->lvbezeichnung),
+
+						'zeit' => $data->studiensemester_kurzbz,
+						'stg' => $data->stg_kuerzel,
+						'lehrform' => $data->lv_lehrform_kurzbz,
+						'gruppe' => null,
+						'info' => $this->_filterTags($data->tags),
+					);
+
+					if ($mitarbeiter_data->releavante_vertragsart !== 'echterdv')
+						$lventwicklungarray['ects'] = $data->werkvertrag_ects;
+					else
+					{
+						$lventwicklungarray['stunden'] = $data->stunden;
+						$lventwicklungarray['anmerkung'] = $data->anmerkung;
+					}
+
+					$result['data'][] = $lventwicklungarray;
+				}
+			}
+		}
 
 		if ($mitarbeiter_data->releavante_vertragsart !== 'echterdv')
 			$this->terminateWithSuccess($result);
@@ -126,7 +154,7 @@ class SelfOverview extends FHCAPI_Controller
 					forEach(getData($category_data) as $data)
 					{
 
-						$result[] = array('typ' => $this->p->t('ui', 'kategorie'),
+						$result['data'][] = array('typ' => $this->p->t('ui', 'kategorie'),
 							'beschreibung' => $category->beschreibung,
 							'stunden' => $data->stunden,
 							'anmerkung' => $data->anmerkung,
@@ -149,7 +177,7 @@ class SelfOverview extends FHCAPI_Controller
 			{
 				foreach (getData($project_data) as $data)
 				{
-					$result[] = array('typ' => $this->p->t('ui', 'projekt'),
+					$result['data'][] = array('typ' => $this->p->t('ui', 'projekt'),
 						'beschreibung' => $data->name,
 						'stunden' => $data->stunden,
 						'anmerkung' => $data->anmerkung,
@@ -161,32 +189,6 @@ class SelfOverview extends FHCAPI_Controller
 				}
 			}
 		}
-
-		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
-		{
-			$lventwicklung_data = $this->_ci->PEPLVEntwicklungModel->getLVEntwicklung(array(''), $studiensemester, array($mitarbeiter_data->uid), '', false);
-
-			if (hasData($lventwicklung_data))
-			{
-				foreach (getData($lventwicklung_data) as $data)
-				{
-
-
-					$result[] = array('typ' => $this->p->t('ui', 'lventwicklung'),
-						'beschreibung' => $language === 0 ? $data->lvbezeichnung : (!isEmptyString($data->lvbezeichnungeng) ? $data->lvbezeichnungeng : $data->lvbezeichnung),
-						'stunden' => $data->stunden,
-						'anmerkung' => $data->anmerkung,
-						'zeit' => $data->studiensemester_kurzbz,
-						'stg' => $data->stg_kuerzel,
-						'lehrform' => $data->lv_lehrform_kurzbz,
-						'gruppe' => null,
-						'info' => $this->_filterTags($data->tags),
-						'tags' => $this->_filterTags($data->tags, true)
-					);
-				}
-			}
-		}
-
 		$this->terminateWithSuccess($result);
 	}
 	public function getLektoren()

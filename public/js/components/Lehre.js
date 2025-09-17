@@ -301,6 +301,7 @@ export default {
 			this.selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
 			this.selectedColumnValues = this.selectedRows.map(row => row.getData().lehreinheit_id);
 			//this.selectedColumnValues = [...new Set(this.selectedRows.map(row => row.getData().lehreinheit_id))];
+			this.addColorToInfoText(this.selectedColumnValues);
 		},
 
 		newSideMenuEntryHandler: function (payload)
