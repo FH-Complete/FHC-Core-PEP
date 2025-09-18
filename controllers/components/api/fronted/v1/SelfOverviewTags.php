@@ -7,12 +7,12 @@ class SelfOverviewTags extends Tag_Controller
 {
 	private $_ci;
 
-	const BERECHTIGUNG_KURZBZ = 'extension/pep_selfoverview:rw';
+	const BERECHTIGUNG_KURZBZ = 'admin:r';
 
 	public function __construct()
 	{
 		parent::__construct([
-			'getTag' => [self::BERECHTIGUNG_KURZBZ, 'extension/pep:r'],
+			'getTag' => [self::BERECHTIGUNG_KURZBZ],
 		]);
 
 		$this->_ci = &get_instance();
