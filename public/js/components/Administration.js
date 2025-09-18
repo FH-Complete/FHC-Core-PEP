@@ -1,6 +1,7 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
-import {CoreRESTClient} from '../../../../js/RESTClient.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
+import ApiStart from "../api/start.js";
+import ApiAdmin from "../api/admin.js";
 
 export default {
 	components: {
@@ -18,7 +19,7 @@ export default {
 		}
 	},
 	mounted() {
-		this.$fhcApi.factory.pep.getCategories()
+		this.$api.call(ApiStart.getCategories())
 			.then(response => {
 				this.$refs.administrationTable.tabulator.setData(response.data.categories)
 			})
@@ -26,7 +27,7 @@ export default {
 				this.$fhcAlert.handleSystemError(error);
 			});
 
-		this.$fhcApi.factory.pep.getStudienjahre()
+		this.$api.call(ApiAdmin.getStudienjahre())
 			.then(response => {
 				this.studienjahre = response.data
 			})
@@ -34,7 +35,7 @@ export default {
 				this.$fhcAlert.handleSystemError(error);
 			})
 
-		this.$fhcApi.factory.pep.getOrganisationen()
+		this.$api.call(ApiAdmin.getOrganisationen())
 			.then(response => {
 				this.organisationen = response.data
 			})
@@ -86,7 +87,7 @@ export default {
 
 		async saveData(data)
 		{
-			await this.$fhcApi.factory.pep.stundenvoerruecken(data)
+			await this.$api.call(ApiAdmin.stundenvoerruecken(data))
 				.then(response => response.data)
 				.then(response => {
 					if (response.length === 0)

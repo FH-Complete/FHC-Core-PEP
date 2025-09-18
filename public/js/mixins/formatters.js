@@ -4,7 +4,18 @@ export const formatter = {
 		let tags = cell.getValue();
 		let container = document.createElement('div');
 		container.className = "d-flex gap-1";
-		let parsedTags = JSON.parse(tags);
+		let parsedTags = [];
+
+		try {
+			if (tags) {
+				parsedTags = JSON.parse(tags);
+				if (!Array.isArray(parsedTags)) {
+					parsedTags = [];
+				}
+			}
+		} catch (e) {
+			parsedTags = [];
+		}
 		let maxVisibleTags = 2;
 
 		if (cell._expanded === undefined)
@@ -15,6 +26,16 @@ export const formatter = {
 			container.innerHTML = '';
 
 			parsedTags = parsedTags.filter(item => item !== null);
+			parsedTags.sort((a, b) => {
+				let adone = a.done ? 1 : 0;
+				let bbone = b.done ? 1 : 0;
+
+				if (adone !== bbone)
+				{
+					return adone - bbone;
+				}
+				return b.id - a.id;
+			});
 			const tagsToShow = cell._expanded ? parsedTags : parsedTags.slice(0, maxVisibleTags);
 			tagsToShow.forEach(tag => {
 				if (tag === null)
@@ -372,7 +393,7 @@ export const formatter = {
 				}
 			}
 		}
-		return parseFloat(value).toFixed(formatterParams.precision);
+		return (isNaN(value) || value === undefined || value === null) ? '-' : parseFloat(value).toFixed(formatterParams.precision);
 	},
 	checkStunden: function(cell, formatterParams, onRendered)
 	{

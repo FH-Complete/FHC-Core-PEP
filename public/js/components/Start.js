@@ -1,10 +1,13 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {formatter} from "../mixins/formatters.js";
+import tagMixin from "../mixins/tag.js";
 import FhcLoader from '../../../../js/components/Loader.js';
 import Tag from '../../../../js/components/Tag/Tag.js';
 import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
+import ApiStartTag from "../api/startTabTags.js";
+import ApiStart from "../api/start.js";
 
 export default {
 	name: "Start",
@@ -21,6 +24,7 @@ export default {
 		FhcLoader,
 		Tag,
 	},
+	mixins: [tagMixin],
 	watch: {
 		loadedData: {
 			handler(newValue) {
@@ -64,6 +68,7 @@ export default {
 			oldStudiensemester: "",
 			isOldSemesterLoaded: false,
 			selectedColumnValues: [],
+			tagEndpoint: ApiStartTag,
 		}
 	},
 
@@ -87,7 +92,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2025_04_09_pep_start",
+				persistenceID: "2025_07_11_pep_start",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -114,7 +119,7 @@ export default {
 					},
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
-					{title: 'UID', field: 'uid', headerFilter: true, visible: false},
+					{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true, visible: false},
 					{title: 'Karenz', field: 'karenz', visible: false, formatter: formatter.karenzFormatter, headerFilter:"input"},
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", headerTooltip: "Zeitraum - Dienstverhältnis"},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", headerTooltip: "Zeitraum - Stunden pro Woche"},
@@ -166,21 +171,7 @@ export default {
 		updateSelectedRows() {
 			this.selectedRows = this.$refs.startTable.tabulator.getSelectedRows();
 			this.selectedColumnValues = this.selectedRows.map(row => row.getData().uid);
-		},
-		addedTag(addedTag)
-		{
-			this.selectedRows.forEach(row => {
-				const rowData = row.getData();
-				addedTag.response.forEach(tag => {
-					if (rowData.uid === tag.mitarbeiter_uid) {
-						let tags = JSON.parse(rowData.tags);
-						addedTag.id = tag.id;
-						tags.push(addedTag);
-						rowData.tags = JSON.stringify(tags);
-						row.update(rowData);
-					}
-				});
-			});
+			this.addColorToInfoText(this.selectedColumnValues);
 		},
 		lektorMail()
 		{
@@ -194,34 +185,15 @@ export default {
 			})
 			window.location.href = `mailto:${emails}`;
 		},
-		deletedTag(deletedTag)
-		{
-			this.$refs.startTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-				let tags = JSON.parse(rowData.tags);
-				tags = tags.filter(tag => tag?.id !== deletedTag);
-				const updatedTags = JSON.stringify(tags);
-				if (updatedTags !== rowData.tags) {
-					rowData.tags = updatedTags;
-					row.update(rowData);
-				}
-			});
+
+		addedTag(addedTag) {
+			this.addTagInTable(addedTag, 'startTable', 'mitarbeiter_uid', 'response');
+		},
+		deletedTag(deletedTag) {
+			this.deleteTagInTable(deletedTag, 'startTable');
 		},
 		updatedTag(updatedTag) {
-			this.$refs.startTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-				let tags = JSON.parse(rowData.tags);
-				const tagIndex = tags.findIndex(tag => tag?.id === updatedTag.id);
-				if (tagIndex !== -1) {
-					tags[tagIndex] = updatedTag;
-					const updatedTags = JSON.stringify(tags);
-					if (updatedTags !== rowData.tags)
-					{
-						rowData.tags = updatedTags;
-						row.update(rowData);
-					}
-				}
-			});
+			this.updateTagInTable(updatedTag, 'startTable');
 		},
 		async loadData(data)
 		{
@@ -229,7 +201,7 @@ export default {
 				await this.loadStudiensemester(data.studienjahr)
 			data.oldSemester = this.loadedData.oldSemester;
 			this.loadedData = data;
-			await this.$fhcApi.factory.pep.getStart(data)
+			await this.$api.call(ApiStart.getStart(data))
 				.then(response => {
 					if (response.data.length === 0)
 					{
@@ -248,7 +220,7 @@ export default {
 			let data = {
 				'studienjahr': studienjahr
 			}
-			await this.$fhcApi.factory.pep.getStudiensemester(data)
+			await this.$api.call(ApiStart.getStudiensemester(data))
 				.then(response => {
 					this.semester = response.data
 				})
@@ -332,18 +304,25 @@ export default {
 				this.createColumns('project', 'Projekte', formatter.checkStunden, this.columnsConfig.mode.projects);
 			}
 
+			if (this.columnsConfig.lventwicklung)
+			{
+				this.createColumns('lv_entwicklung', 'LV-Entwicklung', formatter.checkStunden, this.columnsConfig.mode.lventwicklung);
+			}
+
 			if (this.columnsConfig.categories)
 			{
 				this.columnsConfig.categories.forEach(kategorie => {
 					this.createColumns('kategorie', kategorie.beschreibung, formatter.checkStunden, this.columnsConfig.mode.categories, kategorie);
 				});
 			}
+
+
 		},
 		async getCategoriesConfig()
 		{
 			if (Object.keys(this.columnsConfig).length !== 0)
 				return;
-			await this.$fhcApi.factory.pep.getCategories()
+			await this.$api.call(ApiStart.getCategories())
 				.then(response => {
 					this.columnsConfig = response.data
 				})
@@ -380,7 +359,7 @@ export default {
 				<template #actions>
 				<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
 				<Tag ref="tagComponent"
-					:endpoint="$fhcApi.factory.pep_start_tab_tags"
+					:endpoint="tagEndpoint"
 					:values="selectedColumnValues"
 					@added="addedTag"
 					@deleted="deletedTag"

@@ -1,32 +1,56 @@
 export const Tags = {
+
 	getTag(data)
 	{
-		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/getTag'
-		return this.$fhcApi.get(url, data)
+		return {
+			method: 'get',
+			url: '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/getTag',
+			params: data
+		};
 	},
+
 	getTags()
 	{
-		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/getTags'
-		return this.$fhcApi.get(url)
+		return {
+			method: 'get',
+			url: '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/getTags',
+		};
 	},
+
 	addTag(data)
 	{
-		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/addTag'
-		return this.$fhcApi.post(url, data)
+		return {
+			method: 'post',
+			url: '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/addTag',
+			params: data
+		};
 	},
+
 	updateTag(data)
 	{
-		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/updateTag'
-		return this.$fhcApi.post(url, data)
+		return {
+			method: 'post',
+			url: '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/updateTag',
+			params: data
+		};
 	},
+
 	doneTag(data)
 	{
-		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/doneTag'
-		return this.$fhcApi.post(url, data)
+		return {
+			method: 'post',
+			url: '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/doneTag',
+			params: data
+		};
 	},
+
 	deleteTag(data)
 	{
-		const url = '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/deleteTag'
-		return this.$fhcApi.post(url, data)
+		return {
+			method: 'post',
+			url: '/extensions/FHC-Core-PEP/components/api/fronted/v1/Tags/deleteTag',
+			params: data
+		};
 	},
+
 };

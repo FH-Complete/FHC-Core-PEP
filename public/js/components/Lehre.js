@@ -1,17 +1,17 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
-import {CoreRESTClient} from '../../../../js/RESTClient.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import BsModal from '../../../../js/components/Bootstrap/Modal.js';
 import FormInput from "../../../../js/components/Form/Input.js";
-import Tag from '../../../../js/components/Tag/Tag.js';
 import FhcLoader from '../../../../js/components/Loader.js';
 import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
-
-
+import { Tags as ApiLehreTag} from "../api/tags.js";
+import ApiLehre from "../api/lehre.js";
+import Tag from '../../../../js/components/Tag/Tag.js';
 
 import {formatter} from "../mixins/formatters.js";
+import tagMixin from "../mixins/tag.js";
 
 
 export default {
@@ -31,8 +31,9 @@ export default {
 			required: true
 		},
 	},
+	mixins: [tagMixin],
 	mounted(){
-		this.getRaumtypen();
+		//this.getRaumtypen();
 		this.getLektoren();
 	},
 	data: function() {
@@ -72,7 +73,8 @@ export default {
 			selectedRow: null,
 			modalTitle: 'Änderungen',
 			selectedColumnValues: [],
-			columnsToMark: ['anmerkung']
+			columnsToMark: ['anmerkung'],
+			tagEndpoint: ApiLehreTag
 		}
 	},
 
@@ -299,6 +301,7 @@ export default {
 			this.selectedRows = this.$refs.lehreTable.tabulator.getSelectedRows();
 			this.selectedColumnValues = this.selectedRows.map(row => row.getData().lehreinheit_id);
 			//this.selectedColumnValues = [...new Set(this.selectedRows.map(row => row.getData().lehreinheit_id))];
+			this.addColorToInfoText(this.selectedColumnValues);
 		},
 
 		newSideMenuEntryHandler: function (payload)
@@ -308,9 +311,8 @@ export default {
 		async loadData(data) {
 			this.studiensemester = this.theModel.config.semester;
 			this.loadedData = data;
-			await this.$fhcApi.factory.pep.getLehre(data)
+			await this.$api.call(ApiLehre.getLehre(data))
 				.then(response => {
-
 					if (response.data.length === 0)
 					{
 						this.$fhcAlert.alertInfo("Lehre: Keine Daten vorhanden");
@@ -349,7 +351,7 @@ export default {
 				'lehrform_kurzbz': lehrform_kurzbz
 			}
 
-			this.$fhcApi.factory.pep.getLehreinheiten(data)
+			this.$api.call(ApiLehre.getLehreinheiten(data))
 				.then(result => result.data)
 				.then(result => {
 					this.prefillFaktorModal(result)
@@ -370,7 +372,7 @@ export default {
 				'mitarbeiter_uid': uid
 			}
 
-			this.$fhcApi.factory.pep.getLehreinheit(data)
+			this.$api.call(ApiLehre.getLehreinheit(data))
 				.then(result => result.data)
 				.then(result => {
 					this.prefillLehreinheitModal(result)
@@ -440,8 +442,9 @@ export default {
 				this.$refs.faktorTable.tabulator.setData(data);
 			});
 		},
-		getRaumtypen() {
-			this.$fhcApi.factory.pep.getRaumtypen()
+		//Wird derzeit nicht benötigt
+		/*getRaumtypen() {
+			this.$api.call(ApiLehre.getRaumtypen())
 				.then(result => result.data)
 				.then(result => {
 					this.raumtypen = result;
@@ -449,9 +452,9 @@ export default {
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
-		},
+		},*/
 		getLektoren() {
-			this.$fhcApi.factory.pep.getLektoren()
+			this.$api.call(ApiLehre.getLektoren())
 				.then(result => result.data)
 				.then(result => {
 					this.lektoren = result
@@ -537,7 +540,7 @@ export default {
 						le_semester: rowData.studiensemester_kurzbz
 					})
 			})*/
-			this.$fhcApi.factory.pep.saveLehreinheit(this.formData)
+			this.$api.call(ApiLehre.saveLehreinheit(this.formData))
 				.then(result => result.data)
 				.then(updateData => {
 					/*
@@ -595,7 +598,7 @@ export default {
 		},
 		updateFaktor()
 		{
-			this.$fhcApi.factory.pep.updateFaktor(this.formDataFaktor)
+			this.$api.call(ApiLehre.updateFaktor(this.formDataFaktor))
 				.then(result => result.data)
 				.then(updateData => {
 					this.$refs.faktorModal.hide();
@@ -635,7 +638,7 @@ export default {
 		},
 		updateAnmerkung(data)
 		{
-			this.$fhcApi.factory.pep.updateAnmerkung(data)
+			this.$api.call(ApiLehre.updateAnmerkung(data))
 				.then(result => result.data)
 				.then(updateData => {
 					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert");
@@ -674,83 +677,15 @@ export default {
 			};
 			this.selectedRow = null;
 		},
-		//TODO (david) die Tag Logik gehört zsm gefasst
 		addedTag(addedTag) {
-			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-
-				if (Array.isArray(addedTag.response))
-				{
-					addedTag.response.forEach(tag => {
-						if (rowData.lehreinheit_id === tag.lehreinheit_id)
-						{
-							let tags = JSON.parse(rowData.tags);
-							let tagstatus = JSON.parse(rowData.tagstatus);
-
-							addedTag.id = tag.id;
-
-							if (this.config.planungsstatus.includes(addedTag.tag_typ_kurzbz))
-							{
-								tagstatus.push(addedTag);
-							}
-							else
-							{
-								tags.push(addedTag);
-							}
-							rowData.tags = JSON.stringify(tags);
-							rowData.tagstatus = JSON.stringify(tagstatus);
-							row.update(rowData);
-						}
-					});
-
-				}
-			});
+			this.addTagInTable(addedTag, 'lehreTable', 'lehreinheit_id', 'response', tag => this.config.planungsstatus.includes(tag.tag_typ_kurzbz) ? 'tagstatus' : 'tags');
 		},
 		deletedTag(deletedTag) {
-			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-				let tags = JSON.parse(rowData.tags);
-				tags = tags.filter(tag => tag?.id !== deletedTag);
-				const updatedTags = JSON.stringify(tags);
+			this.deleteTagInTable(deletedTag, 'lehreTable', ['tags', 'tagstatus'])
 
-				let tagstatus = JSON.parse(rowData.tagstatus);
-				tagstatus = tagstatus.filter(tag => tag?.id !== deletedTag);
-				const updatedTagstatus = JSON.stringify(tagstatus);
-
-				if (updatedTags !== rowData.tags || updatedTagstatus !== rowData.tagstatus)
-				{
-					rowData.tags = updatedTags;
-					rowData.tagstatus = updatedTagstatus;
-					row.update(rowData);
-				}
-			});
 		},
 		updatedTag(updatedTag) {
-			this.$refs.lehreTable.tabulator.getRows().forEach(row => {
-				const rowData = row.getData();
-
-				let tags = JSON.parse(rowData.tags);
-				const tagIndex = tags.findIndex(tag => tag?.id === updatedTag.id);
-
-				if (tagIndex !== -1)
-					tags[tagIndex] = updatedTag;
-
-				let tagstatus = JSON.parse(rowData.tagstatus);
-				const tagstatusIndex = tagstatus.findIndex(tag => tag?.id === updatedTag.id);
-
-				if (tagstatusIndex !== -1)
-					tagstatus[tagstatusIndex] = updatedTag;
-
-				const updatedTags = JSON.stringify(tags);
-				const updatedTagstatus = JSON.stringify(tagstatus);
-
-				if (updatedTags !== rowData.tags || updatedTagstatus !== rowData.tagstatus)
-				{
-					rowData.tags = updatedTags;
-					rowData.tagstatus = updatedTagstatus;
-					row.update(rowData);
-				}
-			});
+			this.updateTagInTable(updatedTag, 'lehreTable', ['tags', 'tagstatus'])
 		}
 	},
 	template: `
@@ -774,7 +709,7 @@ export default {
 						<button class="btn btn-primary" @click="lektorMail">EMail an Lektor</button>
 						<button class="btn btn-primary" @click="assistenzMailButton">EMail an Assistenz</button>
 						<Tag ref="tagComponent"
-							:endpoint="$fhcApi.factory.pep_lehre_tab_tags"
+							:endpoint="tagEndpoint"
 							:values="selectedColumnValues"
 							@added="addedTag"
 							@deleted="deletedTag"

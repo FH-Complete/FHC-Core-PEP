@@ -6,11 +6,17 @@ $config['enable_projects'] = true;
 // if set to true, compare tab will be shown
 $config['enable_compare_tab'] = false;
 
+// if set to true, lv enwticklung tab will be shown
+$config['enable_lv_entwicklung_tab'] = false;
+
 // determines whether projects on the Start tab are displayed by "studienjahr" (study year) or "studiensemester" (study semester)
 $config['projects_columns'] = 'studienjahr';
 
 // determines whether categories on the Start tab are displayed by "studienjahr" (study year) or "studiensemester" (study semester)
 $config['category_columns'] = 'studienjahr';
+
+// determines if the "Werkvertragsvolumen in ECTS" field is editable based on the person's contract type
+$config['lventwicklung_allow_ects_volume_edit'] = array('');
 
 // determines which employees are displayed based on their assigned function types
 $config['relevant_function_types'] = array();
