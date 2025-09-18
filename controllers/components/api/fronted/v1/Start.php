@@ -177,9 +177,7 @@ class Start extends FHCAPI_Controller
 			$lehrauftragsstunden = [];
 			$lvstunden = 0;
 			$keyname = "studiensemester_" . $key . "_lehrauftrag";
-			$keyname_realstunden = "studiensemester_" . $key . "_lehrauftrag_realstunden";
 
-			$realstunden = false;
 			if (hasData($ststemDV))
 			{
 				$allVertraege = getData($ststemDV);
@@ -198,21 +196,16 @@ class Start extends FHCAPI_Controller
 					if (($ststemDVForCurrentSemester[$ststem]->vertragsart_kurzbz) === 'echterdv')
 					{
 						$lehrauftragsstunden = $this->_ci->PEPModel->getLehrauftraegeStundenWithFaktor($mitarbeiterData->uid, $ststem);
-						$realstunden = true;
 					}
 					else
 					{
 						$lehrauftragsstunden = $this->_ci->PEPModel->getLehrauftraegeStundenWithoutFaktor($mitarbeiterData->uid, $ststem);
-						$realstunden = false;
 					}
 				}
 			}
 			$lvstunden = hasData($lehrauftragsstunden) ? getData($lehrauftragsstunden)[0]->stunden : $lvstunden;
 
-			if ($realstunden)
-				$mitarbeiterData->$keyname_realstunden = $lvstunden;
-			else
-				$mitarbeiterData->$keyname = $lvstunden;
+		$mitarbeiterData->$keyname = $lvstunden;
 		}
 	}
 

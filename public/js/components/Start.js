@@ -281,7 +281,6 @@ export default {
 			if (this.columnsConfig.lehrauftraege)
 			{
 				this.createColumns('lehrauftrag', 'Lehraufträge', formatter.checkLehrauftraegeStunden);
-				this.createColumns('lehrauftrag_realstunden', 'Lehraufträge Realstunden', formatter.checkLehrauftraegeStunden);
 				/*.then(() => {
 					var column = this.$refs?.startTable.tabulator.getColumn('studiensemester_1_lehrauftrag');
 					if (column)
