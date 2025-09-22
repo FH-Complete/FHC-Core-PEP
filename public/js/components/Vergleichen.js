@@ -1,6 +1,8 @@
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {formatter} from "../mixins/formatters.js";
+import ApiStart from "../api/start.js";
+
 
 
 export default {
@@ -81,7 +83,7 @@ export default {
 		async loadData(data)
 		{
 			await this.loadColumns(data.semester);
-			await this.$fhcApi.factory.pep.getStart(data)
+			await this.$api.call(ApiStart.getStart(data))
 				.then(response => {
 					this.$refs?.vergleichTable.tabulator.setData(response.data)
 				})
@@ -183,7 +185,7 @@ export default {
 		{
 			if (Object.keys(this.columnsConfig).length !== 0)
 				return;
-			await this.$fhcApi.factory.pep.getCategories()
+			await this.$api.call(ApiStart.getCategories())
 				.then(response => {
 					this.columnsConfig = response.data
 				})

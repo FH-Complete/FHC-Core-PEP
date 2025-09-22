@@ -3,10 +3,9 @@
 if (!defined('BASEPATH'))
 	exit('No direct script access allowed');
 
-class Tags extends Tag_Controller
+class LVEntwicklungTags extends Tag_Controller
 {
 	private $_ci;
-	private $_uid;
 
 	const BERECHTIGUNG_KURZBZ = 'extension/pep:rw';
 
@@ -15,22 +14,18 @@ class Tags extends Tag_Controller
 		parent::__construct([
 			'getTag' => self::BERECHTIGUNG_KURZBZ,
 			'getTags' => self::BERECHTIGUNG_KURZBZ,
-			'addTag' => self::BERECHTIGUNG_KURZBZ,
+			'addLVEntwicklungTag' => self::BERECHTIGUNG_KURZBZ,
 			'updateTag' => self::BERECHTIGUNG_KURZBZ,
 			'doneTag' => self::BERECHTIGUNG_KURZBZ,
 			'deleteTag' => self::BERECHTIGUNG_KURZBZ,
-			'updateLehre' => self::BERECHTIGUNG_KURZBZ,
-			'doneLehre' => self::BERECHTIGUNG_KURZBZ,
-			'deleteLehre' => self::BERECHTIGUNG_KURZBZ,
-			'addMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
-			'deleteMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
 		]);
 
 		$this->_ci = &get_instance();
-		$this->load->model('extensions/FHC-Core-PEP/PEP_Notiz_Mitarbeiter_model', 'PEPNotizMitarbeiterModel');
+		$this->load->model('extensions/FHC-Core-PEP/PEP_LV_Entwicklung_Notiz_model', 'PEPLVEntwicklungNotizModel');
+		$this->load->helper('extensions/FHC-Core-PEP/hlp_employee_helper');
 	}
 
-	public function addMitarbeiterTag()
+	public function addLVEntwicklungTag()
 	{
 		$postData = $this->getPostJson();
 
@@ -39,14 +34,14 @@ class Tags extends Tag_Controller
 		{
 			$insertResult = parent::addTag(false);
 
-			$insertZuordnung = $this->PEPNotizMitarbeiterModel->insert(array(
+			$insertZuordnung = $this->PEPLVEntwicklungNotizModel->insert(array(
 				'notiz_id' => $insertResult,
-				'mitarbeiter_uid' => $value
+				'pep_lv_entwicklung_id' => $value
 			));
 
 			if (isError($insertZuordnung))
 				$this->terminateWithError('Error occurred', self::ERROR_TYPE_GENERAL);
-			$return[] = ['mitarbeiter_uid' => $value, 'id' => $insertResult];
+			$return[] = ['pep_lv_entwicklung_id' => $value, 'id' => $insertResult];
 		}
 		$this->terminateWithSuccess($return);
 	}
@@ -55,7 +50,7 @@ class Tags extends Tag_Controller
 	{
 		$postData = $this->getPostJson();
 
-		$deleteZuordnung = $this->PEPNotizMitarbeiterModel->delete(array(
+		$deleteZuordnung = $this->PEPLVEntwicklungNotizModel->delete(array(
 			'notiz_id' => $postData->id
 		));
 

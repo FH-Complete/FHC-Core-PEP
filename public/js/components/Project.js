@@ -6,6 +6,8 @@ import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedH
 import {formatter} from "../mixins/formatters.js";
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
 import focusMixin from "../mixins/focus.js";
+import ApiProject from "../api/project.js";
+
 export default {
 	props: {
 		config: null,
@@ -261,7 +263,7 @@ export default {
 
 
 		getProjekte() {
-			this.$fhcApi.factory.pep.getProjekte()
+			this.$api.call(ApiProject.getProjekte())
 				.then(result => result.data)
 				.then(result => {
 					this.sapprojekte = result;
@@ -271,7 +273,7 @@ export default {
 				});
 		},
 		getLektoren() {
-			this.$fhcApi.factory.pep.getLektoren()
+			this.$api.call(ApiProject.getLektoren())
 				.then(result => result.data)
 				.then(result => {
 					this.lektoren = result
@@ -327,7 +329,7 @@ export default {
 		async loadData(data)
 		{
 			this.loadedData = data;
-			await this.$fhcApi.factory.pep.getProjects(data)
+			await this.$api.call(ApiProject.getProjects(data))
 				.then(response => {
 					if (response.data.length === 0)
 					{
@@ -387,17 +389,18 @@ export default {
 				'studienjahr': this.theModel.config.studienjahr
 			}
 
-			await this.$fhcApi.factory.pep.updateProjectStunden(data).then(response => {
-				if (!response.data)
-					this.$fhcAlert.alertWarning("Fehler beim Löschen")
-				else
-				{
-					row.update({'pep_projects_employees_id': response.data});
+			await this.$api.call(ApiProject.updateProjectStunden(data))
+				.then(response => {
+					if (!response.data)
+						this.$fhcAlert.alertWarning("Fehler beim Löschen")
+					else
+					{
+						row.update({'pep_projects_employees_id': response.data});
 
-					this.theModel = { ...this.modelValue, needReload: true };
-					this.$fhcAlert.alertSuccess("Erfolgreich gespeichert")
-				}
-			});
+						this.theModel = { ...this.modelValue, needReload: true };
+						this.$fhcAlert.alertSuccess("Erfolgreich gespeichert")
+					}
+				});
 		},
 		async deleteRow(cell)
 		{
@@ -411,7 +414,7 @@ export default {
 				'uid': uid
 			}
 
-			await this.$fhcApi.factory.pep.deleteProjectStunden(postData)
+			await this.$api.call(ApiProject.deleteProjectStunden(postData))
 				.then(response => {
 					if (!response.data)
 						this.$fhcAlert.alertWarning("Fehler beim Löschen")
@@ -444,7 +447,7 @@ export default {
 			if (this.filteredDates.studienjahr !== this.theModel.config.studienjahr)
 			{
 				let data = {'studienjahr' : this.theModel.config.studienjahr};
-				await this.$fhcApi.factory.pep.getStartAndEnd(data)
+				await this.$api.call(ApiProject.getStartAndEnd(data))
 					.then(result => result.data)
 					.then(result => {
 						this.filteredDates.von = result.start;
@@ -473,7 +476,7 @@ export default {
 				'studienjahr': this.theModel.config.studienjahr,
 				'org': this.theModel.config.org
 			}
-			this.$fhcApi.factory.pep.addProjectStunden(data)
+			this.$api.call(ApiProject.addProjectStunden(data))
 				.then(result => result.data)
 				.then(result => {
 					if (result === true)
