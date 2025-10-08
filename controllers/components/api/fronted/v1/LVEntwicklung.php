@@ -309,7 +309,6 @@ class LVEntwicklung extends FHCAPI_Controller
 				if (empty($match))
 				{
 					$updateData['werkvertrag_ects'] = null;
-					$updateData['status_kurzbz'] = null;
 				}
 				else
 				{

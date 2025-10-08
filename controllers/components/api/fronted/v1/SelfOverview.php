@@ -46,9 +46,21 @@ class SelfOverview extends FHCAPI_Controller
 	// Public methods
 	public function getSelfOverview()
 	{
-		$studienjahr = $this->_ci->input->get('studienjahr');
+		$mode = $this->_ci->input->get('mode');
+
+		if (isEmptyString($mode))
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
+
+		if ($mode !== 'studienjahre' && $mode !== 'studiensemester')
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
+
+		$zeitspanne = $this->_ci->input->get('zeitspanne');
+		if (isEmptyString($zeitspanne))
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
+
 		$uid = $this->_uid;
 
+		$ignore_mode = false;
 		if ($this->_ci->permissionlib->isBerechtigt('admin') || $this->_ci->permissionlib->isBerechtigt('extension/pep'))
 		{
 			$uid = $this->_ci->input->get('uid');
@@ -64,17 +76,70 @@ class SelfOverview extends FHCAPI_Controller
 				if (!hasData($user))
 					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
 			}
+
+			$ignore_mode = true;
 		}
 
-		if (isEmptyString($studienjahr))
-			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
-		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
-		$this->_ci->StudiensemesterModel->addOrder('start');
-		$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
-		if (!hasData($studiensemestern))
+		$this->load->model('vertragsbestandteil/Dienstverhaeltnis_model','DienstverhaeltnisModel');
+		$today = date("Y-m-d");
+		$echterdv_result = $this->DienstverhaeltnisModel->existsDienstverhaeltnis($uid, $today, $today, 'echterdv');
+
+		$result_studiensemester = null;
+		$where = null;
+
+		if ($ignore_mode && $mode === 'studienjahre')
+		{
+			$where = ['studienjahr_kurzbz' => $zeitspanne];
+		}
+		elseif (!$ignore_mode)
+		{
+			if (hasData($echterdv_result) && $mode === 'studienjahre')
+			{
+				$this->_ci->StudienjahrModel->addDistinct('studienjahr_kurzbz');
+				$this->_ci->StudienjahrModel->addSelect('tbl_studienjahr.*');
+				$this->_ci->StudienjahrModel->addJoin('public.tbl_studiensemester', 'studienjahr_kurzbz');
+				$zeitspanne_check = $this->_ci->StudienjahrModel->loadWhere(array('start >= ' => $today));
+
+				if (!hasData($zeitspanne_check))
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+
+				$zeitspanne_check = array_column(getData($zeitspanne_check), 'studienjahr_kurzbz');
+
+				if (!in_array($zeitspanne, $zeitspanne_check))
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+
+				$where = ['studienjahr_kurzbz' => $zeitspanne];
+			}
+			elseif (!hasData($echterdv_result) && $mode === 'studiensemester')
+			{
+				$zeitspanne_check = $this->_ci->StudiensemesterModel->getNext();
+				if (!hasData($zeitspanne_check))
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+
+				$zeitspanne_check = getData($zeitspanne_check)[0]->studiensemester_kurzbz;
+
+				if ($zeitspanne_check !== $zeitspanne)
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+				$where = ['studiensemester_kurzbz' => $zeitspanne];
+			}
+		}
+
+		if ($where !== null)
+		{
+			$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz, studienjahr_kurzbz');
+			$this->_ci->StudiensemesterModel->addOrder('start');
+			$result_studiensemester = $this->_ci->StudiensemesterModel->loadWhere(
+				$where
+			);
+		}
+
+		if (!hasData($result_studiensemester))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
-		$studiensemester = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
+		$result_data = getData($result_studiensemester);
+
+		$studiensemester = array_column($result_data, 'studiensemester_kurzbz');
+		$studienjahr = $result_data[0]->studienjahr_kurzbz;
 
 		$mitarbeiter_result = $this->_ci->PEPModel->getRelevanteVertragsart(array($uid), $studiensemester);
 
@@ -189,6 +254,7 @@ class SelfOverview extends FHCAPI_Controller
 				}
 			}
 		}
+
 		$this->terminateWithSuccess($result);
 	}
 	public function getLektoren()
