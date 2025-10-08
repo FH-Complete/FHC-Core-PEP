@@ -6,7 +6,7 @@ import ApiSelf from "../api/self.js";
 export default {
 	name: "SelfReport",
 	props: {
-		studienjahre: {
+		zeitspanne: {
 			type: Array,
 			required: true
 		},
@@ -18,6 +18,10 @@ export default {
 			type: Boolean,
 			required: true
 		},
+		mode: {
+			type: String,
+			required: true
+		},
 
 
 	},
@@ -26,6 +30,7 @@ export default {
 			headerMenuEntries: {},
 			sideMenuEntries: {},
 			selected_studienjahr: null,
+			selected_studiensemester: null,
 			selected_lektor: null,
 			selected_lektor_anzeige: null,
 			filteredLektor: [],
@@ -39,6 +44,12 @@ export default {
 
 		if (this.mitarbeiter_auswahl === true)
 			this.getLektoren()
+	},
+	async mounted() {
+		if (this.mode === 'studiensemester')
+			this.selected_studiensemester = this.zeitspanne[0].studiensemester_kurzbz;
+		else
+			this.selected_studienjahr = this.zeitspanne[0].studienjahr_kurzbz;
 	},
 
 	computed: {
@@ -93,6 +104,19 @@ export default {
 
 			}
 		},
+		selected_studiensemester: {
+			handler(newValue, oldValue) {
+				if (newValue !== oldValue)
+				{
+					if (this.mitarbeiter_auswahl && this.mitarbeiter_auswahl_reload)
+						this.getLektoren();
+					if (!newValue)
+						return this.$refs.selfTable.tabulator.setData([]);
+					this.loadData();
+				}
+
+			}
+		},
 		selected_lektor: {
 			handler(newValue, oldValue) {
 				if (newValue !== oldValue)
@@ -113,18 +137,21 @@ export default {
 		async loadData()
 		{
 			let studienjahr = this.selected_studienjahr;
+			let studiensemester = this.selected_studiensemester;
+
 			let uid = null;
 
-			if (!studienjahr)
+			if (!studienjahr && !studiensemester)
 				return;
 			if (this.mitarbeiter_auswahl)
 				uid = this.selected_lektor
 			this.$refs.loader.show()
 
 			let data = {
-				studienjahr,
-				uid
-			}
+				zeitspanne: studienjahr || studiensemester,
+				uid,
+				mode: this.mode
+			};
 			await this.$api.call(ApiSelf.getSelf(data))
 				.then(response => {
 					if (response.data.length === 0)
@@ -246,21 +273,41 @@ export default {
 			
 				<div class="row">
 					<div class="col-md-2">
-						<form-input
-							type="select"
-							name="studienjahr"
-							:label="$p.t('lehre', 'studienjahr')"
-							v-model="selected_studienjahr"
-						>
-							<option :value="null">Bitte auswählen</option>
-							<option
-								v-for="studienjahr in studienjahre"
-								:key="studienjahr.studienjahr_kurzbz"
-								:value="studienjahr.studienjahr_kurzbz"
+						<div v-if="mode === 'studienjahre' || mitarbeiter_auswahl">
+							<form-input
+								type="select"
+								name="studienjahr"
+								:label="$p.t('lehre', 'studienjahr')"
+								v-model="selected_studienjahr"
 							>
-								{{ studienjahr.studienjahr_kurzbz }}
-							</option>
-						</form-input>
+								<option :value="null">Bitte auswählen</option>
+								<option
+									v-for="studienjahr in zeitspanne"
+									:key="studienjahr.studienjahr_kurzbz"
+									:value="studienjahr.studienjahr_kurzbz"
+								>
+									{{ studienjahr.studienjahr_kurzbz }}
+								</option>
+							</form-input>
+						</div> 
+						<div v-else-if="mode === 'studiensemester'">
+							<form-input
+								type="select"
+								name="studiensemester"
+								:label="$p.t('lehre', 'studiensemester')"
+								v-model="selected_studiensemester"
+							>
+								<option :value="null">Bitte auswählen</option>
+								<option
+									v-for="studiensemester in zeitspanne"
+									:key="studiensemester.studiensemester_kurzbz"
+									:value="studiensemester.studiensemester_kurzbz"
+								>
+									{{ studiensemester.studiensemester_kurzbz }}
+								</option>
+							</form-input>
+						</div>
+					
 					</div>
 					
 					

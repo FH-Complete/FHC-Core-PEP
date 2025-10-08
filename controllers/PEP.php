@@ -65,15 +65,31 @@ class PEP extends Auth_Controller
 	{
 		$this->_ci->load->library('PermissionLib');
 
-		$this->_ci->StudienjahrModel->addOrder('studienjahr_kurzbz', 'DESC');
-		$studienjahre = getData($this->_ci->StudienjahrModel->load());
-		$this->_ci->StudiensemesterModel->addOrder("start", "DESC");
-		$studiensemestern = getData($this->_ci->StudiensemesterModel->load());
+
+		$this->load->model('vertragsbestandteil/Dienstverhaeltnis_model','DienstverhaeltnisModel');
+		$today = date("Y-m-d");
+		$echterdv_result = $this->DienstverhaeltnisModel->existsDienstverhaeltnis(getAuthUID(), $today, $today, 'echterdv');
+
+		if (hasData($echterdv_result) || $this->_ci->permissionlib->isBerechtigt(self::BERECHTIGUNG_KURZBZ) || $this->_ci->permissionlib->isBerechtigt('admin'))
+		{
+			$this->_ci->StudienjahrModel->addDistinct('studienjahr_kurzbz');
+			$this->_ci->StudienjahrModel->addSelect('tbl_studienjahr.*');
+			$this->_ci->StudienjahrModel->addJoin('public.tbl_studiensemester', 'studienjahr_kurzbz');
+			$this->_ci->StudienjahrModel->addOrder('studienjahr_kurzbz', 'ASC');
+			$zeitspanne = getData($this->_ci->StudienjahrModel->loadWhere(array('start >= ' => $today)));
+			$mode = 'studienjahre';
+		}
+		else
+		{
+			$zeitspanne = getData($this->_ci->StudiensemesterModel->getNext());
+			$mode = 'studiensemester';
+		}
 
 		$data = [
-			'studienjahre' => $studienjahre,
+			'mode' => $mode,
+			'zeitspanne' => $zeitspanne,
 			'mitarbeiter_auswahl' => $this->_ci->permissionlib->isBerechtigt(self::BERECHTIGUNG_KURZBZ),
-			'mitarbeiter_auswahl_reload' => !$this->_ci->permissionlib->isBerechtigt('admin')
+			'mitarbeiter_auswahl_reload' => !$this->_ci->permissionlib->isBerechtigt('admin'),
 		];
 
 

@@ -17,7 +17,8 @@ $this->load->view('templates/FHC-Header', $includesArray);
 
 <div id="main">
 	<self-report
-		:studienjahre="<?= htmlspecialchars(json_encode($studienjahre)); ?>"
+		:zeitspanne="<?= htmlspecialchars(json_encode($zeitspanne)); ?>"
+		:mode="<?= htmlspecialchars(json_encode($mode)); ?>"
 		:mitarbeiter_auswahl="<?= htmlspecialchars(json_encode($mitarbeiter_auswahl)); ?>"
 		:mitarbeiter_auswahl_reload="<?= htmlspecialchars(json_encode($mitarbeiter_auswahl_reload)); ?>"
 
