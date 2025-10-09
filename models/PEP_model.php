@@ -1260,7 +1260,7 @@ class PEP_model extends DB_Model
 	{
 		foreach ($this->config->item('annual_hours') as $case)
 		{
-			$caseStatements[] = "WHEN dv.oe_kurzbz = '" . $case['condition'] . "' THEN ROUND(". $case['base_value'] . "/" . number_format($case['hour_divisor'],2,'.','') . "* stunden.wochenstunden, 2)";
+			$caseStatements[] = "WHEN dv.oe_kurzbz = '" . $case['condition'] . "' THEN ROUND(". $case['base_value'] . "/" . number_format($case['hour_divisor'],2,'.','') . "* wochenstunden, 2)";
 		}
 
 		return $caseStatements;
@@ -1346,6 +1346,20 @@ class PEP_model extends DB_Model
 		$caseStatements = $this->_getJahresstunden();
 
 		return "
+		
+				stunden_vertrag_agg AS (
+					SELECT
+						vb.dienstverhaeltnis_id,
+						STRING_AGG(vbs.wochenstunden::text, E'\n' ORDER BY vb.von) AS wochenstunden,
+						STRING_AGG(CASE ". implode(" ", $caseStatements) . "END::text,E'\n' ORDER BY vb.von) AS jahresstunden,
+						(ARRAY_AGG(CASE ". implode(" ", $caseStatements) . "END ORDER BY vb.von))[1] AS einzeljahresstunden
+					FROM hr.tbl_vertragsbestandteil vb
+					JOIN hr.tbl_vertragsbestandteil_stunden vbs USING (vertragsbestandteil_id)
+					JOIN hr.tbl_dienstverhaeltnis dv ON dv.dienstverhaeltnis_id = vb.dienstverhaeltnis_id
+					WHERE vb.von <= (SELECT ende FROM semester_datum)
+						AND (vb.bis >= (SELECT start FROM semester_datum) OR vb.bis IS NULL)
+					GROUP BY vb.dienstverhaeltnis_id
+				),
 				zeitraumVertrag AS (
 					SELECT
 						dv.dienstverhaeltnis_id,
@@ -1357,25 +1371,13 @@ class PEP_model extends DB_Model
 						dv.oe_kurzbz,
 						ARRAY_TO_STRING(ARRAY_AGG(va.bezeichnung) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege,
 						ARRAY_TO_STRING(ARRAY_AGG(va.vertragsart_kurzbz) OVER (PARTITION BY dv.mitarbeiter_uid), E'\n') AS alle_vertraege_kurzbz,
-						ARRAY_TO_STRING(ARRAY_AGG(stunden.wochenstunden) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST), E'\n') AS wochenstunden,
-						ARRAY_TO_STRING(ARRAY_AGG(
-								CASE ". implode(" ", $caseStatements) . " END) OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST),
-								 E'\n'
-						) AS jahresstunden,
-						(
-							CASE ". implode(" ", $caseStatements) . " END
-						) as einzelnejahresstunden,
+						sv.wochenstunden,
+						sv.jahresstunden,
+						sv.einzeljahresstunden as einzelnejahresstunden ,
 						ROW_NUMBER() OVER (PARTITION BY dv.mitarbeiter_uid ORDER BY dv.von DESC, dv.bis DESC NULLS FIRST) AS rn
 					 FROM hr.tbl_dienstverhaeltnis dv
-							JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
-							LEFT JOIN (
-									SELECT vb.dienstverhaeltnis_id, vbs.wochenstunden, vb.von
-									FROM hr.tbl_vertragsbestandteil vb
-											JOIN hr.tbl_vertragsbestandteil_stunden vbs USING(vertragsbestandteil_id)
-									WHERE vb.von <= (SELECT ende FROM semester_datum)
-										AND (vb.bis >= (SELECT start FROM semester_datum) OR vb.bis IS NULL)
-									ORDER BY vb.von DESC
-					) stunden ON stunden.dienstverhaeltnis_id = dv.dienstverhaeltnis_id
+						JOIN hr.tbl_vertragsart va ON dv.vertragsart_kurzbz = va.vertragsart_kurzbz
+						LEFT JOIN stunden_vertrag_agg sv ON sv.dienstverhaeltnis_id = dv.dienstverhaeltnis_id
 					WHERE (dv.von <= (SELECT ende FROM semester_datum) OR dv.von IS NULL)
 						AND (dv.bis >= (SELECT start FROM semester_datum) OR dv.bis IS NULL)
 				)";
