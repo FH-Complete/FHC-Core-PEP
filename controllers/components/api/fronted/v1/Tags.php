@@ -19,16 +19,25 @@ class Tags extends Tag_Controller
 			'updateTag' => self::BERECHTIGUNG_KURZBZ,
 			'doneTag' => self::BERECHTIGUNG_KURZBZ,
 			'deleteTag' => self::BERECHTIGUNG_KURZBZ,
-			'updateLehre' => self::BERECHTIGUNG_KURZBZ,
-			'doneLehre' => self::BERECHTIGUNG_KURZBZ,
-			'deleteLehre' => self::BERECHTIGUNG_KURZBZ,
 			'addMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
 			'deleteMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
 		]);
 
 		$this->_ci = &get_instance();
 		$this->load->model('extensions/FHC-Core-PEP/PEP_Notiz_Mitarbeiter_model', 'PEPNotizMitarbeiterModel');
+		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
 	}
+
+	public function getTag($readonly_tags = null)
+	{
+		parent::getTag($this->config->item('pep_tags'));
+	}
+
+	public function getTags($tags = null)
+	{
+		parent::getTags($this->config->item('pep_tags'));
+	}
+
 
 	public function addMitarbeiterTag()
 	{
@@ -37,7 +46,7 @@ class Tags extends Tag_Controller
 		$return = array();
 		foreach ($postData->values as $value)
 		{
-			$insertResult = parent::addTag(false);
+			$insertResult = parent::addTag(false, $this->config->item('pep_tags'));
 
 			$insertZuordnung = $this->PEPNotizMitarbeiterModel->insert(array(
 				'notiz_id' => $insertResult,
@@ -51,6 +60,11 @@ class Tags extends Tag_Controller
 		$this->terminateWithSuccess($return);
 	}
 
+	public function updateTag($updatable_tags = null)
+	{
+		parent::updateTag($this->config->item('pep_tags'));
+	}
+
 	public function deleteMitarbeiterTag()
 	{
 		$postData = $this->getPostJson();
@@ -61,7 +75,12 @@ class Tags extends Tag_Controller
 
 		if (isSuccess($deleteZuordnung))
 		{
-			parent::deleteTag(false);
+			parent::deleteTag(false, $this->config->item('pep_tags'));
 		}
+	}
+
+	public function doneTag($updatable_tags = null)
+	{
+		parent::doneTag($this->config->item('pep_tags'));
 	}
 }
