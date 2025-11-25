@@ -36,7 +36,7 @@ export default {
 				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2025_03_12_pep_kategorie_" + this.config.category_id,
+				persistenceID: "2025_11_25_pep_kategorie_" + this.config.category_id,
 				persistence: true,
 				keybindings: false,
 				rowFormatter: (row) =>
@@ -168,7 +168,7 @@ export default {
 								if (value.toFixed(2) != value)
 									return false;
 
-								if (value > 9999.99 || value < 0)
+								if (value > 9999.99)
 									return false;
 
 								return true;
