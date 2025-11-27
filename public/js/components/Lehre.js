@@ -9,6 +9,7 @@ import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
 import { Tags as ApiLehreTag} from "../api/tags.js";
 import ApiLehre from "../api/lehre.js";
 import Tag from '../../../../js/components/Tag/Tag.js';
+import { addTagInTable, deleteTagInTable, updateTagInTable } from "../../../../js/helpers/TagHelper.js";
 
 import {formatter} from "../mixins/formatters.js";
 import tagMixin from "../mixins/tag.js";
@@ -678,14 +679,14 @@ export default {
 			this.selectedRow = null;
 		},
 		addedTag(addedTag) {
-			this.addTagInTable(addedTag, 'lehreTable', 'lehreinheit_id', 'response', tag => this.config.planungsstatus.includes(tag.tag_typ_kurzbz) ? 'tagstatus' : 'tags');
+			addTagInTable(addedTag, this.$refs.lehreTable.tabulator.getRows(), 'lehreinheit_id', this.config.planungsstatus.includes(addedTag.tag_typ_kurzbz) ? "tagstatus" : "tags");
 		},
 		deletedTag(deletedTag) {
-			this.deleteTagInTable(deletedTag, 'lehreTable', ['tags', 'tagstatus'])
+			deleteTagInTable(deletedTag, this.$refs.lehreTable.tabulator.getRows(), ["tagstatus", "tags"])
 
 		},
 		updatedTag(updatedTag) {
-			this.updateTagInTable(updatedTag, 'lehreTable', ['tags', 'tagstatus'])
+			updateTagInTable(updatedTag, this.$refs.lehreTable.tabulator.getRows(), ["tagstatus", "tags"])
 		}
 	},
 	template: `

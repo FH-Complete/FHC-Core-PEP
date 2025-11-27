@@ -7,6 +7,7 @@ import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeader
 import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import Tag from '../../../../js/components/Tag/Tag.js';
 import { ApiLVEntwicklungTag } from "../api/lventwicklungTabTags.js";
+import { addTagInTable, deleteTagInTable, updateTagInTable } from "../../../../js/helpers/TagHelper.js";
 
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
 import {formatter} from "../mixins/formatters.js";
@@ -763,13 +764,13 @@ export default {
 			this.updateEntwicklung(row, field)
 		},
 		addedTag(addedTag) {
-			this.addTagInTable(addedTag, 'lventwicklungtable', 'pep_lv_entwicklung_id', 'response');
+			addTagInTable(addedTag, this.$refs.lventwicklungtable.tabulator.getRows(), 'pep_lv_entwicklung_id')
 		},
 		deletedTag(deletedTag) {
-			this.deleteTagInTable(deletedTag, 'lventwicklungtable');
+			deleteTagInTable(deletedTag, this.$refs.lventwicklungtable.tabulator.getRows())
 		},
 		updatedTag(updatedTag) {
-			this.updateTagInTable(updatedTag, 'lventwicklungtable');
+			updateTagInTable(updatedTag, this.$refs.lventwicklungtable.tabulator.getRows())
 		},
 		addWeiterentwicklung()
 		{
