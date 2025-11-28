@@ -2,14 +2,11 @@ import FhcLoader from '../../../../js/components/Loader.js';
 import FormInput from "../../../../js/components/Form/Input.js";
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
-import Tag from '../../../../js/components/Tag/Tag.js';
 import ApiSelf from "../api/self.js";
-import ApiSelfOverviewTag from "../api/selfTabTags.js";
-import {formatter} from "../mixins/formatters.js";
 export default {
 	name: "SelfReport",
 	props: {
-		studienjahre: {
+		zeitspanne: {
 			type: Array,
 			required: true
 		},
@@ -21,6 +18,10 @@ export default {
 			type: Boolean,
 			required: true
 		},
+		mode: {
+			type: String,
+			required: true
+		},
 
 
 	},
@@ -29,11 +30,11 @@ export default {
 			headerMenuEntries: {},
 			sideMenuEntries: {},
 			selected_studienjahr: null,
+			selected_studiensemester: null,
 			selected_lektor: null,
 			selected_lektor_anzeige: null,
 			filteredLektor: [],
 			lektor_input: null,
-			tagEndpoint: ApiSelfOverviewTag,
 			showInfo: false,
 
 		};
@@ -44,30 +45,31 @@ export default {
 		if (this.mitarbeiter_auswahl === true)
 			this.getLektoren()
 	},
+	async mounted() {
+		if (this.mode === 'studiensemester')
+			this.selected_studiensemester = this.zeitspanne[0].studiensemester_kurzbz;
+		else
+			this.selected_studienjahr = this.zeitspanne[0].studienjahr_kurzbz;
+	},
 
 	computed: {
 		tabulatorOptions()
 		{
 			return {
+				columnDefaults: {
+					headerFilter: true,
+				},
 				layout: 'fitDataStretch',
 				height: '60vh',
 				selectableRows:true,
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2025_08_13_pep_self_v2",
+				persistenceID: "2025_09_15_pep_self_v1",
 				persistence: true,
 				columns: [
 					{title: 'Typ', field: 'typ'},
 					{title: 'Beschreibung', field: 'beschreibung'},
-					{title: 'Anmerkung', field: 'anmerkung'},
-					{title: 'Hinweis', field: 'info', formatter: "textarea"},
-					{
-						title: 'Tags',
-						field: 'tags',
-						tooltip: false,
-						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
-						width: 150,
-					},
-					{title: 'Stunden', field: 'stunden', bottomCalc: "sum",
+					{title: 'Hinweis', field: 'info', formatter: "textarea", headerFilter: "input"},
+					{title: '-', field: 'stunden', bottomCalc: "sum",
 						formatter: function (cell, formatterParams, onRendered)
 						{
 							let value = cell.getValue();
@@ -102,6 +104,19 @@ export default {
 
 			}
 		},
+		selected_studiensemester: {
+			handler(newValue, oldValue) {
+				if (newValue !== oldValue)
+				{
+					if (this.mitarbeiter_auswahl && this.mitarbeiter_auswahl_reload)
+						this.getLektoren();
+					if (!newValue)
+						return this.$refs.selfTable.tabulator.setData([]);
+					this.loadData();
+				}
+
+			}
+		},
 		selected_lektor: {
 			handler(newValue, oldValue) {
 				if (newValue !== oldValue)
@@ -116,25 +131,27 @@ export default {
 		FhcLoader,
 		FormInput,
 		CoreBaseLayout,
-		CoreFilterCmpt,
-		Tag
+		CoreFilterCmpt
 	},
 	methods: {
 		async loadData()
 		{
 			let studienjahr = this.selected_studienjahr;
+			let studiensemester = this.selected_studiensemester;
+
 			let uid = null;
 
-			if (!studienjahr)
+			if (!studienjahr && !studiensemester)
 				return;
 			if (this.mitarbeiter_auswahl)
 				uid = this.selected_lektor
 			this.$refs.loader.show()
 
 			let data = {
-				studienjahr,
-				uid
-			}
+				zeitspanne: studienjahr || studiensemester,
+				uid,
+				mode: this.mode
+			};
 			await this.$api.call(ApiSelf.getSelf(data))
 				.then(response => {
 					if (response.data.length === 0)
@@ -144,7 +161,49 @@ export default {
 					}
 					else
 					{
-						this.$refs.selfTable.tabulator.setData(response.data);
+						let title = 'Lehreinheiten'
+						if (response.data.config.echterdv !== true)
+						{
+							let columns = this.$refs.selfTable.tabulator.getColumns();
+							let ectsColumn = columns.some(c => c.getField() === "ects");
+
+							if (!ectsColumn)
+							{
+								let column = {
+									title: 'ECTS',
+									field: 'ects',
+									bottomCalc: "sum",
+									formatter: function (cell, formatterParams, onRendered)
+									{
+										let value = cell.getValue();
+										if (value === null || isNaN(value) || value === "")
+											return "-";
+
+										if (!isNaN(value))
+											return parseFloat(value).toFixed(2);
+									},
+									bottomCalcParams: {precision: 2},
+								};
+
+								this.$refs.selfTable.tabulator.addColumn(column, false, "stunden");
+								this.$refs.selfTable.tabulator.deleteColumn("anmerkung");
+							}
+						}
+						else
+						{
+							title = 'Stunden';
+							let columns = this.$refs.selfTable.tabulator.getColumns();
+							let ectsColumn = columns.some(c => c.getField() === "ects");
+							if (ectsColumn)
+							{
+								this.$refs.selfTable.tabulator.deleteColumn("ects");
+								this.$refs.selfTable.tabulator.addColumn({title: 'Anmerkung', field: 'anmerkung'}, false, "beschreibung");
+							}
+						}
+
+						this.$refs.selfTable.tabulator.updateColumnDefinition('stunden', { title: title });
+
+						this.$refs.selfTable.tabulator.setData(response.data.data);
 					}
 				})
 				.catch(error => {
@@ -214,21 +273,41 @@ export default {
 			
 				<div class="row">
 					<div class="col-md-2">
-						<form-input
-							type="select"
-							name="studienjahr"
-							:label="$p.t('lehre', 'studienjahr')"
-							v-model="selected_studienjahr"
-						>
-							<option :value="null">Bitte auswählen</option>
-							<option
-								v-for="studienjahr in studienjahre"
-								:key="studienjahr.studienjahr_kurzbz"
-								:value="studienjahr.studienjahr_kurzbz"
+						<div v-if="mode === 'studienjahre' || mitarbeiter_auswahl">
+							<form-input
+								type="select"
+								name="studienjahr"
+								:label="$p.t('lehre', 'studienjahr')"
+								v-model="selected_studienjahr"
 							>
-								{{ studienjahr.studienjahr_kurzbz }}
-							</option>
-						</form-input>
+								<option :value="null">Bitte auswählen</option>
+								<option
+									v-for="studienjahr in zeitspanne"
+									:key="studienjahr.studienjahr_kurzbz"
+									:value="studienjahr.studienjahr_kurzbz"
+								>
+									{{ studienjahr.studienjahr_kurzbz }}
+								</option>
+							</form-input>
+						</div> 
+						<div v-else-if="mode === 'studiensemester'">
+							<form-input
+								type="select"
+								name="studiensemester"
+								:label="$p.t('lehre', 'studiensemester')"
+								v-model="selected_studiensemester"
+							>
+								<option :value="null">Bitte auswählen</option>
+								<option
+									v-for="studiensemester in zeitspanne"
+									:key="studiensemester.studiensemester_kurzbz"
+									:value="studiensemester.studiensemester_kurzbz"
+								>
+									{{ studiensemester.studiensemester_kurzbz }}
+								</option>
+							</form-input>
+						</div>
+					
 					</div>
 					
 					
@@ -258,7 +337,6 @@ export default {
 					<template #main>
 					
 						<span style="color: red" v-if="mitarbeiter_auswahl && selected_lektor"> {{ selected_lektor_anzeige }}</span>
-						
 						<core-filter-cmpt
 							ref="selfTable"
 							:tableOnly=false
@@ -266,14 +344,7 @@ export default {
 							:table-only=true
 							:side-menu="false"
 						>
-							<template #actions>
-								<Tag ref="tagComponent"
-									:readonly="true"
-									:endpoint="tagEndpoint"
-								></Tag>
-							</template>
 						</core-filter-cmpt>
-							
 					</template>
 					
 				</core-base-layout>

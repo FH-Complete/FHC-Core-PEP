@@ -9,6 +9,9 @@ $config['enable_compare_tab'] = false;
 // if set to true, lv enwticklung tab will be shown
 $config['enable_lv_entwicklung_tab'] = false;
 
+// determines whether lventwicklung on the Start tab are displayed by "studienjahr" (study year) or "studiensemester" (study semester)
+$config['lvenwticklung_columns'] = 'studiensemester';
+
 // determines whether projects on the Start tab are displayed by "studienjahr" (study year) or "studiensemester" (study semester)
 $config['projects_columns'] = 'studienjahr';
 

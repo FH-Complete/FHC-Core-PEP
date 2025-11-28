@@ -171,6 +171,7 @@ export default {
 		updateSelectedRows() {
 			this.selectedRows = this.$refs.startTable.tabulator.getSelectedRows();
 			this.selectedColumnValues = this.selectedRows.map(row => row.getData().uid);
+			this.addColorToInfoText(this.selectedColumnValues);
 		},
 		lektorMail()
 		{
@@ -280,6 +281,7 @@ export default {
 			if (this.columnsConfig.lehrauftraege)
 			{
 				this.createColumns('lehrauftrag', 'Lehraufträge', formatter.checkLehrauftraegeStunden);
+				this.createColumns('lehrauftrag_realstunden', 'Lehraufträge Realstunden', formatter.checkLehrauftraegeStunden);
 				/*.then(() => {
 					var column = this.$refs?.startTable.tabulator.getColumn('studiensemester_1_lehrauftrag');
 					if (column)

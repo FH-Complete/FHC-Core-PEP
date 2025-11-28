@@ -57,9 +57,6 @@ class TabsConfig extends FHCAPI_Controller
 			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true, 'planungsstatus' => $this->_ci->config->item('planungsstatus_tags')]
 		);
 
-		if ($this->_ci->config->item('enable_projects') === true)
-			$this->_getProjects($tabs);
-
 		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
 		{
 			$tabs['lv_entwicklung_new'] = array (
@@ -67,7 +64,10 @@ class TabsConfig extends FHCAPI_Controller
 				'component' => APP_ROOT . 'public/extensions/FHC-Core-PEP/js/components/LVEntwicklung.js',
 				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true,  'allow_volume_edit_contracts' => $this->_ci->config->item('lventwicklung_allow_ects_volume_edit')]
 			);
-		}
+		};
+
+		if ($this->_ci->config->item('enable_projects') === true)
+			$this->_getProjects($tabs);
 
 		$this->_getCategories($tabs);
 

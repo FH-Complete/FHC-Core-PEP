@@ -479,7 +479,7 @@ export default {
 		updateSelectedRows() {
 			this.selectedRows = this.$refs.lventwicklungtable.tabulator.getSelectedRows();
 			this.selectedColumnValues = this.selectedRows.map(row => row.getData().pep_lv_entwicklung_id).filter((row) => row !== null);
-
+			this.addColorToInfoText(this.selectedColumnValues);
 		},
 
 		async fetchMitarbeiter()

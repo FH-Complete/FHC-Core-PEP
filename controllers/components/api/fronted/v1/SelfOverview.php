@@ -46,9 +46,21 @@ class SelfOverview extends FHCAPI_Controller
 	// Public methods
 	public function getSelfOverview()
 	{
-		$studienjahr = $this->_ci->input->get('studienjahr');
+		$mode = $this->_ci->input->get('mode');
+
+		if (isEmptyString($mode))
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
+
+		if ($mode !== 'studienjahre' && $mode !== 'studiensemester')
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
+
+		$zeitspanne = $this->_ci->input->get('zeitspanne');
+		if (isEmptyString($zeitspanne))
+			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
+
 		$uid = $this->_uid;
 
+		$ignore_mode = false;
 		if ($this->_ci->permissionlib->isBerechtigt('admin') || $this->_ci->permissionlib->isBerechtigt('extension/pep'))
 		{
 			$uid = $this->_ci->input->get('uid');
@@ -64,17 +76,70 @@ class SelfOverview extends FHCAPI_Controller
 				if (!hasData($user))
 					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
 			}
+
+			$ignore_mode = true;
 		}
 
-		if (isEmptyString($studienjahr))
-			$this->terminateWithError($this->p->t('ui', 'fehlerBeimSpeichern'), self::ERROR_TYPE_GENERAL);
 
-		$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz');
-		$this->_ci->StudiensemesterModel->addOrder('start');
-		$studiensemestern = $this->_ci->StudiensemesterModel->loadWhere(array('studienjahr_kurzbz' => $studienjahr));
-		if (!hasData($studiensemestern))
+		$this->load->model('vertragsbestandteil/Dienstverhaeltnis_model','DienstverhaeltnisModel');
+		$today = date("Y-m-d");
+		$echterdv_result = $this->DienstverhaeltnisModel->existsDienstverhaeltnis($uid, $today, $today, 'echterdv');
+
+		$result_studiensemester = null;
+		$where = null;
+
+		if ($ignore_mode && $mode === 'studienjahre')
+		{
+			$where = ['studienjahr_kurzbz' => $zeitspanne];
+		}
+		elseif (!$ignore_mode)
+		{
+			if (hasData($echterdv_result) && $mode === 'studienjahre')
+			{
+				$this->_ci->StudienjahrModel->addDistinct('studienjahr_kurzbz');
+				$this->_ci->StudienjahrModel->addSelect('tbl_studienjahr.*');
+				$this->_ci->StudienjahrModel->addJoin('public.tbl_studiensemester', 'studienjahr_kurzbz');
+				$zeitspanne_check = $this->_ci->StudienjahrModel->loadWhere(array('start >= ' => $today));
+
+				if (!hasData($zeitspanne_check))
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+
+				$zeitspanne_check = array_column(getData($zeitspanne_check), 'studienjahr_kurzbz');
+
+				if (!in_array($zeitspanne, $zeitspanne_check))
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+
+				$where = ['studienjahr_kurzbz' => $zeitspanne];
+			}
+			elseif (!hasData($echterdv_result) && $mode === 'studiensemester')
+			{
+				$zeitspanne_check = $this->_ci->StudiensemesterModel->getNext();
+				if (!hasData($zeitspanne_check))
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+
+				$zeitspanne_check = getData($zeitspanne_check)[0]->studiensemester_kurzbz;
+
+				if ($zeitspanne_check !== $zeitspanne)
+					$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
+				$where = ['studiensemester_kurzbz' => $zeitspanne];
+			}
+		}
+
+		if ($where !== null)
+		{
+			$this->_ci->StudiensemesterModel->addSelect('studiensemester_kurzbz, studienjahr_kurzbz');
+			$this->_ci->StudiensemesterModel->addOrder('start');
+			$result_studiensemester = $this->_ci->StudiensemesterModel->loadWhere(
+				$where
+			);
+		}
+
+		if (!hasData($result_studiensemester))
 			$this->terminateWithError($this->p->t('ui', 'fehlerBeimLesen'), self::ERROR_TYPE_GENERAL);
-		$studiensemester = array_column(getData($studiensemestern), 'studiensemester_kurzbz');
+		$result_data = getData($result_studiensemester);
+
+		$studiensemester = array_column($result_data, 'studiensemester_kurzbz');
+		$studienjahr = $result_data[0]->studienjahr_kurzbz;
 
 		$mitarbeiter_result = $this->_ci->PEPModel->getRelevanteVertragsart(array($uid), $studiensemester);
 
@@ -89,12 +154,12 @@ class SelfOverview extends FHCAPI_Controller
 
 		$language = getUserLanguage() == 'German' ? 0 : 1;
 
+		$result['config']['echterdv'] = $mitarbeiter_data->releavante_vertragsart === 'echterdv';
 		if (hasData($lehrauftraege))
 		{
 			foreach (getData($lehrauftraege) as $lehrauftrag)
 			{
-
-				$result[] = array('typ' => $this->p->t('ui', 'lehrauftrag'),
+				$result['data'][] = array('typ' => $this->p->t('ui', 'lehrauftrag'),
 					'beschreibung' => $language === 0 ? $lehrauftrag->lv_bezeichnung : (!isEmptyString($lehrauftrag->lv_bezeichnung_eng) ? $lehrauftrag->lv_bezeichnung_eng : $lehrauftrag->lv_bezeichnung),
 					'stunden' => $lehrauftrag->faktorstunden,
 					'zeit' => $lehrauftrag->studiensemester_kurzbz,
@@ -102,12 +167,40 @@ class SelfOverview extends FHCAPI_Controller
 					'lehrform' => $lehrauftrag->lehrform_kurzbz,
 					'gruppe' => $lehrauftrag->gruppe,
 					'info' => $this->_filterTags($lehrauftrag->tags),
-					'tags' => $this->_filterTags($lehrauftrag->tags, true)
 				);
 			}
 		}
 
+		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
+		{
+			$lventwicklung_data = $this->_ci->PEPLVEntwicklungModel->getLVEntwicklung(array(''), $studiensemester, array($mitarbeiter_data->uid), '', false);
 
+			if (hasData($lventwicklung_data))
+			{
+				foreach (getData($lventwicklung_data) as $data)
+				{
+					$lventwicklungarray = array('typ' => $this->p->t('ui', 'lventwicklung'),
+						'beschreibung' => $language === 0 ? $data->lvbezeichnung : (!isEmptyString($data->lvbezeichnungeng) ? $data->lvbezeichnungeng : $data->lvbezeichnung),
+
+						'zeit' => $data->studiensemester_kurzbz,
+						'stg' => $data->stg_kuerzel,
+						'lehrform' => $data->lv_lehrform_kurzbz,
+						'gruppe' => null,
+						'info' => $this->_filterTags($data->tags),
+					);
+
+					if ($mitarbeiter_data->releavante_vertragsart !== 'echterdv')
+						$lventwicklungarray['ects'] = $data->werkvertrag_ects;
+					else
+					{
+						$lventwicklungarray['stunden'] = $data->stunden;
+						$lventwicklungarray['anmerkung'] = $data->anmerkung;
+					}
+
+					$result['data'][] = $lventwicklungarray;
+				}
+			}
+		}
 
 		if ($mitarbeiter_data->releavante_vertragsart !== 'echterdv')
 			$this->terminateWithSuccess($result);
@@ -126,7 +219,7 @@ class SelfOverview extends FHCAPI_Controller
 					forEach(getData($category_data) as $data)
 					{
 
-						$result[] = array('typ' => $this->p->t('ui', 'kategorie'),
+						$result['data'][] = array('typ' => $this->p->t('ui', 'kategorie'),
 							'beschreibung' => $category->beschreibung,
 							'stunden' => $data->stunden,
 							'anmerkung' => $data->anmerkung,
@@ -149,7 +242,7 @@ class SelfOverview extends FHCAPI_Controller
 			{
 				foreach (getData($project_data) as $data)
 				{
-					$result[] = array('typ' => $this->p->t('ui', 'projekt'),
+					$result['data'][] = array('typ' => $this->p->t('ui', 'projekt'),
 						'beschreibung' => $data->name,
 						'stunden' => $data->stunden,
 						'anmerkung' => $data->anmerkung,
@@ -157,31 +250,6 @@ class SelfOverview extends FHCAPI_Controller
 						'stg' => null,
 						'lehrform' => null,
 						'gruppe' => null,
-					);
-				}
-			}
-		}
-
-		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
-		{
-			$lventwicklung_data = $this->_ci->PEPLVEntwicklungModel->getLVEntwicklung(array(''), $studiensemester, array($mitarbeiter_data->uid), '', false);
-
-			if (hasData($lventwicklung_data))
-			{
-				foreach (getData($lventwicklung_data) as $data)
-				{
-
-
-					$result[] = array('typ' => $this->p->t('ui', 'lventwicklung'),
-						'beschreibung' => $language === 0 ? $data->lvbezeichnung : (!isEmptyString($data->lvbezeichnungeng) ? $data->lvbezeichnungeng : $data->lvbezeichnung),
-						'stunden' => $data->stunden,
-						'anmerkung' => $data->anmerkung,
-						'zeit' => $data->studiensemester_kurzbz,
-						'stg' => $data->stg_kuerzel,
-						'lehrform' => $data->lv_lehrform_kurzbz,
-						'gruppe' => null,
-						'info' => $this->_filterTags($data->tags),
-						'tags' => $this->_filterTags($data->tags, true)
 					);
 				}
 			}
