@@ -143,18 +143,23 @@ export default {
 						hozAlign: "right",
 						formatter: function (cell, formatterParams, onRendered)
 						{
-							var value = cell.getValue();
+							let value = cell.getValue();
+							let stunden = 0;
 							if (value === null || isNaN(value) || value === "")
 							{
 								cell.setValue(0);
-								return parseFloat(0).toFixed(2);
+								stunden = parseFloat(0).toFixed(2);
 							}
-
-							if (!isNaN(value))
+							else if (!isNaN(value))
 							{
-								value = parseFloat(value).toFixed(2);
-								return value;
+								stunden = parseFloat(value).toFixed(2);
+
 							}
+							if (stunden < 0)
+							{
+								return "<span style='color:red; font-weight:bold;'>" + stunden + "</span>";
+							}
+							return stunden;
 						},
 						validator: ["numeric", {
 							type: function(cell, value, parameters)
