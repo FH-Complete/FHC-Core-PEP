@@ -36,7 +36,7 @@ export default {
 				height: '60vh',
 				layout: 'fitDataStretch',
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2025_03_12_pep_kategorie_" + this.config.category_id,
+				persistenceID: "2025_11_25_pep_kategorie_" + this.config.category_id,
 				persistence: true,
 				keybindings: false,
 				rowFormatter: (row) =>
@@ -143,18 +143,23 @@ export default {
 						hozAlign: "right",
 						formatter: function (cell, formatterParams, onRendered)
 						{
-							var value = cell.getValue();
+							let value = cell.getValue();
+							let stunden = 0;
 							if (value === null || isNaN(value) || value === "")
 							{
 								cell.setValue(0);
-								return parseFloat(0).toFixed(2);
+								stunden = parseFloat(0).toFixed(2);
 							}
-
-							if (!isNaN(value))
+							else if (!isNaN(value))
 							{
-								value = parseFloat(value).toFixed(2);
-								return value;
+								stunden = parseFloat(value).toFixed(2);
+
 							}
+							if (stunden < 0)
+							{
+								return "<span style='color:red; font-weight:bold;'>" + stunden + "</span>";
+							}
+							return stunden;
 						},
 						validator: ["numeric", {
 							type: function(cell, value, parameters)
@@ -168,7 +173,7 @@ export default {
 								if (value.toFixed(2) != value)
 									return false;
 
-								if (value > 9999.99 || value < 0)
+								if (value > 9999.99)
 									return false;
 
 								return true;

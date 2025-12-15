@@ -398,7 +398,16 @@ export const formatter = {
 	checkStunden: function(cell, formatterParams, onRendered)
 	{
 		let value = cell.getValue();
-		return (isNaN(value) || value === undefined || value === null) ? '-' : parseFloat(value).toFixed(formatterParams.precision);
+		if ((isNaN(value) || value === undefined || value === null))
+			return '-';
+
+		let stunden = parseFloat(value).toFixed(formatterParams.precision);
+		if (stunden < 0)
+		{
+			return "<span style='color:red; font-weight:bold;'>" + stunden + "</span>";
+		}
+		else
+			return stunden;
 	},
 	karenzFormatter: function(cell, formatterParams, onRendered)
 	{
