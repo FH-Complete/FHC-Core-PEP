@@ -81,6 +81,19 @@ export default {
 						},
 						bottomCalcParams: {precision: 2},
 					},
+
+					{title: 'Mitarbeiter/Leader', field: 'empinfos', formatter: "textarea", headerFilter: "input"},
+					{title: 'Lead', field: 'lead',
+						formatter: function (cell) {
+							let value = cell.getValue();
+							if (value === undefined)
+								return '-';
+							if (value)
+								return "Ja";
+							else
+								return "Nein";
+						}
+					},
 					{title: 'geplanter Zeitraum', field: 'zeit'},
 					{title: 'Studiengang', field: 'stg'},
 					{title: 'Lehrform', field: 'lehrform'},
@@ -186,8 +199,12 @@ export default {
 								};
 
 								this.$refs.selfTable.tabulator.addColumn(column, false, "stunden");
-								this.$refs.selfTable.tabulator.deleteColumn("anmerkung");
 							}
+
+							let anmerkungColumn = columns.some(c => c.getField() === "anmerkung");
+
+							if (anmerkungColumn)
+								this.$refs.selfTable.tabulator.deleteColumn("anmerkung");
 						}
 						else
 						{
@@ -197,12 +214,14 @@ export default {
 							if (ectsColumn)
 							{
 								this.$refs.selfTable.tabulator.deleteColumn("ects");
-								this.$refs.selfTable.tabulator.addColumn({title: 'Anmerkung', field: 'anmerkung'}, false, "beschreibung");
 							}
+
+							let anmerkungColumn = columns.some(c => c.getField() === "anmerkung");
+							if (!anmerkungColumn)
+								this.$refs.selfTable.tabulator.addColumn({title: 'Anmerkung', field: 'anmerkung'}, false, "beschreibung");
 						}
 
 						this.$refs.selfTable.tabulator.updateColumnDefinition('stunden', { title: title });
-
 						this.$refs.selfTable.tabulator.setData(response.data.data);
 					}
 				})
