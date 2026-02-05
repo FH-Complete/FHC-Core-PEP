@@ -76,7 +76,11 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						alleLVs_distinct.lehrveranstaltung_id as allelvsid,
 						module.bezeichnung as modulbezeichnung,
 						tbl_pep_lv_entwicklung.insertamum as insertamum,
-						tbl_pep_lv_entwicklung.updateamum as updateamum
+						tbl_pep_lv_entwicklung.updateamum as updateamum,
+						
+						(insertvonperson.vorname || ' ' || insertvonperson.nachname || ' ' || '(' || insertvonbenutzer.uid || ')') as insertvon,
+						(updatevonperson.vorname || ' ' || updatevonperson.nachname || ' ' || '(' || updatevonbenutzer.uid || ')') as updatevon
+						
 				FROM
 					alleLVs_distinct
 						FULL JOIN  extension.tbl_pep_lv_entwicklung using(lehrveranstaltung_id)
@@ -85,6 +89,13 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						LEFT JOIN studienplan_lvs using(lehrveranstaltung_id)
 						LEFT JOIN tags_lv_entwicklung ON tags_lv_entwicklung.pep_lv_entwicklung_id = tbl_pep_lv_entwicklung.pep_lv_entwicklung_id
 						JOIN public.tbl_organisationseinheit oelv ON tbl_lehrveranstaltung.oe_kurzbz = oelv.oe_kurzbz
+						
+						LEFT JOIN public.tbl_benutzer insertvonbenutzer ON insertvonbenutzer.uid = tbl_pep_lv_entwicklung.insertvon
+						LEFT JOIN public.tbl_person insertvonperson ON insertvonperson.person_id = insertvonbenutzer.person_id
+						
+						LEFT JOIN public.tbl_benutzer updatevonbenutzer ON updatevonbenutzer.uid = tbl_pep_lv_entwicklung.updatevon
+						LEFT JOIN public.tbl_person updatevonperson ON updatevonperson.person_id = updatevonbenutzer.person_id
+						
 			WHERE (tbl_pep_lv_entwicklung.studiensemester_kurzbz IN ? OR tbl_pep_lv_entwicklung.pep_lv_entwicklung_id IS NULL)
 				  AND (tbl_pep_lv_entwicklung.mitarbeiter_uid IN ? OR
 						(EXISTS

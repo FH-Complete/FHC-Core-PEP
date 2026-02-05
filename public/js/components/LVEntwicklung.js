@@ -101,7 +101,7 @@ export default {
 						}
 					});
 				},
-				persistenceID: "2025_06_02_v5_pep_lventwicklung_v3",
+				persistenceID: "2026_02_05_v1_pep_lventwicklung",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -439,6 +439,9 @@ export default {
 
 					{title: 'Hinzugefuegt am', field: 'insertamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
 					{title: 'Updated am', field: 'updateamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
+
+					{title: 'Hinzugefuegt von', field: 'insertvon', headerFilter: true, visible: false},
+					{title: 'Updated von', field: 'updatevon', headerFilter: true, visible: false},
 
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
