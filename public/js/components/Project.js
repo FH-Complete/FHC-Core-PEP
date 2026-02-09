@@ -512,6 +512,7 @@ export default {
 				<h5>{{$p.t('lehre', 'studienjahr')}}: {{theModel?.config?.studienjahr}}</h5>
 				<core-filter-cmpt
 					ref="projectTable"
+					:download="config?.download"
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'cellEdited', handler: onCellEdited }]"
 					:table-only=true

@@ -889,6 +889,7 @@ export default {
 				<core-filter-cmpt
 					v-if="loaded"
 					ref="lventwicklungtable"
+					:download="config?.download"
 					:newBtnShow=true
 					newBtnLabel="Neu"
 					@click:new=addRow

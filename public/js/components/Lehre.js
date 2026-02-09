@@ -698,6 +698,7 @@ export default {
 			>{{$p.t('lehre', 'studiensemester')}}: {{studiensemester.join(', ')}} </h5>
 				<core-filter-cmpt
 						ref="lehreTable"
+						:download="config?.download"
 						:tabulator-options="tabulatorOptions"
 						@nw-new-entry="newSideMenuEntryHandler"
 						:table-only=true
