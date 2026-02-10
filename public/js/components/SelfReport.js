@@ -63,12 +63,12 @@ export default {
 				height: '60vh',
 				selectableRows:true,
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2025_09_15_pep_self_v1",
+				persistenceID: "2026_02_10_pep_self_v1",
 				persistence: true,
 				columns: [
 					{title: 'Typ', field: 'typ'},
 					{title: 'Beschreibung', field: 'beschreibung'},
-					{title: 'Hinweis', field: 'info', formatter: "textarea", headerFilter: "input"},
+					{title: 'Hinweis für Lehrende', field: 'info', formatter: "textarea", headerFilter: "input"},
 					{title: '-', field: 'stunden', bottomCalc: "sum",
 						formatter: function (cell, formatterParams, onRendered)
 						{
@@ -82,7 +82,7 @@ export default {
 						bottomCalcParams: {precision: 2},
 					},
 
-					{title: 'Mitarbeiter/Leader', field: 'empinfos', formatter: "textarea", headerFilter: "input"},
+					{title: 'Team / Lead', field: 'empinfos', formatter: "textarea", headerFilter: "input"},
 					{title: 'Lead', field: 'lead',
 						formatter: function (cell) {
 							let value = cell.getValue();
