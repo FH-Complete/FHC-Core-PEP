@@ -63,12 +63,12 @@ export default {
 				height: '60vh',
 				selectableRows:true,
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2025_09_15_pep_self_v1",
+				persistenceID: "2026_02_10_pep_self_v1",
 				persistence: true,
 				columns: [
 					{title: 'Typ', field: 'typ'},
 					{title: 'Beschreibung', field: 'beschreibung'},
-					{title: 'Hinweis', field: 'info', formatter: "textarea", headerFilter: "input"},
+					{title: 'Hinweis für Lehrende', field: 'info', formatter: "textarea", headerFilter: "input"},
 					{title: '-', field: 'stunden', bottomCalc: "sum",
 						formatter: function (cell, formatterParams, onRendered)
 						{
@@ -80,6 +80,19 @@ export default {
 								return parseFloat(value).toFixed(2);
 						},
 						bottomCalcParams: {precision: 2},
+					},
+
+					{title: 'Team / Lead', field: 'empinfos', formatter: "textarea", headerFilter: "input"},
+					{title: 'Lead', field: 'lead',
+						formatter: function (cell) {
+							let value = cell.getValue();
+							if (value === undefined)
+								return '-';
+							if (value)
+								return "Ja";
+							else
+								return "Nein";
+						}
 					},
 					{title: 'geplanter Zeitraum', field: 'zeit'},
 					{title: 'Studiengang', field: 'stg'},
@@ -186,8 +199,12 @@ export default {
 								};
 
 								this.$refs.selfTable.tabulator.addColumn(column, false, "stunden");
-								this.$refs.selfTable.tabulator.deleteColumn("anmerkung");
 							}
+
+							let anmerkungColumn = columns.some(c => c.getField() === "anmerkung");
+
+							if (anmerkungColumn)
+								this.$refs.selfTable.tabulator.deleteColumn("anmerkung");
 						}
 						else
 						{
@@ -197,12 +214,14 @@ export default {
 							if (ectsColumn)
 							{
 								this.$refs.selfTable.tabulator.deleteColumn("ects");
-								this.$refs.selfTable.tabulator.addColumn({title: 'Anmerkung', field: 'anmerkung'}, false, "beschreibung");
 							}
+
+							let anmerkungColumn = columns.some(c => c.getField() === "anmerkung");
+							if (!anmerkungColumn)
+								this.$refs.selfTable.tabulator.addColumn({title: 'Anmerkung', field: 'anmerkung'}, false, "beschreibung");
 						}
 
 						this.$refs.selfTable.tabulator.updateColumnDefinition('stunden', { title: title });
-
 						this.$refs.selfTable.tabulator.setData(response.data.data);
 					}
 				})
