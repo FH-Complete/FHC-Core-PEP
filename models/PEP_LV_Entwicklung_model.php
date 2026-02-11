@@ -77,6 +77,10 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						module.bezeichnung as modulbezeichnung,
 						tbl_pep_lv_entwicklung.insertamum as insertamum,
 						tbl_pep_lv_entwicklung.updateamum as updateamum,
+						
+						(insertvonperson.vorname || ' ' || insertvonperson.nachname || ' ' || '(' || insertvonbenutzer.uid || ')') as insertvon,
+						(updatevonperson.vorname || ' ' || updatevonperson.nachname || ' ' || '(' || updatevonbenutzer.uid || ')') as updatevon,
+						
 						array_to_json(tbl_pep_lv_entwicklung_rolle.bezeichnung_mehrsprachig)->>0 AS rollenbeschreibung
 				FROM
 					alleLVs_distinct
@@ -87,6 +91,13 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						LEFT JOIN tags_lv_entwicklung ON tags_lv_entwicklung.pep_lv_entwicklung_id = tbl_pep_lv_entwicklung.pep_lv_entwicklung_id
 						LEFT JOIN extension.tbl_pep_lv_entwicklung_rolle ON tbl_pep_lv_entwicklung_rolle.rolle_kurzbz = tbl_pep_lv_entwicklung.rolle_kurzbz
 						JOIN public.tbl_organisationseinheit oelv ON tbl_lehrveranstaltung.oe_kurzbz = oelv.oe_kurzbz
+						
+						LEFT JOIN public.tbl_benutzer insertvonbenutzer ON insertvonbenutzer.uid = tbl_pep_lv_entwicklung.insertvon
+						LEFT JOIN public.tbl_person insertvonperson ON insertvonperson.person_id = insertvonbenutzer.person_id
+						
+						LEFT JOIN public.tbl_benutzer updatevonbenutzer ON updatevonbenutzer.uid = tbl_pep_lv_entwicklung.updatevon
+						LEFT JOIN public.tbl_person updatevonperson ON updatevonperson.person_id = updatevonbenutzer.person_id
+						
 			WHERE (tbl_pep_lv_entwicklung.studiensemester_kurzbz IN ? OR tbl_pep_lv_entwicklung.pep_lv_entwicklung_id IS NULL)
 				  AND (tbl_pep_lv_entwicklung.mitarbeiter_uid IN ? OR
 						(EXISTS
