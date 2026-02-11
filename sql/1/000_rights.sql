@@ -7,3 +7,9 @@ INSERT INTO system.tbl_berechtigung(berechtigung_kurzbz, beschreibung)
 SELECT 'extension/pep_selfoverview', 'Zugriff auf die Selfoverview in PEP'
     WHERE
 	NOT EXISTS(SELECT 1 FROM system.tbl_berechtigung WHERE berechtigung_kurzbz='extension/pep_selfoverview');
+
+
+INSERT INTO system.tbl_berechtigung(berechtigung_kurzbz, beschreibung)
+SELECT 'extension/pep_export', 'Ermöglicht den Export der PEP.'
+    WHERE
+	NOT EXISTS(SELECT 1 FROM system.tbl_berechtigung WHERE berechtigung_kurzbz='extension/pep_export');

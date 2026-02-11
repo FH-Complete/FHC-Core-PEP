@@ -351,6 +351,7 @@ export default {
 			</h5>
 				<core-filter-cmpt
 					ref="startTable"
+					:download="config?.download"
 					:tableOnly=false
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'rowSelectionChanged', handler: updateSelectedRows }]"

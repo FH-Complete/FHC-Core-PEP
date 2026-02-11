@@ -510,6 +510,7 @@ export default {
 				<core-filter-cmpt
 					v-if="orgListe"
 					ref="categoryTable"
+					:download="config?.download"
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[
 										{ event: 'cellEdited', handler: onCellEdited }, 
