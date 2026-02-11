@@ -239,7 +239,7 @@ class SelfOverview extends FHCAPI_Controller
 							'stg' => null,
 							'lehrform' => null,
 							'gruppe' => null,
-
+							'info' => $this->_filterTags($data->tags),
 						);
 					}
 				}
@@ -262,6 +262,7 @@ class SelfOverview extends FHCAPI_Controller
 						'stg' => null,
 						'lehrform' => null,
 						'gruppe' => null,
+						'info' => $this->_filterTags($data->tags),
 					);
 				}
 			}

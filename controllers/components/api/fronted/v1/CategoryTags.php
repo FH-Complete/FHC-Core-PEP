@@ -3,10 +3,9 @@
 if (!defined('BASEPATH'))
 	exit('No direct script access allowed');
 
-class Tags extends Tag_Controller
+class CategoryTags extends Tag_Controller
 {
 	private $_ci;
-	private $_uid;
 
 	const BERECHTIGUNG_KURZBZ = 'extension/pep:rw';
 
@@ -19,12 +18,11 @@ class Tags extends Tag_Controller
 			'updateTag' => self::BERECHTIGUNG_KURZBZ,
 			'doneTag' => self::BERECHTIGUNG_KURZBZ,
 			'deleteTag' => self::BERECHTIGUNG_KURZBZ,
-			'addMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
-			'deleteMitarbeiterTag' => self::BERECHTIGUNG_KURZBZ,
 		]);
 
 		$this->_ci = &get_instance();
-		$this->load->model('extensions/FHC-Core-PEP/PEP_Notiz_Mitarbeiter_model', 'PEPNotizMitarbeiterModel');
+		$this->load->model('extensions/FHC-Core-PEP/PEP_Category_Notiz_model', 'PEPCategoryNotizModel');
+		$this->load->helper('extensions/FHC-Core-PEP/hlp_employee_helper');
 		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
 	}
 
@@ -32,55 +30,51 @@ class Tags extends Tag_Controller
 	{
 		parent::getTag($this->config->item('pep_tags'));
 	}
-
 	public function getTags($tags = null)
 	{
 		parent::getTags($this->config->item('pep_tags'));
 	}
+	public function updateTag($updatable_tags = null)
+	{
+		parent::updateTag($this->config->item('pep_tags'));
+	}
+	public function doneTag($updatable_tags = null)
+	{
+		parent::doneTag($this->config->item('pep_tags'));
+	}
 
-
-	public function addMitarbeiterTag()
+	public function addTag($withZuordnung = false, $updatable_tags = null)
 	{
 		$postData = $this->getPostJson();
 
 		$return = array();
 		foreach ($postData->values as $value)
 		{
-			$insertResult = parent::addTag(false, $this->config->item('pep_tags'));
+			$insertResult = parent::addTag(false);
 
-			$insertZuordnung = $this->PEPNotizMitarbeiterModel->insert(array(
+			$insertZuordnung = $this->PEPCategoryNotizModel->insert(array(
 				'notiz_id' => $insertResult,
-				'mitarbeiter_uid' => $value
+				'kategorie_mitarbeiter_id' => $value
 			));
 
 			if (isError($insertZuordnung))
 				$this->terminateWithError('Error occurred', self::ERROR_TYPE_GENERAL);
-			$return[] = ['mitarbeiter_uid' => $value, 'id' => $insertResult];
+			$return[] = ['kategorie_mitarbeiter_id' => $value, 'id' => $insertResult];
 		}
 		$this->terminateWithSuccess($return);
 	}
 
-	public function updateTag($updatable_tags = null)
-	{
-		parent::updateTag($this->config->item('pep_tags'));
-	}
-
-	public function deleteMitarbeiterTag()
+	public function deleteTag($withZuordnung = false, $updatable_tags = null)
 	{
 		$postData = $this->getPostJson();
 
-		$deleteZuordnung = $this->PEPNotizMitarbeiterModel->delete(array(
+		$deleteZuordnung = $this->PEPCategoryNotizModel->delete(array(
 			'notiz_id' => $postData->id
 		));
 
 		if (isSuccess($deleteZuordnung))
 		{
-			parent::deleteTag(false, $this->config->item('pep_tags'));
+			parent::deleteTag(false);
 		}
-	}
-
-	public function doneTag($updatable_tags = null)
-	{
-		parent::doneTag($this->config->item('pep_tags'));
 	}
 }
