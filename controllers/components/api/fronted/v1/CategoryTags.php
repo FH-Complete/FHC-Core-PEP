@@ -21,8 +21,8 @@ class CategoryTags extends Tag_Controller
 		]);
 
 		$this->_ci = &get_instance();
-		$this->load->model('extensions/FHC-Core-PEP/PEP_Category_Notiz_model', 'PEPCategoryNotizModel');
-		$this->load->helper('extensions/FHC-Core-PEP/hlp_employee_helper');
+		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_Kategorie_Notiz_model', 'PEPKategorieNotizModel');
+		$this->_ci->load->helper('extensions/FHC-Core-PEP/hlp_employee_helper');
 		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
 	}
 
@@ -52,7 +52,7 @@ class CategoryTags extends Tag_Controller
 		{
 			$insertResult = parent::addTag(false);
 
-			$insertZuordnung = $this->PEPCategoryNotizModel->insert(array(
+			$insertZuordnung = $this->_ci->PEPKategorieNotizModel->insert(array(
 				'notiz_id' => $insertResult,
 				'kategorie_mitarbeiter_id' => $value
 			));
@@ -68,7 +68,7 @@ class CategoryTags extends Tag_Controller
 	{
 		$postData = $this->getPostJson();
 
-		$deleteZuordnung = $this->PEPCategoryNotizModel->delete(array(
+		$deleteZuordnung = $this->_ci->PEPKategorieNotizModel->delete(array(
 			'notiz_id' => $postData->id
 		));
 
