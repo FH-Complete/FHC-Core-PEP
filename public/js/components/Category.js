@@ -3,6 +3,13 @@ import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import { extendedHeaderFilter } from "../../../..//js/tabulator/filters/extendedHeaderFilter.js";
 import focusMixin from "../mixins/focus.js";
 import ApiCategory from "../api/category.js";
+import Tag from '../../../../js/components/Tag/Tag.js';
+import { ApiCategoryTag  } from "../api/categoryTabTags.js";
+import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
+import { addTagInTable, deleteTagInTable, updateTagInTable } from "../../../../js/helpers/TagHelper.js";
+import tagMixin from "../mixins/tag.js";
+import {formatter} from "../mixins/formatters.js";
+
 
 export default {
 	props: {
@@ -14,9 +21,10 @@ export default {
 	},
 	components: {
 		CoreFilterCmpt,
-		CoreBaseLayout
+		CoreBaseLayout,
+		Tag
 	},
-	mixins: [focusMixin],
+	mixins: [focusMixin, tagMixin],
 	data: function() {
 		return{
 			studienjahr: null,
@@ -26,7 +34,9 @@ export default {
 			mitarbeiterListe: {},
 			orgListe: null,
 			activeCell: null,
-			focusFields: ["anmerkung", "category_oe_kurzbz", "stunden"]
+			focusFields: ["anmerkung", "category_oe_kurzbz", "stunden"],
+			tagEndpoint: ApiCategoryTag,
+			selectedColumnValues: []
 		}
 	},
 	computed: {
@@ -103,6 +113,15 @@ export default {
 
 							return container;
 						},
+					},
+					{
+						title: 'Tags',
+						field: 'tags',
+						tooltip: false,
+						headerFilter: true,
+						headerFilterFunc: tagHeaderFilter,
+						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
+						width: 150,
 					},
 					//{title: 'UID', field: 'mitarbeiter_uid', headerFilter: true, visible:false},
 					{
@@ -410,7 +429,7 @@ export default {
 						row.update(response.data.updated)
 					}
 					this.theModel = { ...this.modelValue, needReload: true };
-				});
+				}).finally(() => {this.updateSelectedRows()})
 		},
 		duplicateRow(cell)
 		{
@@ -436,6 +455,7 @@ export default {
 				newData.kategorie_mitarbeiter_id = null;
 				newData.anmerkung = null;
 				newData.newentry = true;
+				newData.tags = null;
 
 				this.$refs.categoryTable.tabulator.addRow(newData, false, cell.getRow());
 				let newRow = this.$refs.categoryTable.tabulator.getRow(newData.row_index);
@@ -483,7 +503,7 @@ export default {
 						}, 200);
 					}
 				}
-			)
+			).finally(() => {this.updateSelectedRows()})
 		},
 		uidCount(uid)
 		{
@@ -502,6 +522,20 @@ export default {
 			this.theModel = { ...this.modelValue, loadDataReady: true }
 			this.addFocus("categoryTable", this.focusFields);
 		},
+		updateSelectedRows() {
+			this.selectedRows = this.$refs.categoryTable.tabulator.getSelectedRows();
+			this.selectedColumnValues = this.selectedRows.map(row => row.getData().kategorie_mitarbeiter_id).filter((row) => row !== null);
+			this.addColorToInfoText(this.selectedColumnValues);
+		},
+		addedTag(addedTag) {
+			addTagInTable(addedTag, this.$refs.categoryTable.tabulator.getRows(), 'kategorie_mitarbeiter_id');
+		},
+		deletedTag(deletedTag) {
+			deleteTagInTable(deletedTag, this.$refs.categoryTable.tabulator.getRows())
+		},
+		updatedTag(updatedTag) {
+			updateTagInTable(updatedTag, this.$refs.categoryTable.tabulator.getRows())
+		},
 	},
 	template: `
 		<core-base-layout>
@@ -510,15 +544,26 @@ export default {
 				<core-filter-cmpt
 					v-if="orgListe"
 					ref="categoryTable"
+					:download="config?.download"
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[
 										{ event: 'cellEdited', handler: onCellEdited }, 
 										{ event: 'tableBuilt', handler: tableBuilt },
+										{ event: 'rowSelectionChanged', handler: updateSelectedRows }
 						]"
 					:table-only=true
 					:side-menu="false"
 					:countOnly="true">
 					<template #actions>
+						<Tag ref="tagComponent"
+							:endpoint="tagEndpoint"
+							:values="selectedColumnValues"
+							@added="addedTag"
+							@deleted="deletedTag"
+							@updated="updatedTag"
+							zuordnung_typ="kategorie_mitarbeiter_id"
+						></Tag>
+						
 						<button class="btn btn-danger btn-sm resetHoursButton" @click="resetHours">Stunden zurücksetzen</button>
 					</template>
 				</core-filter-cmpt>

@@ -29,6 +29,7 @@ class TabsConfig extends FHCAPI_Controller
 
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_model', 'PEPModel');
 		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
+		$this->_ci->load->library('PermissionLib');
 	}
 
 	public function get()
@@ -48,13 +49,13 @@ class TabsConfig extends FHCAPI_Controller
 		$tabs['start'] = array (
 			'title' =>  'Start',
 			'component' => absoluteJsImportUrl('public/extensions/FHC-Core-PEP/js/components/Start.js'),
-			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true]
+			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true, 'download' => $this->_ci->permissionlib->isBerechtigt('extension/pep_export')],
 		);
 
 		$tabs['lehre'] = array (
 			'title' =>  'Lehre',
 			'component' => absoluteJsImportUrl('public/extensions/FHC-Core-PEP/js/components/Lehre.js'),
-			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true, 'planungsstatus' => $this->_ci->config->item('planungsstatus_tags')]
+			'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true, 'planungsstatus' => $this->_ci->config->item('planungsstatus_tags'), 'download' => $this->_ci->permissionlib->isBerechtigt('extension/pep_export')],
 		);
 
 		if ($this->_ci->config->item('enable_lv_entwicklung_tab') === true)
@@ -62,7 +63,7 @@ class TabsConfig extends FHCAPI_Controller
 			$tabs['lv_entwicklung_new'] = array (
 				'title' =>  'LV-Entwicklung',
 				'component' => absoluteJsImportUrl('public/extensions/FHC-Core-PEP/js/components/LVEntwicklung.js'),
-				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true,  'allow_volume_edit_contracts' => $this->_ci->config->item('lventwicklung_allow_ects_volume_edit')]
+				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true,  'allow_volume_edit_contracts' => $this->_ci->config->item('lventwicklung_allow_ects_volume_edit'), 'download' => $this->_ci->permissionlib->isBerechtigt('extension/pep_export')],
 			);
 		};
 
@@ -107,7 +108,7 @@ class TabsConfig extends FHCAPI_Controller
 		$tabs['syncprojects'] = array (
 			'title' =>  'Projekte',
 			'component' => absoluteJsImportUrl('public/extensions/FHC-Core-PEP/js/components/Project.js'),
-			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true]
+			'config' => ['studienjahr' => true, 'dropdowns' => true, 'reload' => true, 'download' => $this->_ci->permissionlib->isBerechtigt('extension/pep_export')],
 		);
 
 	}
@@ -142,7 +143,8 @@ class TabsConfig extends FHCAPI_Controller
 					'studienjahr' => true,
 					'dropdowns' => true,
 					'reload' => true,
-					'aktiv' => $category->aktiv
+					'aktiv' => $category->aktiv,
+					'download' => $this->_ci->permissionlib->isBerechtigt('extension/pep_export')
 				];
 
 				$tab = [

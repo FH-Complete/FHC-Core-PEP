@@ -76,7 +76,12 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						alleLVs_distinct.lehrveranstaltung_id as allelvsid,
 						module.bezeichnung as modulbezeichnung,
 						tbl_pep_lv_entwicklung.insertamum as insertamum,
-						tbl_pep_lv_entwicklung.updateamum as updateamum
+						tbl_pep_lv_entwicklung.updateamum as updateamum,
+						
+						(insertvonperson.vorname || ' ' || insertvonperson.nachname || ' ' || '(' || insertvonbenutzer.uid || ')') as insertvon,
+						(updatevonperson.vorname || ' ' || updatevonperson.nachname || ' ' || '(' || updatevonbenutzer.uid || ')') as updatevon,
+						
+						array_to_json(tbl_pep_lv_entwicklung_rolle.bezeichnung_mehrsprachig)->>0 AS rollenbeschreibung
 				FROM
 					alleLVs_distinct
 						FULL JOIN  extension.tbl_pep_lv_entwicklung using(lehrveranstaltung_id)
@@ -84,7 +89,15 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						LEFT JOIN module USING(lehrveranstaltung_id)
 						LEFT JOIN studienplan_lvs using(lehrveranstaltung_id)
 						LEFT JOIN tags_lv_entwicklung ON tags_lv_entwicklung.pep_lv_entwicklung_id = tbl_pep_lv_entwicklung.pep_lv_entwicklung_id
+						LEFT JOIN extension.tbl_pep_lv_entwicklung_rolle ON tbl_pep_lv_entwicklung_rolle.rolle_kurzbz = tbl_pep_lv_entwicklung.rolle_kurzbz
 						JOIN public.tbl_organisationseinheit oelv ON tbl_lehrveranstaltung.oe_kurzbz = oelv.oe_kurzbz
+						
+						LEFT JOIN public.tbl_benutzer insertvonbenutzer ON insertvonbenutzer.uid = tbl_pep_lv_entwicklung.insertvon
+						LEFT JOIN public.tbl_person insertvonperson ON insertvonperson.person_id = insertvonbenutzer.person_id
+						
+						LEFT JOIN public.tbl_benutzer updatevonbenutzer ON updatevonbenutzer.uid = tbl_pep_lv_entwicklung.updatevon
+						LEFT JOIN public.tbl_person updatevonperson ON updatevonperson.person_id = updatevonbenutzer.person_id
+						
 			WHERE (tbl_pep_lv_entwicklung.studiensemester_kurzbz IN ? OR tbl_pep_lv_entwicklung.pep_lv_entwicklung_id IS NULL)
 				  AND (tbl_pep_lv_entwicklung.mitarbeiter_uid IN ? OR
 						(EXISTS
@@ -192,6 +205,25 @@ class PEP_LV_Entwicklung_model extends DB_Model
 					JOIN public.tbl_organisationseinheit oelv ON tbl_lehrveranstaltung.oe_kurzbz = oelv.oe_kurzbz";
 
 		return $this->execReadOnlyQuery($qry, array($lehrveranstaltung_id));
+	}
+
+	public function getMember($lehrveranstaltung_id, $studiensemester_kurzbz, $uid)
+	{
+		$this->addSelect("STRING_AGG(CONCAT(nachname, ' ', vorname), E'\n') as member");
+		$this->addJoin('tbl_benutzer', 'mitarbeiter_uid = uid');
+		$this->addJoin('tbl_person', 'person_id');
+
+		$this->db->where_in('studiensemester_kurzbz', $studiensemester_kurzbz);
+		return $this->loadWhere(array('lehrveranstaltung_id' => $lehrveranstaltung_id, 'uid != ' => $uid));
+	}
+
+	public function getLead($lehrveranstaltung_id, $studiensemester_kurzbz, $uid)
+	{
+		$this->addSelect("STRING_AGG(CONCAT(nachname, ' ', vorname), E'\n') as lead");
+		$this->addJoin('tbl_benutzer', 'mitarbeiter_uid = uid');
+		$this->addJoin('tbl_person', 'person_id');
+		$this->db->where_in('studiensemester_kurzbz', $studiensemester_kurzbz);
+		return $this->loadWhere(array('lehrveranstaltung_id' => $lehrveranstaltung_id, 'rolle_kurzbz' => 'lead', 'uid != ' => $uid));
 	}
 
 	private function _getOEBezeichnungSelect()

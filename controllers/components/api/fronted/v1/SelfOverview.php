@@ -181,13 +181,25 @@ class SelfOverview extends FHCAPI_Controller
 				{
 					$lventwicklungarray = array('typ' => $this->p->t('ui', 'lventwicklung'),
 						'beschreibung' => $language === 0 ? $data->lvbezeichnung : (!isEmptyString($data->lvbezeichnungeng) ? $data->lvbezeichnungeng : $data->lvbezeichnung),
-
 						'zeit' => $data->studiensemester_kurzbz,
 						'stg' => $data->stg_kuerzel,
 						'lehrform' => $data->lv_lehrform_kurzbz,
 						'gruppe' => null,
 						'info' => $this->_filterTags($data->tags),
 					);
+
+					if ($data->rolle_kurzbz === 'lead')
+					{
+						$lventwicklungarray['lead'] = true;
+						$member = $this->_ci->PEPLVEntwicklungModel->getMember($data->allelvsid, $studiensemester, $mitarbeiter_data->uid);
+						$lventwicklungarray['empinfos'] = hasData($member) ? array_column(getData($member), 'member') : null;
+					}
+					else
+					{
+						$lventwicklungarray['lead'] = false;
+						$lead = $this->_ci->PEPLVEntwicklungModel->getLead($data->allelvsid, $studiensemester, $mitarbeiter_data->uid);
+						$lventwicklungarray['empinfos'] = hasData($lead) ? array_column(getData($lead), 'lead') : null;
+					}
 
 					if ($mitarbeiter_data->releavante_vertragsart !== 'echterdv')
 						$lventwicklungarray['ects'] = $data->werkvertrag_ects;
@@ -227,7 +239,7 @@ class SelfOverview extends FHCAPI_Controller
 							'stg' => null,
 							'lehrform' => null,
 							'gruppe' => null,
-
+							'info' => $this->_filterTags($data->tags),
 						);
 					}
 				}
@@ -250,6 +262,7 @@ class SelfOverview extends FHCAPI_Controller
 						'stg' => null,
 						'lehrform' => null,
 						'gruppe' => null,
+						'info' => $this->_filterTags($data->tags),
 					);
 				}
 			}

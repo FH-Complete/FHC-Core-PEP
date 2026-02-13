@@ -26,6 +26,7 @@ class Project extends FHCAPI_Controller
 		$this->_ci->load->model('organisation/Studiensemester_model', 'StudiensemesterModel');
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_model', 'PEPModel');
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_Projects_Employees_model', 'PEPProjectsEmployeesModel');
+		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_Projekt_Notiz_model', 'PEPProjektNotizModel');
 
 		$this->_ci->load->library('AuthLib');
 		$this->_ci->load->library('PermissionLib');
@@ -133,6 +134,7 @@ class Project extends FHCAPI_Controller
 
 			if (hasData($result))
 			{
+				$this->_ci->PEPProjektNotizModel->delete(array('pep_projects_employees_id' => $data->id));
 				$deleteResult = $this->_ci->PEPProjectsEmployeesModel->delete(array('pep_projects_employees_id' =>  $data->id));
 				$this->terminateWithSuccess($deleteResult);
 			}

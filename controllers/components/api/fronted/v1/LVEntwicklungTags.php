@@ -23,6 +23,17 @@ class LVEntwicklungTags extends Tag_Controller
 		$this->_ci = &get_instance();
 		$this->load->model('extensions/FHC-Core-PEP/PEP_LV_Entwicklung_Notiz_model', 'PEPLVEntwicklungNotizModel');
 		$this->load->helper('extensions/FHC-Core-PEP/hlp_employee_helper');
+		$this->_ci->load->config('extensions/FHC-Core-PEP/pep');
+	}
+
+	public function getTag($readonly_tags = null)
+	{
+		parent::getTag($this->config->item('pep_tags'));
+	}
+
+	public function getTags($tags = null)
+	{
+		parent::getTags($this->config->item('pep_tags'));
 	}
 
 	public function addLVEntwicklungTag()
@@ -32,7 +43,7 @@ class LVEntwicklungTags extends Tag_Controller
 		$return = array();
 		foreach ($postData->values as $value)
 		{
-			$insertResult = parent::addTag(false);
+			$insertResult = parent::addTag(false, $this->config->item('pep_tags'));
 
 			$insertZuordnung = $this->PEPLVEntwicklungNotizModel->insert(array(
 				'notiz_id' => $insertResult,
@@ -46,6 +57,11 @@ class LVEntwicklungTags extends Tag_Controller
 		$this->terminateWithSuccess($return);
 	}
 
+	public function updateTag($updatable_tags = null)
+	{
+		parent::updateTag($this->config->item('pep_tags'));
+	}
+
 	public function deleteMitarbeiterTag()
 	{
 		$postData = $this->getPostJson();
@@ -56,7 +72,12 @@ class LVEntwicklungTags extends Tag_Controller
 
 		if (isSuccess($deleteZuordnung))
 		{
-			parent::deleteTag(false);
+			parent::deleteTag(false, $this->config->item('pep_tags'));
 		}
+	}
+
+	public function doneTag($updatable_tags = null)
+	{
+		parent::doneTag($this->config->item('pep_tags'));
 	}
 }

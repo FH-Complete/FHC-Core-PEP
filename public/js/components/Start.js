@@ -6,6 +6,8 @@ import FhcLoader from '../../../../js/components/Loader.js';
 import Tag from '../../../../js/components/Tag/Tag.js';
 import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
+import { addTagInTable, deleteTagInTable, updateTagInTable } from "../../../../js/helpers/TagHelper.js";
+
 import ApiStartTag from "../api/startTabTags.js";
 import ApiStart from "../api/start.js";
 
@@ -187,13 +189,13 @@ export default {
 		},
 
 		addedTag(addedTag) {
-			this.addTagInTable(addedTag, 'startTable', 'mitarbeiter_uid', 'response');
+			addTagInTable(addedTag, this.$refs.startTable.tabulator.getRows(), 'mitarbeiter_uid')
 		},
 		deletedTag(deletedTag) {
-			this.deleteTagInTable(deletedTag, 'startTable');
+			deleteTagInTable(deletedTag, this.$refs.startTable.tabulator.getRows())
 		},
 		updatedTag(updatedTag) {
-			this.updateTagInTable(updatedTag, 'startTable');
+			updateTagInTable(updatedTag, this.$refs.startTable.tabulator.getRows())
 		},
 		async loadData(data)
 		{
@@ -351,6 +353,7 @@ export default {
 			</h5>
 				<core-filter-cmpt
 					ref="startTable"
+					:download="config?.download"
 					:tableOnly=false
 					:tabulator-options="tabulatorOptions"
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'rowSelectionChanged', handler: updateSelectedRows }]"
