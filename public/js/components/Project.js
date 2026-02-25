@@ -7,6 +7,12 @@ import {formatter} from "../mixins/formatters.js";
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
 import focusMixin from "../mixins/focus.js";
 import ApiProject from "../api/project.js";
+import Tag from '../../../../js/components/Tag/Tag.js';
+import { ApiProjectTag  } from "../api/projectTabTags.js";
+import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
+import tagMixin from "../mixins/tag.js";
+import { addTagInTable, deleteTagInTable, updateTagInTable } from "../../../../js/helpers/TagHelper.js";
+
 
 export default {
 	props: {
@@ -20,9 +26,10 @@ export default {
 		CoreFilterCmpt,
 		CoreBaseLayout,
 		BsModal,
-		FormInput
+		FormInput,
+		Tag
 	},
-	mixins: [focusMixin],
+	mixins: [focusMixin, tagMixin],
 	data: function() {
 		return{
 			formData: {
@@ -50,7 +57,9 @@ export default {
 				bis: ''
 			},
 			columnsToMark: ['stunden', 'anmerkung'],
-			focusFields: ["anmerkung", "stunden"]
+			focusFields: ["anmerkung", "stunden"],
+			tagEndpoint: ApiProjectTag,
+			selectedColumnValues: []
 		}
 	},
 	mounted() {
@@ -135,6 +144,15 @@ export default {
 							}
 							return container;
 						},
+					},
+					{
+						title: 'Tags',
+						field: 'tags',
+						tooltip: false,
+						headerFilter: true,
+						headerFilterFunc: tagHeaderFilter,
+						formatter: (cell) => formatter.tagFormatter(cell, this.$refs.tagComponent),
+						width: 150,
 					},
 					{title: 'Projekt - ID', field: 'project_id', headerFilter: true},
 					{title: 'Projekt - Name', field: 'name', headerFilter: true},
@@ -426,7 +444,8 @@ export default {
 							row.update({
 								'stunden' : null,
 								'pep_projects_employees_id' : null,
-								'anmerkung': null
+								'anmerkung': null,
+								'tags': null
 							})
 							.then(() => {
 								row.reformat()
@@ -435,11 +454,10 @@ export default {
 								this.$fhcAlert.alertSuccess("Erfolgreich gespeichert")
 							});
 
-
 						}
 						this.theModel = { ...this.modelValue, needReload: true };
 					}
-				});
+				}).finally(() => {this.updateSelectedRows()});
 		},
 
 		async addData()
@@ -503,8 +521,21 @@ export default {
 				.catch(error => {
 					this.$fhcAlert.handleSystemError((error));
 				});
-		}
-
+		},
+		updateSelectedRows() {
+			this.selectedRows = this.$refs.projectTable.tabulator.getSelectedRows();
+			this.selectedColumnValues = this.selectedRows.map(row => row.getData().pep_projects_employees_id).filter((row) => row !== null);
+			this.addColorToInfoText(this.selectedColumnValues);
+		},
+		addedTag(addedTag) {
+			addTagInTable(addedTag, this.$refs.projectTable.tabulator.getRows(), 'pep_projects_employees_id');
+		},
+		deletedTag(deletedTag) {
+			deleteTagInTable(deletedTag, this.$refs.projectTable.tabulator.getRows())
+		},
+		updatedTag(updatedTag) {
+			updateTagInTable(updatedTag, this.$refs.projectTable.tabulator.getRows())
+		},
 	},
 	template: `
 		<core-base-layout>
@@ -512,12 +543,21 @@ export default {
 				<h5>{{$p.t('lehre', 'studienjahr')}}: {{theModel?.config?.studienjahr}}</h5>
 				<core-filter-cmpt
 					ref="projectTable"
+					:download="config?.download"
 					:tabulator-options="tabulatorOptions"
-					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'cellEdited', handler: onCellEdited }]"
+					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'cellEdited', handler: onCellEdited }, { event: 'rowSelectionChanged', handler: updateSelectedRows }]"
 					:table-only=true
 					:side-menu="false"
 					:countOnly="true">
 					<template #actions>
+						<Tag ref="tagComponent"
+							:endpoint="tagEndpoint"
+							:values="selectedColumnValues"
+							@added="addedTag"
+							@deleted="deletedTag"
+							@updated="updatedTag"
+							zuordnung_typ="pep_projects_employees_id"
+						></Tag>
 						<button class="btn btn-primary" @click="addData">Mitarbeiter hinzufügen</button>
 					</template>
 				</core-filter-cmpt>

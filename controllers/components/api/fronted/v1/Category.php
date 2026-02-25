@@ -24,6 +24,7 @@ class Category extends FHCAPI_Controller
 		$this->_ci->load->model('organisation/Organisationseinheit_model', 'OrganisationseinheitModel');
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_model', 'PEPModel');
 		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_Kategorie_Mitarbeiter_model', 'PEPKategorieMitarbeiterModel');
+		$this->_ci->load->model('extensions/FHC-Core-PEP/PEP_Kategorie_Notiz_model', 'PEPKategorieNotizModel');
 
 		$this->_ci->load->library('AuthLib');
 		$this->_ci->load->library('PermissionLib');
@@ -205,6 +206,7 @@ class Category extends FHCAPI_Controller
 		{
 			if (property_exists($mitarbeiterCategory, 'delete') && $mitarbeiterCategory->delete)
 			{
+				$this->_ci->PEPKategorieNotizModel->delete(array('kategorie_mitarbeiter_id' => $mitarbeiterCategory->kategorie_mitarbeiter_id));
 				$stunden_delete = $this->_ci->PEPKategorieMitarbeiterModel->delete(array('kategorie_mitarbeiter_id' => $mitarbeiterCategory->kategorie_mitarbeiter_id));
 
 				if (isError($stunden_delete))
