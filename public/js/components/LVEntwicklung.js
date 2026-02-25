@@ -7,6 +7,7 @@ import { tagHeaderFilter } from "../../../../js/tabulator/filters/extendedHeader
 import { extendedHeaderFilter } from "../../../../js/tabulator/filters/extendedHeaderFilter.js";
 import Tag from '../../../../js/components/Tag/Tag.js';
 import { ApiLVEntwicklungTag } from "../api/lventwicklungTabTags.js";
+import { addTagInTable, deleteTagInTable, updateTagInTable } from "../../../../js/helpers/TagHelper.js";
 
 import { dateFilter } from "../../../../js/tabulator/filters/Dates.js";
 import {formatter} from "../mixins/formatters.js";
@@ -101,7 +102,7 @@ export default {
 						}
 					});
 				},
-				persistenceID: "2025_06_02_v5_pep_lventwicklung_v3",
+				persistenceID: "2026_02_05_v1_pep_lventwicklung",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -440,6 +441,9 @@ export default {
 					{title: 'Hinzugefuegt am', field: 'insertamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
 					{title: 'Updated am', field: 'updateamum', formatter: formatter.dateFormatter, headerFilterFunc: 'dates', headerFilter: dateFilter},
 
+					{title: 'Hinzugefuegt von', field: 'insertvon', headerFilter: true, visible: false},
+					{title: 'Updated von', field: 'updatevon', headerFilter: true, visible: false},
+
 					{title: 'Zrm - DV', field: 'zrm_vertraege', headerFilter: "input", formatter: "textarea", tooltip: ""},
 					{title: 'Zrm - Stunden/Woche', field: 'zrm_wochenstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
 					{title: 'Zrm - Stunden/Jahr', field: 'zrm_jahresstunden', hozAlign:"right", headerFilter: "input", formatter: "textarea"},
@@ -763,13 +767,13 @@ export default {
 			this.updateEntwicklung(row, field)
 		},
 		addedTag(addedTag) {
-			this.addTagInTable(addedTag, 'lventwicklungtable', 'pep_lv_entwicklung_id', 'response');
+			addTagInTable(addedTag, this.$refs.lventwicklungtable.tabulator.getRows(), 'pep_lv_entwicklung_id')
 		},
 		deletedTag(deletedTag) {
-			this.deleteTagInTable(deletedTag, 'lventwicklungtable');
+			deleteTagInTable(deletedTag, this.$refs.lventwicklungtable.tabulator.getRows())
 		},
 		updatedTag(updatedTag) {
-			this.updateTagInTable(updatedTag, 'lventwicklungtable');
+			updateTagInTable(updatedTag, this.$refs.lventwicklungtable.tabulator.getRows())
 		},
 		addWeiterentwicklung()
 		{
@@ -889,6 +893,7 @@ export default {
 				<core-filter-cmpt
 					v-if="loaded"
 					ref="lventwicklungtable"
+					:download="config?.download"
 					:newBtnShow=true
 					newBtnLabel="Neu"
 					@click:new=addRow

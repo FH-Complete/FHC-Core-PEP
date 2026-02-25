@@ -25,7 +25,7 @@ class PEP_model extends DB_Model
 
 	public function getProjectRow($studienjahr, $project_employee_id, $withZeiterfassung = true)
 	{
-		$where = " pep_projects_employees_id = ? ";
+		$where = " pepprojects.pep_projects_employees_id = ? ";
 
 		$query = $this->getProjectDataSql($where);
 
@@ -76,10 +76,26 @@ class PEP_model extends DB_Model
 				FROM campus.tbl_zeitaufzeichnung
 				WHERE tbl_zeitaufzeichnung.ende <= CURRENT_DATE AND ?
 				GROUP BY projekt_kurzbz, uid
-			 )
+			 ),
+			tag_data AS (
+				SELECT
+					DISTINCT ON (tbl_notiz.notiz_id)
+					tbl_notiz.notiz_id AS id,
+					typ_kurzbz,
+					array_to_json(tbl_notiz_typ.bezeichnung_mehrsprachig)->>0 AS beschreibung,
+					tbl_notiz.text AS notiz,
+					tbl_notiz_typ.style,
+					tbl_notiz.erledigt AS done,
+					pep_projects_employees_id
+				FROM extension.tbl_pep_projekt_notiz
+					JOIN public.tbl_notiz ON tbl_pep_projekt_notiz.notiz_id = tbl_notiz.notiz_id
+					JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
+				ORDER BY tbl_notiz.notiz_id
+			)
 			SELECT
 				ROW_NUMBER() OVER () AS row_index,
-				pep_projects_employees_id,
+				pepprojects.pep_projects_employees_id,
+				COALESCE(array_to_json(array_agg(DISTINCT(tag_data))), '[]'::json) AS tags,
 				timesheetsproject.project_id,
 				timesheetsprojectinfos.name,
 				MIN(timesheetsprojectinfos.start_date) as start_date,
@@ -169,6 +185,9 @@ class PEP_model extends DB_Model
 				LEFT JOIN sync.tbl_sap_projects_status_intern
 				ON timesheetsprojectinfos.internstatus = tbl_sap_projects_status_intern.status::text
 
+				LEFT JOIN tag_data ON tag_data.pep_projects_employees_id = pepprojects.pep_projects_employees_id
+
+
 			WHERE
 				timesheetsproject.deleted is false AND 
 				" . $where ."
@@ -185,7 +204,7 @@ class PEP_model extends DB_Model
 				av.bezeichnung,
 				dates.start,
 				dates.ende,
-				pep_projects_employees_id,
+				pepprojects.pep_projects_employees_id,
 				timesheetsproject.project_id,
 				timesheetsprojectinfos.project_id,
 				timesheetsprojectinfos.name,
@@ -199,6 +218,7 @@ class PEP_model extends DB_Model
 				aktuellges.gearbeitete_stunden,
 				tbl_sap_projects_status.description,
 				tbl_sap_projects_status_intern.status
+
 			ORDER BY timesheetsproject.project_id;
 		";
 
@@ -1126,10 +1146,33 @@ class PEP_model extends DB_Model
 		$query = "
 				". $this->_getStartCTE() .",
 				". $this->_getStudienjahrDates() . ",
-				". $this->_getZeitraumDaten() . "
+				". $this->_getZeitraumDaten() . ",
+				tag_data AS (
+					SELECT
+						DISTINCT ON (tbl_notiz.notiz_id)
+						tbl_notiz.notiz_id AS id,
+						typ_kurzbz,
+						array_to_json(tbl_notiz_typ.bezeichnung_mehrsprachig)->>0 AS beschreibung,
+						tbl_notiz.text as notiz,
+						tbl_notiz_typ.style,
+						tbl_notiz.erledigt as done,
+						kategorie_mitarbeiter_id
+					FROM
+						extension.tbl_pep_kategorie_notiz
+							JOIN public.tbl_notiz ON tbl_pep_kategorie_notiz.notiz_id = tbl_notiz.notiz_id
+							JOIN public.tbl_notiz_typ ON tbl_notiz.typ = tbl_notiz_typ.typ_kurzbz
+					ORDER BY tbl_notiz.notiz_id
+				),
+				tags_kategorie_notiz AS (
+					SELECT
+						kategorie_mitarbeiter_id,
+						array_to_json(array_agg(DISTINCT tag_data)) AS tags_json
+					FROM tag_data
+					GROUP BY kategorie_mitarbeiter_id
+				)
 				SELECT
 				ROW_NUMBER() OVER () AS row_index,
-				kategorie_mitarbeiter_id,
+				pkm.kategorie_mitarbeiter_id,
 				tbl_mitarbeiter.mitarbeiter_uid,
 				tbl_person.person_id,
 				tbl_person.vorname,
@@ -1139,13 +1182,17 @@ class PEP_model extends DB_Model
 						CASE ". implode(" ", $caseStatements) . " END
 				), 2) AS stunden,
 				pkm.anmerkung,
-				pkm.oe_kurzbz as category_oe_kurzbz
+				pkm.oe_kurzbz as category_oe_kurzbz,
+				COALESCE(tags_kategorie_notiz.tags_json, '[]'::json) AS tags
 				FROM tbl_mitarbeiter
 					JOIN tbl_benutzer ON tbl_mitarbeiter.mitarbeiter_uid = tbl_benutzer.uid
 					JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
 					LEFT JOIN zeitraumVertrag zv ON tbl_mitarbeiter.mitarbeiter_uid = zv.mitarbeiter_uid AND zv.rn = 1
 					LEFT JOIN extension.tbl_pep_kategorie_mitarbeiter pkm ON tbl_mitarbeiter.mitarbeiter_uid = pkm.mitarbeiter_uid AND pkm.studienjahr_kurzbz = ? AND pkm.kategorie_id = ?
 					LEFT JOIN extension.tbl_pep_kategorie pk ON pk.kategorie_id = pkm.kategorie_id
+
+					LEFT JOIN tags_kategorie_notiz ON tags_kategorie_notiz.kategorie_mitarbeiter_id = pkm.kategorie_mitarbeiter_id
+
 					LEFT JOIN extension.tbl_pep_kategorie_studienjahr default_pk ON
 						default_pk.kategorie_id = ? AND (
 							default_pk.gueltig_ab_studienjahr IN (
@@ -1167,7 +1214,7 @@ class PEP_model extends DB_Model
 						)
 				WHERE
 					tbl_mitarbeiter.mitarbeiter_uid IN ?
-				ORDER BY vorname, nachname, kategorie_mitarbeiter_id
+				ORDER BY vorname, nachname, pkm.kategorie_mitarbeiter_id
 		";
 
 

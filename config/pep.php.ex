@@ -53,3 +53,8 @@ $config['planungsstatus_tags'] = array('');
 
 // defines which project statuses are NOT loaded
 $config['excluded_project_status'] = array(0);
+
+// defines which tags are visible
+$config['pep_tags'] = [
+	'XX' => ['readonly' => false],
+];
