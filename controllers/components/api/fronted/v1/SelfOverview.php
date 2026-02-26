@@ -218,7 +218,7 @@ class SelfOverview extends FHCAPI_Controller
 			$this->terminateWithSuccess($result);
 
 		$this->_ci->PEPModel->addSelect('kategorie_id, array_to_json(bezeichnung_mehrsprachig::varchar[])->>'. $language. ' as beschreibung');
-		$categories = $this->_ci->PEPModel->load();
+		$categories = $this->_ci->PEPModel->loadWhere(array('aktiv' => true));
 
 		if (hasData($categories))
 		{
