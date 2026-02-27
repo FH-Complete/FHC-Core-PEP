@@ -84,10 +84,10 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						array_to_json(tbl_pep_lv_entwicklung_rolle.bezeichnung_mehrsprachig)->>0 AS rollenbeschreibung
 				FROM
 					alleLVs_distinct
-						FULL JOIN  extension.tbl_pep_lv_entwicklung using(lehrveranstaltung_id)
-						JOIN lehre.tbl_lehrveranstaltung using(lehrveranstaltung_id)
-						LEFT JOIN module USING(lehrveranstaltung_id)
-						LEFT JOIN studienplan_lvs using(lehrveranstaltung_id)
+						LEFT JOIN extension.tbl_pep_lv_entwicklung ON tbl_pep_lv_entwicklung.lehrveranstaltung_id = alleLVs_distinct.lehrveranstaltung_id AND tbl_pep_lv_entwicklung.studiensemester_kurzbz IN ?
+						JOIN lehre.tbl_lehrveranstaltung on alleLVs_distinct.lehrveranstaltung_id = tbl_lehrveranstaltung.lehrveranstaltung_id
+						LEFT JOIN module ON alleLVs_distinct.lehrveranstaltung_id = module.lehrveranstaltung_id
+						LEFT JOIN studienplan_lvs ON alleLVs_distinct.lehrveranstaltung_id =studienplan_lvs.lehrveranstaltung_id
 						LEFT JOIN tags_lv_entwicklung ON tags_lv_entwicklung.pep_lv_entwicklung_id = tbl_pep_lv_entwicklung.pep_lv_entwicklung_id
 						LEFT JOIN extension.tbl_pep_lv_entwicklung_rolle ON tbl_pep_lv_entwicklung_rolle.rolle_kurzbz = tbl_pep_lv_entwicklung.rolle_kurzbz
 						JOIN public.tbl_organisationseinheit oelv ON tbl_lehrveranstaltung.oe_kurzbz = oelv.oe_kurzbz
@@ -98,8 +98,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						LEFT JOIN public.tbl_benutzer updatevonbenutzer ON updatevonbenutzer.uid = tbl_pep_lv_entwicklung.updatevon
 						LEFT JOIN public.tbl_person updatevonperson ON updatevonperson.person_id = updatevonbenutzer.person_id
 						
-			WHERE (tbl_pep_lv_entwicklung.studiensemester_kurzbz IN ? OR tbl_pep_lv_entwicklung.pep_lv_entwicklung_id IS NULL)
-				  AND (tbl_pep_lv_entwicklung.mitarbeiter_uid IN ? OR
+			WHERE (tbl_pep_lv_entwicklung.mitarbeiter_uid IN ? OR
 						(EXISTS
 							(
 								 SELECT 1
@@ -113,7 +112,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 					)
 			";
 		$dbModel = new DB_Model();
-		return $dbModel->execReadOnlyQuery($qry, array($lv_array, $org, $recursive, $plan_array, $mitarbeiter_uids));
+		return $dbModel->execReadOnlyQuery($qry, array($lv_array, $org, $recursive, $plan_array, $plan_array, $mitarbeiter_uids));
 	}
 
 	public function getLVEntwicklungStundenByEmployee($uid, $studiensemester, $studienjahr = null)
@@ -165,7 +164,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 					)
 		";
 
-		return $this->execReadOnlyQuery($qry, array($studiensemester_lv_array, $org, $recursive));
+		return $this->execReadOnlyQuery($qry, array($studiensemester_lv_array, $org, $recursive, array('')));
 	}
 
 	public function getLVInfos($lehrveranstaltung_id)
@@ -313,6 +312,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 							SELECT 1 FROM studienplan sp
 							WHERE sp.lehrveranstaltung_id = pep.lehrveranstaltung_id
 						)
+						AND studiensemester_kurzbz IN ?
 					),
 					studienplan_lvs AS (
 						SELECT allWithoutTemplates.lehrveranstaltung_id,
