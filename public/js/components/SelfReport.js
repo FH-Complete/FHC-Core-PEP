@@ -110,6 +110,7 @@ export default {
 					{field: 'stg'},
 					{field: 'lehrform'},
 					{field: 'gruppe'},
+					{field: 'lv_oe_bezeichnung'},
 				],
 			}
 		},
@@ -198,6 +199,10 @@ export default {
 
 			cm.getColumnByField('empinfos').component.updateDefinition({
 				title: capitalize(this.$p.t('ui', 'teamlead'))
+			});
+
+			cm.getColumnByField('lv_oe_bezeichnung').component.updateDefinition({
+				title: capitalize(this.$p.t('lehre', 'organisationseinheit'))
 			});
 
 			this.preselectDate()
