@@ -3,6 +3,7 @@ import FormInput from "../../../../js/components/Form/Input.js";
 import CoreBaseLayout from '../../../../js/components/layout/BaseLayout.js';
 import {CoreFilterCmpt} from '../../../../js/components/filter/Filter.js';
 import ApiSelf from "../api/self.js";
+import { capitalize } from '../../../../js/helpers/StringHelpers.js';
 export default {
 	name: "SelfReport",
 	props: {
@@ -36,39 +37,50 @@ export default {
 			filteredLektor: [],
 			lektor_input: null,
 			showInfo: false,
+			tableReady: false
+
 
 		};
 	},
 	async created() {
-		await this.$p.loadCategory(['ui']);
+		await this.$p.loadCategory(['ui', 'global', 'lehre']);
 
 		if (this.mitarbeiter_auswahl === true)
 			this.getLektoren()
 	},
-	async mounted() {
-		if (this.mode === 'studiensemester')
-			this.selected_studiensemester = this.zeitspanne[0].studiensemester_kurzbz;
-		else
-			this.selected_studienjahr = this.zeitspanne[0].studienjahr_kurzbz;
-	},
 
 	computed: {
+		tabulatorEvents()
+		{
+			return [
+				{
+					'event': 'tableBuilt',
+					'handler': async () => {
+						await this.$p.loadCategory(['ui', 'global', 'lehre'])
+							.then(() => {
+								this.tableReady = true;
+								this.updateColumnTitles()
+							});
+					}
+				}
+			]
+		},
 		tabulatorOptions()
 		{
 			return {
+
 				columnDefaults: {
 					headerFilter: true,
 				},
 				layout: 'fitDataStretch',
 				height: '60vh',
-				selectableRows:true,
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2026_02_10_pep_self_v1",
+				persistenceID: "2026_02_26_pep_self_v1",
 				persistence: true,
 				columns: [
-					{title: 'Typ', field: 'typ'},
-					{title: 'Beschreibung', field: 'beschreibung'},
-					{title: 'Hinweis für Lehrende', field: 'info', formatter: "textarea", headerFilter: "input"},
+					{field: 'typ'},
+					{field: 'beschreibung'},
+					{field: 'info', formatter: "textarea", headerFilter: "input"},
 					{title: '-', field: 'stunden', bottomCalc: "sum",
 						formatter: function (cell, formatterParams, onRendered)
 						{
@@ -82,8 +94,8 @@ export default {
 						bottomCalcParams: {precision: 2},
 					},
 
-					{title: 'Team / Lead', field: 'empinfos', formatter: "textarea", headerFilter: "input"},
-					{title: 'Lead', field: 'lead',
+					{field: 'empinfos', formatter: "textarea", headerFilter: "input"},
+					{field: 'lead',
 						formatter: function (cell) {
 							let value = cell.getValue();
 							if (value === undefined)
@@ -94,11 +106,11 @@ export default {
 								return "Nein";
 						}
 					},
-					{title: 'geplanter Zeitraum', field: 'zeit'},
-					{title: 'Studiengang', field: 'stg'},
-					{title: 'Lehrform', field: 'lehrform'},
-					{title: 'Gruppe', field: 'gruppe'},
-
+					{field: 'zeit'},
+					{field: 'stg'},
+					{field: 'lehrform'},
+					{field: 'gruppe'},
+					{field: 'lv_oe_bezeichnung'},
 				],
 			}
 		},
@@ -106,7 +118,7 @@ export default {
 	watch: {
 		selected_studienjahr: {
 			handler(newValue, oldValue) {
-				if (newValue !== oldValue)
+				if (newValue !== oldValue && this.tableReady)
 				{
 					if (this.mitarbeiter_auswahl && this.mitarbeiter_auswahl_reload)
 						this.getLektoren();
@@ -119,7 +131,7 @@ export default {
 		},
 		selected_studiensemester: {
 			handler(newValue, oldValue) {
-				if (newValue !== oldValue)
+				if (newValue !== oldValue && this.tableReady)
 				{
 					if (this.mitarbeiter_auswahl && this.mitarbeiter_auswahl_reload)
 						this.getLektoren();
@@ -132,7 +144,7 @@ export default {
 		},
 		selected_lektor: {
 			handler(newValue, oldValue) {
-				if (newValue !== oldValue)
+				if (newValue !== oldValue && this.tableReady)
 				{
 					this.loadData();
 				}
@@ -147,8 +159,67 @@ export default {
 		CoreFilterCmpt
 	},
 	methods: {
+		updateColumnTitles() {
+			const table = this.$refs.selfTable?.tabulator;
+			if (!table || !this.tableReady)
+				return;
+
+			table.clearSort();
+
+			let cm = table.columnManager;
+
+			cm.getColumnByField('typ').component.updateDefinition({
+				title: capitalize(this.$p.t('global', 'typ'))
+			});
+			cm.getColumnByField('beschreibung').component.updateDefinition({
+				title: capitalize(this.$p.t('global', 'beschreibung'))
+			});
+			cm.getColumnByField('info').component.updateDefinition({
+				title: capitalize(this.$p.t('ui', 'hinweisLehrende'))
+			});
+
+			cm.getColumnByField('zeit').component.updateDefinition({
+				title: capitalize(this.$p.t('ui', 'geplZeitraum'))
+			});
+
+			cm.getColumnByField('stg').component.updateDefinition({
+				title: capitalize(this.$p.t('lehre', 'studiengang'))
+			});
+
+			cm.getColumnByField('lehrform').component.updateDefinition({
+				title: capitalize(this.$p.t('lehre', 'lehrform'))
+			});
+
+			cm.getColumnByField('gruppe').component.updateDefinition({
+				title: capitalize(this.$p.t('lehre', 'gruppe'))
+			});
+			cm.getColumnByField('lead').component.updateDefinition({
+				title: capitalize(this.$p.t('ui', 'lead'))
+			});
+
+			cm.getColumnByField('empinfos').component.updateDefinition({
+				title: capitalize(this.$p.t('ui', 'teamlead'))
+			});
+
+			cm.getColumnByField('lv_oe_bezeichnung').component.updateDefinition({
+				title: capitalize(this.$p.t('lehre', 'organisationseinheit'))
+			});
+
+			this.preselectDate()
+		},
+		preselectDate()
+		{
+			if (this.mode === 'studiensemester')
+				this.selected_studiensemester = this.zeitspanne[0].studiensemester_kurzbz;
+			else
+				this.selected_studienjahr = this.zeitspanne[0].studienjahr_kurzbz;
+		},
 		async loadData()
 		{
+			const table = this.$refs.selfTable?.tabulator;
+			if (!table || !this.tableReady)
+				return;
+
 			let studienjahr = this.selected_studienjahr;
 			let studiensemester = this.selected_studiensemester;
 
@@ -169,12 +240,12 @@ export default {
 				.then(response => {
 					if (response.data.length === 0)
 					{
-						this.$fhcAlert.alertInfo("Keine Daten vorhanden");
+						this.$fhcAlert.alertInfo(this.$p.t('ui', 'keineDatenVorhanden'));
 						this.$refs.selfTable.tabulator.setData([]);
 					}
 					else
 					{
-						let title = 'Lehreinheiten'
+						let title = capitalize(this.$p.t('ui', 'lehreinheiten'))
 						if (response.data.config.echterdv !== true)
 						{
 							let columns = this.$refs.selfTable.tabulator.getColumns();
@@ -183,7 +254,7 @@ export default {
 							if (!ectsColumn)
 							{
 								let column = {
-									title: 'ECTS',
+									title:  capitalize(this.$p.t('lehre', 'ects')),
 									field: 'ects',
 									bottomCalc: "sum",
 									formatter: function (cell, formatterParams, onRendered)
@@ -208,7 +279,7 @@ export default {
 						}
 						else
 						{
-							title = 'Stunden';
+							title = capitalize(this.$p.t('ui', 'stunden'));
 							let columns = this.$refs.selfTable.tabulator.getColumns();
 							let ectsColumn = columns.some(c => c.getField() === "ects");
 							if (ectsColumn)
@@ -218,7 +289,7 @@ export default {
 
 							let anmerkungColumn = columns.some(c => c.getField() === "anmerkung");
 							if (!anmerkungColumn)
-								this.$refs.selfTable.tabulator.addColumn({title: 'Anmerkung', field: 'anmerkung'}, false, "beschreibung");
+								this.$refs.selfTable.tabulator.addColumn({title: capitalize(this.$p.t('global', 'anmerkung')), field: 'anmerkung'}, false, "beschreibung");
 						}
 
 						this.$refs.selfTable.tabulator.updateColumnDefinition('stunden', { title: title });
@@ -278,14 +349,10 @@ export default {
 				<div class="row">
 					<div class="col-12">
 						<h4 class="page-header">
-						Ausblick auf Ihre mögliche LV-Planung
+						{{ $p.t('ui', 'ausblick_lvplanung') }}
 						<i class="fa fa-info-circle ml-2" @click="showInfo = !showInfo"></i>
 						</h4>
-						<div v-if="showInfo" class="alert alert-info mt-2">
-							<b>Achtung:</b> die vorliegenden Informationen stellen eine Vorabplanung dar und sind als Anfrage an Sie gedacht. <br /> <br />
-							Die Beauftragung der tatsächlichen Lehrveranstaltungen erfolgt durch Ihre Kompetenzfeldleitung. <br /> <br />
-							Ihre aktuell gültigen Lehraufträge und den LV Plan des aktuellen Semesters (Termine) finden Sie wie gewohnt unter „mein CIS“ -> „LV-Plan Hauptmenü“ bzw. „Lehrauftragsverwaltung“.
-						</div>
+						<div v-if="showInfo" class="alert alert-info mt-2" v-html="$p.t('ui', 'detailselfoverview')"/>
 					</div>
 				</div>
 				<hr />
@@ -299,7 +366,7 @@ export default {
 								:label="$p.t('lehre', 'studienjahr')"
 								v-model="selected_studienjahr"
 							>
-								<option :value="null">Bitte auswählen</option>
+								<option :value="null">{{ $p.t('ui', 'bitteAuswaehlen') }}</option>
 								<option
 									v-for="studienjahr in zeitspanne"
 									:key="studienjahr.studienjahr_kurzbz"
@@ -316,7 +383,7 @@ export default {
 								:label="$p.t('lehre', 'studiensemester')"
 								v-model="selected_studiensemester"
 							>
-								<option :value="null">Bitte auswählen</option>
+								<option :value="null">{{ $p.t('ui', 'bitteAuswaehlen') }}</option>
 								<option
 									v-for="studiensemester in zeitspanne"
 									:key="studiensemester.studiensemester_kurzbz"
@@ -334,9 +401,9 @@ export default {
 						<form-input
 							type="autocomplete"
 							v-if="mitarbeiter_auswahl"
-							:label="$p.t('lehre', 'lektor')"
+							:label="($p.t('lehre', 'lektor'))"
 							:suggestions="filteredLektor"
-							placeholder="Mitarbeiter auswählen"
+							:placeholder="$p.t('ui', 'bitteAuswaehlen')"
 							field="label"
 							v-model="lektor_input"
 							@complete="searchLektor"
@@ -358,8 +425,8 @@ export default {
 						<span style="color: red" v-if="mitarbeiter_auswahl && selected_lektor"> {{ selected_lektor_anzeige }}</span>
 						<core-filter-cmpt
 							ref="selfTable"
-							:tableOnly=false
 							:tabulator-options="tabulatorOptions"
+							:tabulator-events="tabulatorEvents"
 							:table-only=true
 							:side-menu="false"
 						>

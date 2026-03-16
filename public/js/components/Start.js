@@ -80,7 +80,6 @@ export default {
 			return {
 				layout: 'fitDataStretch',
 				height: '60vh',
-				selectableRows:true,
 				placeholder: "Keine Daten verfügbar",
 				rowFormatter: function(row) {
 					let data = row.getData();
