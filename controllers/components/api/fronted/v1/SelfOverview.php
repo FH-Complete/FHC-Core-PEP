@@ -167,6 +167,7 @@ class SelfOverview extends FHCAPI_Controller
 					'lehrform' => $lehrauftrag->lehrform_kurzbz,
 					'gruppe' => $lehrauftrag->gruppe,
 					'info' => $this->_filterTags($lehrauftrag->tags),
+					'lv_oe_bezeichnung' => $lehrauftrag->lv_oe_bezeichnung,
 				);
 			}
 		}
@@ -186,6 +187,7 @@ class SelfOverview extends FHCAPI_Controller
 						'lehrform' => $data->lv_lehrform_kurzbz,
 						'gruppe' => null,
 						'info' => $this->_filterTags($data->tags),
+						'lv_oe_bezeichnung' => $data->lv_oe_bezeichnung,
 					);
 
 					if ($data->rolle_kurzbz === 'lead')
@@ -218,7 +220,7 @@ class SelfOverview extends FHCAPI_Controller
 			$this->terminateWithSuccess($result);
 
 		$this->_ci->PEPModel->addSelect('kategorie_id, array_to_json(bezeichnung_mehrsprachig::varchar[])->>'. $language. ' as beschreibung');
-		$categories = $this->_ci->PEPModel->load();
+		$categories = $this->_ci->PEPModel->loadWhere(array('aktiv' => true));
 
 		if (hasData($categories))
 		{

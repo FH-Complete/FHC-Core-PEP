@@ -753,7 +753,12 @@ class PEP_model extends DB_Model
 			tbl_lehreinheitmitarbeiter.planstunden AS lv_plan_stunden,
 			zv.relevante_vertragsart,
 			array_to_json(array_agg(DISTINCT(tag_data))) AS tags,
-			array_to_json(array_agg(DISTINCT(tag_status_data))) AS tagstatus
+			array_to_json(array_agg(DISTINCT(tag_status_data))) AS tagstatus,
+			CASE
+				WHEN oelv.organisationseinheittyp_kurzbz = 'Kompetenzfeld' THEN ('KF ' || oelv.bezeichnung)
+				WHEN oelv.organisationseinheittyp_kurzbz = 'Department' THEN ('DEP ' || oelv.bezeichnung)
+				ELSE (oelv.organisationseinheittyp_kurzbz || ' ' || oelv.bezeichnung)
+			END AS lv_oe_bezeichnung
 		FROM
 			lehre.tbl_lehreinheit
 			JOIN lehre.tbl_lehrveranstaltung USING (lehrveranstaltung_id)
@@ -764,6 +769,7 @@ class PEP_model extends DB_Model
 			JOIN tbl_benutzer ON tbl_mitarbeiter.mitarbeiter_uid = tbl_benutzer.uid
 			JOIN tbl_person ON tbl_benutzer.person_id = tbl_person.person_id
 			JOIN tbl_organisationseinheit lv_org ON lv_org.oe_kurzbz = lehrfach.oe_kurzbz
+			JOIN public.tbl_organisationseinheit oelv ON tbl_lehrveranstaltung.oe_kurzbz = oelv.oe_kurzbz
 			LEFT JOIN zeitraumVertrag zv ON tbl_mitarbeiter.mitarbeiter_uid = zv.mitarbeiter_uid AND zv.rn = 1
 			LEFT JOIN
 			(
@@ -849,6 +855,8 @@ class PEP_model extends DB_Model
 				tbl_lehreinheit.lehrveranstaltung_id,
 				tbl_lehrveranstaltung.bezeichnung,
 				tbl_lehrveranstaltung.oe_kurzbz,
+				oelv.organisationseinheittyp_kurzbz,
+				oelv.bezeichnung,
 				tbl_lehrveranstaltung.orgform_kurzbz,
 				tbl_lehrveranstaltung.lehrveranstaltung_id,
 				tbl_lehreinheit.studiensemester_kurzbz,
