@@ -7,24 +7,26 @@ import { capitalize } from '../../../../js/helpers/StringHelpers.js';
 export default {
 	name: "SelfReport",
 	props: {
+		viewData: {
+			type: Object,
+			default: () => ({})
+		},
 		zeitspanne: {
 			type: Array,
-			required: true
+			default: () => []
 		},
 		mitarbeiter_auswahl: {
 			type: Boolean,
-			required: true
+			default: false
 		},
 		mitarbeiter_auswahl_reload: {
 			type: Boolean,
-			required: true
+			default: false
 		},
 		mode: {
 			type: String,
-			required: true
+			default: 'studienjahre'
 		},
-
-
 	},
 	data: function() {
 		return {
@@ -45,11 +47,26 @@ export default {
 	async created() {
 		await this.$p.loadCategory(['ui', 'global', 'lehre']);
 
-		if (this.mitarbeiter_auswahl === true)
+		if (this.cMitarbeiterAuswahl === true)
 			this.getLektoren()
 	},
-
 	computed: {
+		cZeitspanne()
+		{
+			return this.viewData?.zeitspanne ?? this.zeitspanne
+		},
+		cMitarbeiterAuswahl()
+		{
+			return this.viewData?.mitarbeiter_auswahl ?? this.mitarbeiter_auswahl
+		},
+		cMitarbeiterAuswahlReload()
+		{
+			return this.viewData?.mitarbeiter_auswahl_reload ?? this.mitarbeiter_auswahl_reload
+		},
+		cMode()
+		{
+			return this.viewData?.mode ?? this.mode
+		},
 		tabulatorEvents()
 		{
 			return [
@@ -120,7 +137,7 @@ export default {
 			handler(newValue, oldValue) {
 				if (newValue !== oldValue && this.tableReady)
 				{
-					if (this.mitarbeiter_auswahl && this.mitarbeiter_auswahl_reload)
+					if (this.cMitarbeiterAuswahl && this.cMitarbeiterAuswahlReload)
 						this.getLektoren();
 					if (!newValue)
 						return this.$refs.selfTable.tabulator.setData([]);
@@ -133,7 +150,7 @@ export default {
 			handler(newValue, oldValue) {
 				if (newValue !== oldValue && this.tableReady)
 				{
-					if (this.mitarbeiter_auswahl && this.mitarbeiter_auswahl_reload)
+					if (this.cMitarbeiterAuswahl && this.cMitarbeiterAuswahlReload)
 						this.getLektoren();
 					if (!newValue)
 						return this.$refs.selfTable.tabulator.setData([]);
@@ -177,30 +194,24 @@ export default {
 			cm.getColumnByField('info').component.updateDefinition({
 				title: capitalize(this.$p.t('ui', 'hinweisLehrende'))
 			});
-
 			cm.getColumnByField('zeit').component.updateDefinition({
 				title: capitalize(this.$p.t('ui', 'geplZeitraum'))
 			});
-
 			cm.getColumnByField('stg').component.updateDefinition({
 				title: capitalize(this.$p.t('lehre', 'studiengang'))
 			});
-
 			cm.getColumnByField('lehrform').component.updateDefinition({
 				title: capitalize(this.$p.t('lehre', 'lehrform'))
 			});
-
 			cm.getColumnByField('gruppe').component.updateDefinition({
 				title: capitalize(this.$p.t('lehre', 'gruppe'))
 			});
 			cm.getColumnByField('lead').component.updateDefinition({
 				title: capitalize(this.$p.t('ui', 'lead'))
 			});
-
 			cm.getColumnByField('empinfos').component.updateDefinition({
 				title: capitalize(this.$p.t('ui', 'teamlead'))
 			});
-
 			cm.getColumnByField('lv_oe_bezeichnung').component.updateDefinition({
 				title: capitalize(this.$p.t('lehre', 'organisationseinheit'))
 			});
@@ -209,10 +220,10 @@ export default {
 		},
 		preselectDate()
 		{
-			if (this.mode === 'studiensemester')
-				this.selected_studiensemester = this.zeitspanne[0].studiensemester_kurzbz;
+			if (this.cMode === 'studiensemester')
+				this.selected_studiensemester = this.cZeitspanne[0].studiensemester_kurzbz;
 			else
-				this.selected_studienjahr = this.zeitspanne[0].studienjahr_kurzbz;
+				this.selected_studienjahr = this.cZeitspanne[0].studienjahr_kurzbz;
 		},
 		async loadData()
 		{
@@ -227,14 +238,14 @@ export default {
 
 			if (!studienjahr && !studiensemester)
 				return;
-			if (this.mitarbeiter_auswahl)
+			if (this.cMitarbeiterAuswahl)
 				uid = this.selected_lektor
 			this.$refs.loader.show()
 
 			let data = {
 				zeitspanne: studienjahr || studiensemester,
 				uid,
-				mode: this.mode
+				mode: this.cMode
 			};
 			await this.$api.call(ApiSelf.getSelf(data))
 				.then(response => {
@@ -359,7 +370,7 @@ export default {
 			
 				<div class="row">
 					<div class="col-md-2">
-						<div v-if="mode === 'studienjahre' || mitarbeiter_auswahl">
+						<div v-if="cMode === 'studienjahre' || cMitarbeiterAuswahl">
 							<form-input
 								type="select"
 								name="studienjahr"
@@ -368,7 +379,7 @@ export default {
 							>
 								<option :value="null">{{ $p.t('ui', 'bitteAuswaehlen') }}</option>
 								<option
-									v-for="studienjahr in zeitspanne"
+									v-for="studienjahr in cZeitspanne"
 									:key="studienjahr.studienjahr_kurzbz"
 									:value="studienjahr.studienjahr_kurzbz"
 								>
@@ -376,7 +387,7 @@ export default {
 								</option>
 							</form-input>
 						</div> 
-						<div v-else-if="mode === 'studiensemester'">
+						<div v-else-if="cMode === 'studiensemester'">
 							<form-input
 								type="select"
 								name="studiensemester"
@@ -385,7 +396,7 @@ export default {
 							>
 								<option :value="null">{{ $p.t('ui', 'bitteAuswaehlen') }}</option>
 								<option
-									v-for="studiensemester in zeitspanne"
+									v-for="studiensemester in cZeitspanne"
 									:key="studiensemester.studiensemester_kurzbz"
 									:value="studiensemester.studiensemester_kurzbz"
 								>
@@ -393,14 +404,12 @@ export default {
 								</option>
 							</form-input>
 						</div>
-					
 					</div>
 					
-					
-					<div class="col-md-3" v-if="mitarbeiter_auswahl">
+					<div class="col-md-3" v-if="cMitarbeiterAuswahl">
 						<form-input
 							type="autocomplete"
-							v-if="mitarbeiter_auswahl"
+							v-if="cMitarbeiterAuswahl"
 							:label="($p.t('lehre', 'lektor'))"
 							:suggestions="filteredLektor"
 							:placeholder="$p.t('ui', 'bitteAuswaehlen')"
@@ -421,8 +430,7 @@ export default {
 				
 				<core-base-layout>
 					<template #main>
-					
-						<span style="color: red" v-if="mitarbeiter_auswahl && selected_lektor"> {{ selected_lektor_anzeige }}</span>
+						<span style="color: red" v-if="cMitarbeiterAuswahl && selected_lektor"> {{ selected_lektor_anzeige }}</span>
 						<core-filter-cmpt
 							ref="selfTable"
 							:tabulator-options="tabulatorOptions"
@@ -439,7 +447,6 @@ export default {
 		</div>
 	</div>
 	<fhc-loader ref="loader" :timeout="0"></fhc-loader>
-	
 `
 };
 

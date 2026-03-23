@@ -93,9 +93,15 @@ class PEP extends Auth_Controller
 		];
 
 
-		$this->load->view('extensions/FHC-Core-PEP/self.php',
-			$data
-		);
+		if(defined('CIS4') && CIS4)
+		{
+			$this->load->view('CisRouterView/CisRouterView.php', ['viewData' => $data, 'route' => 'PEPSelfReport']);
+		}
+		else
+		{
+			$this->load->view('extensions/FHC-Core-PEP/self.php', $data);
+		}
+
 	}
 
 }
