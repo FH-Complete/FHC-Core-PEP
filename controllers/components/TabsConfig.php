@@ -63,7 +63,7 @@ class TabsConfig extends FHCAPI_Controller
 			$tabs['lv_entwicklung_new'] = array (
 				'title' =>  'LV-Entwicklung',
 				'component' => absoluteJsImportUrl('public/extensions/FHC-Core-PEP/js/components/LVEntwicklung.js'),
-				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true,  'allow_volume_edit_contracts' => $this->_ci->config->item('lventwicklung_allow_ects_volume_edit'), 'download' => $this->_ci->permissionlib->isBerechtigt('extension/pep_export')],
+				'config' => ['studiensemester' => true, 'dropdowns' => true, 'reload' => true,  'allow_volume_edit_contracts' => $this->_ci->config->item('lventwicklung_allow_ects_volume_edit'), 'allow_both_edit_contracts' => $this->_ci->config->item('lventwicklung_allow_both_edit_contracts'), 'download' => $this->_ci->permissionlib->isBerechtigt('extension/pep_export')],
 			);
 		};
 

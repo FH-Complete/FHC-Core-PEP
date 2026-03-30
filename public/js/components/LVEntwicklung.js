@@ -235,11 +235,10 @@ export default {
 						editable: (cell) => {
 							const rowData = cell.getRow().getData();
 							const vertragsListe = (rowData.zrm_vertraege_kurzbz || '').split('\n');
-							const editable = vertragsListe.every(
-								vertrag => !this.config.allow_volume_edit_contracts.includes(vertrag)
-							);
+							const istBothEditVertrag = vertragsListe.some(v => this.config.allow_both_edit_contracts.includes(v));
+							const editable = !istBothEditVertrag && vertragsListe.every(v => !this.config.allow_volume_edit_contracts.includes(v));
 							const stundenvorhanden = !!cell.getValue();
-							return !!rowData.mitarbeiter_uid && (editable || stundenvorhanden);
+							return !!rowData.mitarbeiter_uid && (editable || (istBothEditVertrag && (stundenvorhanden || !rowData.werkvertrag_ects)));
 						},
 						bottomCalc: "sum",
 						hozAlign: "right",
@@ -371,8 +370,10 @@ export default {
 						editable: (cell) => {
 							const rowData = cell.getRow().getData();
 							const vertragsListe = (rowData.zrm_vertraege_kurzbz || '').split('\n');
+							const istBothEditVertrag = vertragsListe.some(v => this.config.allow_both_edit_contracts.includes(v));
+							const istVolumeVertrag = !istBothEditVertrag && vertragsListe.some(v => this.config.allow_volume_edit_contracts.includes(v));
 							const ectsvorhanden = !!cell.getValue();
-							return !!rowData.mitarbeiter_uid && (vertragsListe.some(vertrag => this.config.allow_volume_edit_contracts.includes(vertrag)) || ectsvorhanden);
+							return !!rowData.mitarbeiter_uid && (istVolumeVertrag || (istBothEditVertrag && (ectsvorhanden || !rowData.stunden)));
 						},
 						bottomCalc: "sum",
 						hozAlign: "right",

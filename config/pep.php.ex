@@ -21,6 +21,9 @@ $config['category_columns'] = 'studienjahr';
 // determines if the "Werkvertragsvolumen in ECTS" field is editable based on the person's contract type
 $config['lventwicklung_allow_ects_volume_edit'] = array('');
 
+// determines if the "hours" and the "Werkvertragsvolumen in ECTS" fields are editable based on the person's contract type
+$config['lventwicklung_allow_both_edit_contracts'] = array('');
+
 // determines which employees are displayed based on their assigned function types
 $config['relevant_function_types'] = array();
 
