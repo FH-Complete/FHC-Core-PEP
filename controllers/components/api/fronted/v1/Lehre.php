@@ -51,6 +51,7 @@ class Lehre extends FHCAPI_Controller
 	// Public methods
 	public function getLehre()
 	{
+		ini_set('memory_limit', '256M');
 		$org = $this->_ci->input->get('org');
 		$studiensemester = $this->_ci->input->get('semester');
 		$recursive = $this->_ci->input->get('recursive');
