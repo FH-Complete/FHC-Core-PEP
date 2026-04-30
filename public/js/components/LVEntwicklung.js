@@ -102,7 +102,7 @@ export default {
 						}
 					});
 				},
-				persistenceID: "2026_02_05_v1_pep_lventwicklung",
+				persistenceID: "2026_04_29_v1_pep_lventwicklung",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -192,7 +192,8 @@ export default {
 						},
 
 					},
-					{title: 'STG', field: 'stg_kuerzel', headerFilter: true},
+					{title: 'STG', field: 'stg_kuerzel', headerFilter: "input", width: 70, formatter:"textarea"},
+					{title: 'Studienordnung ', field: 'studienordnung', visible: false, headerFilter: "input", width: 170, formatter:"textarea"},
 					{
 						title: 'Lehrveranstaltung',
 						field: 'lvbezeichnung',

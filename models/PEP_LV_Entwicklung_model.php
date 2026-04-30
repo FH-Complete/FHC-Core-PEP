@@ -67,8 +67,7 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						tbl_lehrveranstaltung.lehrform_kurzbz as lv_lehrform_kurzbz,
 						tbl_lehrveranstaltung.ects as lv_ects,
 
-						 ". $this->_getSTGSelect() .", ".
-						$this->_getOEBezeichnungSelect() . ", 
+						 ". $this->_getOEBezeichnungSelect() . ",
 						 
 						COALESCE(tags_lv_entwicklung.tags_json, '[]'::json) AS tags,
 						CASE WHEN tbl_lehrveranstaltung.lehrtyp_kurzbz = 'tpl' THEN true ELSE false END as istemplate,
@@ -77,10 +76,10 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						module.bezeichnung as modulbezeichnung,
 						tbl_pep_lv_entwicklung.insertamum as insertamum,
 						tbl_pep_lv_entwicklung.updateamum as updateamum,
-						
+						COALESCE(studienplan_ids_tpl.studienordnung, studienplan_ids.studienordnung) as studienordnung,
+						COALESCE(studienplan_ids_tpl.stg_kuerzel, studienplan_ids.stg_kuerzel) as stg_kuerzel,
 						(insertvonperson.vorname || ' ' || insertvonperson.nachname || ' ' || '(' || insertvonbenutzer.uid || ')') as insertvon,
 						(updatevonperson.vorname || ' ' || updatevonperson.nachname || ' ' || '(' || updatevonbenutzer.uid || ')') as updatevon,
-						
 						array_to_json(tbl_pep_lv_entwicklung_rolle.bezeichnung_mehrsprachig)->>0 AS rollenbeschreibung
 				FROM
 					alleLVs_distinct
@@ -97,7 +96,10 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						
 						LEFT JOIN public.tbl_benutzer updatevonbenutzer ON updatevonbenutzer.uid = tbl_pep_lv_entwicklung.updatevon
 						LEFT JOIN public.tbl_person updatevonperson ON updatevonperson.person_id = updatevonbenutzer.person_id
-						
+
+						LEFT JOIN studienplan_ids ON studienplan_ids.lehrveranstaltung_id = tbl_lehrveranstaltung.lehrveranstaltung_id AND tbl_lehrveranstaltung.lehrtyp_kurzbz != 'tpl'
+						LEFT JOIN studienplan_ids_tpl ON studienplan_ids_tpl.lehrveranstaltung_id = tbl_lehrveranstaltung.lehrveranstaltung_id AND tbl_lehrveranstaltung.lehrtyp_kurzbz = 'tpl'
+
 			WHERE (tbl_pep_lv_entwicklung.mitarbeiter_uid IN ? OR
 						(EXISTS
 							(
@@ -347,6 +349,36 @@ class PEP_LV_Entwicklung_model extends DB_Model
 						
 						SELECT *
 						FROM studienplan_lvs
+					),
+					studienplan_alle AS (
+						SELECT
+							tbl_studienordnung.bezeichnung,
+							tbl_studienplan_lehrveranstaltung.lehrveranstaltung_id,
+							upper(tbl_studiengang.typ::varchar(1) || tbl_studiengang.kurzbz) as stg_kuerzel
+						FROM lehre.tbl_studienplan
+							JOIN lehre.tbl_studienordnung USING(studienordnung_id)
+							JOIN public.tbl_studiengang USING(studiengang_kz)
+							JOIN lehre.tbl_studienplan_semester ON tbl_studienplan.studienplan_id = tbl_studienplan_semester.studienplan_id
+							JOIN lehre.tbl_studienplan_lehrveranstaltung ON tbl_studienplan.studienplan_id = tbl_studienplan_lehrveranstaltung.studienplan_id 
+							AND tbl_studienplan_semester.semester = tbl_studienplan_lehrveranstaltung.semester
+					),
+					studienplan_ids AS (
+						SELECT
+							lehrveranstaltung_id,
+							STRING_AGG(DISTINCT bezeichnung, ' ') as studienordnung,
+							STRING_AGG(DISTINCT stg_kuerzel, ' ') as stg_kuerzel
+						FROM studienplan_alle
+						GROUP BY lehrveranstaltung_id
+					),
+					studienplan_ids_tpl AS (
+						SELECT
+							lehrveranstaltung_template_id as lehrveranstaltung_id,
+							STRING_AGG(DISTINCT sa.bezeichnung, ' ') as studienordnung,
+							STRING_AGG(DISTINCT sa.stg_kuerzel, ' ') as stg_kuerzel
+						FROM studienplan_alle sa
+							JOIN lehre.tbl_lehrveranstaltung USING(lehrveranstaltung_id)
+						WHERE lehrveranstaltung_template_id IS NOT NULL
+						GROUP BY lehrveranstaltung_template_id
 					),
 					alleLVs_distinct AS (
 						SELECT DISTINCT ON (lehrveranstaltung_id)
