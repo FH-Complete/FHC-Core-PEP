@@ -95,7 +95,10 @@ class PEP_model extends DB_Model
 			SELECT
 				ROW_NUMBER() OVER () AS row_index,
 				pepprojects.pep_projects_employees_id,
-				COALESCE(array_to_json(array_agg(DISTINCT(tag_data))), '[]'::json) AS tags,
+				COALESCE(
+				array_to_json(
+					array_agg(DISTINCT tag_data) FILTER (WHERE tag_data.id IS NOT NULL)
+				),'[]'::json) AS tags,
 				timesheetsproject.project_id,
 				timesheetsprojectinfos.name,
 				MIN(timesheetsprojectinfos.start_date) as start_date,
@@ -752,8 +755,14 @@ class PEP_model extends DB_Model
 			tbl_lehreinheitmitarbeiter.lehrfunktion_kurzbz,
 			tbl_lehreinheitmitarbeiter.planstunden AS lv_plan_stunden,
 			zv.relevante_vertragsart,
-			array_to_json(array_agg(DISTINCT(tag_data))) AS tags,
-			array_to_json(array_agg(DISTINCT(tag_status_data))) AS tagstatus,
+			COALESCE(
+				array_to_json(
+					array_agg(DISTINCT tag_data) FILTER (WHERE tag_data.id IS NOT NULL)
+			),'[]'::json) AS tags,
+			COALESCE(
+				array_to_json(
+					array_agg(DISTINCT tag_status_data) FILTER (WHERE tag_status_data.id IS NOT NULL)
+			),'[]'::json) AS tagstatus,
 			CASE
 				WHEN oelv.organisationseinheittyp_kurzbz = 'Kompetenzfeld' THEN ('KF ' || oelv.bezeichnung)
 				WHEN oelv.organisationseinheittyp_kurzbz = 'Department' THEN ('DEP ' || oelv.bezeichnung)
