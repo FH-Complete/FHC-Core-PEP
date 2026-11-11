@@ -65,23 +65,42 @@ export default {
 				}
 			]
 		},
+		generalPresets()
+		{
+			return [{
+				id: null,
+				name: "Standard",
+				displayedColumns: this.tabulatorOptions.columns
+					.filter(column => column.field && column.visible !== false)
+					.map(column => column.field),
+				headerFilters: [],
+				sort: null,
+			}];
+		},
 		tabulatorOptions()
 		{
 			return {
-
+				locale: true,
 				columnDefaults: {
 					headerFilter: true,
 				},
 				layout: 'fitDataStretch',
 				height: '60vh',
 				placeholder: "Keine Daten verfügbar",
-				persistenceID: "2026_02_26_pep_self_v1",
-				persistence: true,
+				persistenceID: "2026_11_11_pep_self_v2",
+				persistence: {
+					sort: true,
+					filter: true,
+					headerFilter: true,
+					group: true,
+					page: true,
+					columns: true,
+				},
 				columns: [
-					{field: 'typ'},
-					{field: 'beschreibung'},
-					{field: 'info', formatter: "textarea", headerFilter: "input"},
-					{title: '-', field: 'stunden', bottomCalc: "sum",
+					{titlePhrase: 'global/typ', field: 'typ'},
+					{titlePhrase: 'global/beschreibung', field: 'beschreibung'},
+					{titlePhrase: 'ui/hinweisLehrende', field: 'info', formatter: "textarea", headerFilter: "input"},
+					{titlePhrase: 'ui/lehreinheiten', field: 'stunden', headerFilter: false, bottomCalc: "sum",
 						formatter: function (cell, formatterParams, onRendered)
 						{
 							let value = cell.getValue();
@@ -94,8 +113,8 @@ export default {
 						bottomCalcParams: {precision: 2},
 					},
 
-					{field: 'empinfos', formatter: "textarea", headerFilter: "input"},
-					{field: 'lead',
+					{titlePhrase: 'ui/teamlead', field: 'empinfos', formatter: "textarea", headerFilter: "input"},
+					{titlePhrase: 'ui/lead', field: 'lead',
 						formatter: function (cell) {
 							let value = cell.getValue();
 							if (value === undefined)
@@ -106,11 +125,11 @@ export default {
 								return "Nein";
 						}
 					},
-					{field: 'zeit'},
-					{field: 'stg'},
-					{field: 'lehrform'},
-					{field: 'gruppe'},
-					{field: 'lv_oe_bezeichnung'},
+					{titlePhrase: 'ui/geplZeitraum', field: 'zeit'},
+					{titlePhrase: 'lehre/studiengang', field: 'stg'},
+					{titlePhrase: 'lehre/lehrform', field: 'lehrform'},
+					{titlePhrase: 'lehre/gruppe', field: 'gruppe'},
+					{titlePhrase: 'lehre/organisationseinheit', field: 'lv_oe_bezeichnung'},
 				],
 			}
 		},
@@ -160,51 +179,6 @@ export default {
 	},
 	methods: {
 		updateColumnTitles() {
-			const table = this.$refs.selfTable?.tabulator;
-			if (!table || !this.tableReady)
-				return;
-
-			table.clearSort();
-
-			let cm = table.columnManager;
-
-			cm.getColumnByField('typ').component.updateDefinition({
-				title: capitalize(this.$p.t('global', 'typ'))
-			});
-			cm.getColumnByField('beschreibung').component.updateDefinition({
-				title: capitalize(this.$p.t('global', 'beschreibung'))
-			});
-			cm.getColumnByField('info').component.updateDefinition({
-				title: capitalize(this.$p.t('ui', 'hinweisLehrende'))
-			});
-
-			cm.getColumnByField('zeit').component.updateDefinition({
-				title: capitalize(this.$p.t('ui', 'geplZeitraum'))
-			});
-
-			cm.getColumnByField('stg').component.updateDefinition({
-				title: capitalize(this.$p.t('lehre', 'studiengang'))
-			});
-
-			cm.getColumnByField('lehrform').component.updateDefinition({
-				title: capitalize(this.$p.t('lehre', 'lehrform'))
-			});
-
-			cm.getColumnByField('gruppe').component.updateDefinition({
-				title: capitalize(this.$p.t('lehre', 'gruppe'))
-			});
-			cm.getColumnByField('lead').component.updateDefinition({
-				title: capitalize(this.$p.t('ui', 'lead'))
-			});
-
-			cm.getColumnByField('empinfos').component.updateDefinition({
-				title: capitalize(this.$p.t('ui', 'teamlead'))
-			});
-
-			cm.getColumnByField('lv_oe_bezeichnung').component.updateDefinition({
-				title: capitalize(this.$p.t('lehre', 'organisationseinheit'))
-			});
-
 			this.preselectDate()
 		},
 		preselectDate()
@@ -256,6 +230,7 @@ export default {
 								let column = {
 									title:  capitalize(this.$p.t('lehre', 'ects')),
 									field: 'ects',
+									headerFilter: false,
 									bottomCalc: "sum",
 									formatter: function (cell, formatterParams, onRendered)
 									{
@@ -289,10 +264,17 @@ export default {
 
 							let anmerkungColumn = columns.some(c => c.getField() === "anmerkung");
 							if (!anmerkungColumn)
-								this.$refs.selfTable.tabulator.addColumn({title: capitalize(this.$p.t('global', 'anmerkung')), field: 'anmerkung'}, false, "beschreibung");
+								this.$refs.selfTable.tabulator.addColumn({title: capitalize(this.$p.t('global', 'anmerkung')), field: 'anmerkung', headerFilter: false}, false, "beschreibung");
 						}
 
-						this.$refs.selfTable.tabulator.updateColumnDefinition('stunden', { title: title });
+						const locale = table.getLocale();
+						const lang = table.getLang(locale);
+						if (lang)
+						{
+							lang.columns = lang.columns || {};
+							lang.columns.stunden = title;
+							table.setLocale(locale);
+						}
 						this.$refs.selfTable.tabulator.setData(response.data.data);
 					}
 				})
@@ -427,6 +409,9 @@ export default {
 							ref="selfTable"
 							:tabulator-options="tabulatorOptions"
 							:tabulator-events="tabulatorEvents"
+							:isUsingPresets="true"
+							presetsId="pepSelfTable"
+							:general-presets="generalPresets"
 							:table-only=true
 							:side-menu="false"
 						>
@@ -437,8 +422,8 @@ export default {
 
 			</div>
 		</div>
+		<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 	</div>
-	<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 	
 `
 };

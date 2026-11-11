@@ -67,6 +67,18 @@ export default {
 		this.getLektoren();
 	},
 	computed: {
+		generalPresets()
+		{
+			return [{
+				id: null,
+				name: "Standard",
+				displayedColumns: this.tabulatorOptions.columns
+					.filter(column => column.field && column.visible !== false)
+					.map(column => column.field),
+				headerFilters: [],
+				sort: null,
+			}];
+		},
 		tabulatorOptions() {
 			return {
 				index: "row_index",
@@ -117,6 +129,8 @@ export default {
 				columns: [
 					{
 						formatter: 'rowSelection',
+						title: "Auswahl",
+						field: 'rowSelection',
 						titleFormatter: 'rowSelection',
 						titleFormatterParams: {
 							rowRange: "active"
@@ -545,6 +559,9 @@ export default {
 					ref="projectTable"
 					:download="config?.download"
 					:tabulator-options="tabulatorOptions"
+					:isUsingPresets="true"
+					presetsId="pepProjectTable"
+					:general-presets="generalPresets"
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }, { event: 'cellEdited', handler: onCellEdited }, { event: 'rowSelectionChanged', handler: updateSelectedRows }]"
 					:table-only=true
 					:side-menu="false"

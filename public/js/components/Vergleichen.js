@@ -19,10 +19,27 @@ export default {
 			semester: [],
 			projectsConfig: {},
 			loadedData: {},
+			configLoaded: false,
 		}
 	},
 
+	created()
+	{
+		this.getCategoriesConfig();
+	},
 	computed: {
+		generalPresets()
+		{
+			return [{
+				id: null,
+				name: "Standard",
+				displayedColumns: this.tabulatorOptions.columns
+					.filter(column => column.field && column.visible !== false)
+					.map(column => column.field),
+				headerFilters: [],
+				sort: null,
+			}];
+		},
 		tabulatorOptions()
 		{
 			return {
@@ -41,7 +58,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2024_10_09_pep_vergleich",
+				persistenceID: "2026_11_10_pep_vergleich",
 				columns: [
 					{title: 'Vorname', field: 'vorname', headerFilter: true},
 					{title: 'Nachname', field: 'nachname', headerFilter: true},
@@ -56,6 +73,7 @@ export default {
 					{title: 'Akt - OE Mitarbeiter*in - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stunden', field: 'akt_stunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stundensatz - Lehre', field: 'akt_stundensaetze_lehre', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
+					...this.buildConfigColumns(),
 					{
 						title: 'Offene Stunden',
 						formatter: formatter.berechneSumme,
@@ -133,71 +151,65 @@ export default {
 				});
 			}
 		},
-		async createColumns(configKey, titlePrefix, formatter, mode = 'studiensemester', category = null)
+		createColumns(configKey, titlePrefix, cellFormatter, category = null)
 		{
-			for (let i = 0; i < 2; i++) {
-				let semester = i === 0 ? 'WS' : 'SS';
-
+			return [0, 1].map(i => {
+				const semester = i === 0 ? 'WS' : 'SS';
 				const fieldKey = category
 					? `studiensemester_${i}_kategorie_${category.kategorie_id}`
 					: `studiensemester_${i}_${configKey}`;
 
-				const title = `${titlePrefix} ${semester}`;
-				this.addColumn(title, fieldKey, formatter);
-			}
+				return this.createColumnDefinition(`${titlePrefix} ${semester}`, fieldKey, cellFormatter);
+			});
 		},
-		addColumn(title, fieldKey, formatter)
+		createColumnDefinition(title, fieldKey, cellFormatter)
 		{
-			const tabulatorInstance = this.$refs?.vergleichTable.tabulator;
-			const newColumn = {
+			return {
 				title: title,
 				field: fieldKey,
 				hozAlign: "right",
 				bottomCalc: 'sum',
 				bottomCalcParams: { precision: 2 },
 				headerFilter: "input",
-				formatter: formatter,
+				formatter: cellFormatter,
 				formatterParams: { precision: 2 },
 				visible: true,
 			};
-			tabulatorInstance.addColumn(newColumn, true, "summe");
 		},
-		addColumns()
+		buildConfigColumns()
 		{
-			if (this.columnsConfig.lehrauftraege)
-			{
-				this.createColumns('lehrauftrag', 'Lehraufträge', formatter.checkLehrauftraegeStunden);
-			}
+			const config = this.columnsConfig;
+			const columns = [];
 
-			if (this.columnsConfig.projects)
-			{
-				this.createColumns('project', 'Projekte', formatter.checkStunden, this.columnsConfig.mode.projects);
-			}
+			if (config.lehrauftraege)
+				columns.push(...this.createColumns('lehrauftrag', 'Lehraufträge', formatter.checkLehrauftraegeStunden));
 
-			if (this.columnsConfig.categories)
+			if (config.projects)
+				columns.push(...this.createColumns('project', 'Projekte', formatter.checkStunden));
+
+			if (config.categories)
 			{
-				this.columnsConfig.categories.forEach(kategorie => {
-					this.createColumns('kategorie', kategorie.beschreibung, formatter.checkStunden, this.columnsConfig.mode.categories, kategorie);
+				config.categories.forEach(kategorie => {
+					columns.push(...this.createColumns('kategorie', kategorie.beschreibung, formatter.checkStunden, kategorie));
 				});
 			}
+
+			return columns;
 		},
 		async getCategoriesConfig()
 		{
-			if (Object.keys(this.columnsConfig).length !== 0)
-				return;
 			await this.$api.call(ApiStart.getCategories())
 				.then(response => {
-					this.columnsConfig = response.data
+					this.columnsConfig = response.data;
 				})
-				.then(() => this.addColumns())
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
+			this.configLoaded = true;
 		},
 		tableBuilt()
 		{
-			this.getCategoriesConfig()
-				.then(() => this.theModel = { ...this.modelValue, loadDataReady: true })
+			this.theModel = { ...this.modelValue, loadDataReady: true };
 		},
 	},
 	template: `
@@ -205,8 +217,12 @@ export default {
 			<template #main>
 			<h5>{{$p.t('lehre', 'studiensemester')}}: {{semester?.join(', ')}}</h5>
 				<core-filter-cmpt
+					v-if="configLoaded"
 					ref="vergleichTable"
 					:tabulator-options="tabulatorOptions"
+					:isUsingPresets="true"
+					presetsId="pepVergleichTable"
+					:general-presets="generalPresets"
 					:tabulator-events="[{ event: 'tableBuilt', handler: tableBuilt }]"
 					:table-only=true
 					:side-menu="false"

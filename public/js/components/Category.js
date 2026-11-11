@@ -40,6 +40,18 @@ export default {
 		}
 	},
 	computed: {
+		generalPresets()
+		{
+			return [{
+				id: null,
+				name: "Standard",
+				displayedColumns: this.tabulatorOptions.columns
+					.filter(column => column.field && column.visible !== false)
+					.map(column => column.field),
+				headerFilters: [],
+				sort: null,
+			}];
+		},
 		tabulatorOptions() {
 			return {
 				index: "row_index",
@@ -71,6 +83,8 @@ export default {
 					{
 						formatter: 'rowSelection',
 						titleFormatter: 'rowSelection',
+						title: "Auswahl",
+						field: 'rowSelection',
 						titleFormatterParams: {
 							rowRange: "active"
 						},
@@ -128,7 +142,9 @@ export default {
 						title: 'UID',
 						field: 'mitarbeiter_uid',
 						headerFilter: true,
-						headerFilterParams: { values: {} },
+						headerFilterParams: {
+							valuesLookup: () => ({ "": "Alle", ...this.mitarbeiterListe }),
+						},
 						editor: "list",
 						width: 50,
 						editorParams:() => {
@@ -257,6 +273,10 @@ export default {
 				this.$emit('update:modelValue', value);
 			}
 		},
+		pepCategoryTable()
+		{
+			return 'pepCategoryTable_' + this.config.category_id
+		}
 	},
 	async created() {
 		await this.fetchOrganisationen();
@@ -269,11 +289,11 @@ export default {
 			data.category_id = this.config.category_id
 			await this.$api.call(ApiCategory.getCategory(data))
 				.then(response => {
-					this.$refs.categoryTable.tabulator.setData(response.data).then(() => this.getMitarbeiterListe(response.data));
-					if (!this.rowCount[this.config.category_id])
-					{
-						this.rowCount[this.config.category_id] =  this.$refs.categoryTable.tabulator.getRows().length;
-					}
+					this.$refs.categoryTable.tabulator.setData(response.data).then(() => {
+						this.getMitarbeiterListe(response.data);
+						if (!this.rowCount[this.config.category_id])
+							this.rowCount[this.config.category_id] = this.$refs.categoryTable.tabulator.getRows().length;
+					});
 				})
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
@@ -292,17 +312,6 @@ export default {
 				}
 				return mitarbeiter;
 			}, {});
-
-			const column = this.$refs.categoryTable?.tabulator?.getColumn("mitarbeiter_uid");
-			if (column)
-			{
-
-				this.headerFilterMiterabreiterListe = { "": "Alle", ...this.mitarbeiterListe }
-
-				this.$refs.categoryTable.tabulator.updateColumnDefinition("mitarbeiter_uid",
-					{headerFilterParams: { values: this.headerFilterMiterabreiterListe }}
-				).then(() => this.$refs.categoryTable.tabulator.redraw(true));
-			}
 		},
 		async fetchOrganisationen()
 		{
@@ -546,6 +555,9 @@ export default {
 					ref="categoryTable"
 					:download="config?.download"
 					:tabulator-options="tabulatorOptions"
+					:isUsingPresets="true"
+					:presetsId="pepCategoryTable"
+					:general-presets="generalPresets"
 					:tabulator-events="[
 										{ event: 'cellEdited', handler: onCellEdited }, 
 										{ event: 'tableBuilt', handler: tableBuilt },

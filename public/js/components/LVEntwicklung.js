@@ -67,6 +67,18 @@ export default {
 		}
 	},
 	computed: {
+		generalPresets()
+		{
+			return [{
+				id: null,
+				name: "Standard",
+				displayedColumns: this.tabulatorOptions.columns
+					.filter(column => column.field && column.visible !== false)
+					.map(column => column.field),
+				headerFilters: [],
+				sort: null,
+			}];
+		},
 		tabulatorOptions()
 		{
 			return {
@@ -111,6 +123,8 @@ export default {
 				columns: [
 					{
 						formatter: 'rowSelection',
+						title: "Auswahl",
+						field: 'rowSelection',
 						titleFormatter: 'rowSelection',
 						titleFormatterParams: {
 							rowRange: "active"
@@ -898,6 +912,9 @@ export default {
 					newBtnLabel="Neu"
 					@click:new=addRow
 					:tabulator-options="tabulatorOptions"
+					:isUsingPresets="true"
+					presetsId="pepLVEntwicklungTable"
+					:general-presets="generalPresets"
 					@nw-new-entry="newSideMenuEntryHandler"
 					:table-only=true
 					:tabulator-events="[{ event: 'cellEdited', handler: onCellEdited},
@@ -1034,7 +1051,8 @@ export default {
 					</template>
 				</bs-modal>
 			</template>
+			<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 		</core-base-layout>
-		<fhc-loader ref="loader" :timeout="0"></fhc-loader>
+		
 	`
 };

@@ -45,6 +45,18 @@ export default {
 
 	},
 	computed: {
+		generalPresets()
+		{
+			return [{
+				id: null,
+				name: "Standard",
+				displayedColumns: this.tabulatorOptions.columns
+					.filter(column => column.field && column.visible !== false)
+					.map(column => column.field),
+				headerFilters: [],
+				sort: null,
+			}];
+		},
 		tabulatorOptions() {
 			return {
 				index: "kategorie_id",
@@ -55,6 +67,8 @@ export default {
 				columns: [
 					{
 						formatter: 'rowSelection',
+						title: "Auswahl",
+						field: 'rowSelection',
 						titleFormatter: 'rowSelection',
 						headerSort: false,
 						width: 40
@@ -153,6 +167,9 @@ export default {
 				<core-filter-cmpt
 					ref="administrationTable"
 					:tabulator-options="tabulatorOptions"
+					:isUsingPresets="true"
+					presetsId="pepAdminTable"
+					:general-presets="generalPresets"
 					:table-only=true
 					:side-menu="false">
 					<template #actions>

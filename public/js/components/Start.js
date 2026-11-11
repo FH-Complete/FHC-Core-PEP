@@ -71,10 +71,27 @@ export default {
 			isOldSemesterLoaded: false,
 			selectedColumnValues: [],
 			tagEndpoint: ApiStartTag,
+			configLoaded: false,
 		}
 	},
 
+	created()
+	{
+		this.getCategoriesConfig();
+	},
 	computed: {
+		generalPresets()
+		{
+			return [{
+				id: null,
+				name: "Standard",
+				displayedColumns: this.tabulatorOptions.columns
+					.filter(column => column.field && column.visible !== false)
+					.map(column => column.field),
+				headerFilters: [],
+				sort: null,
+			}];
+		},
 		tabulatorOptions()
 		{
 			return {
@@ -93,7 +110,7 @@ export default {
 						});
 					}
 				},
-				persistenceID: "2025_07_11_pep_start",
+				persistenceID: "2026_11_11_pep_start",
 				persistence: true,
 				columnDefaults: {
 					headerFilterFunc: extendedHeaderFilter,
@@ -101,6 +118,8 @@ export default {
 				},
 				columns: [
 					{
+						title: "Auswahl",
+						field: 'rowSelection',
 						formatter: 'rowSelection',
 						titleFormatter: 'rowSelection',
 						titleFormatterParams: {
@@ -131,6 +150,7 @@ export default {
 					{title: 'Akt - OE Mitarbeiter*in - Parent', field: 'akt_parentbezeichnung', headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stunden', field: 'akt_stunden', hozAlign:"right", headerFilter: "input", formatter: "textarea", visible: false},
 					{title: 'Akt - Stundensatz - Lehre', field: 'akt_stundensaetze_lehre', hozAlign:"right", headerFilter: "input", formatter:"textarea", visible: false},
+					...this.buildConfigColumns(),
 					{
 						title: 'Offene Stunden',
 						mutator: formatter.mutatorBerechneSumme,
@@ -229,46 +249,39 @@ export default {
 					this.$fhcAlert.handleSystemError(error);
 				});
 		},
-		createColumns(configKey, titlePrefix, formatter, mode = 'studiensemester', category = null)
+		createColumns(configKey, titlePrefix, cellFormatter, mode = 'studiensemester', category = null)
 		{
 			if (mode === 'studiensemester')
 			{
-				for (let i = 0; i < 2; i++) {
-					let semester = i === 0 ? 'WS' : 'SS';
-
+				return [0, 1].map(i => {
+					const semester = i === 0 ? 'WS' : 'SS';
 					const fieldKey = category
 						? `studiensemester_${i}_kategorie_${category.kategorie_id}`
 						: `studiensemester_${i}_${configKey}`;
 
-					const title = `${titlePrefix} ${semester}`;
-					this.addColumn(title, fieldKey, formatter);
-				}
+					return this.createColumnDefinition(`${titlePrefix} ${semester}`, fieldKey, cellFormatter);
+				});
 			}
-			else
-			{
-				const fieldKey = category
-					? `studiensemester_kategorie_${category.kategorie_id}`
-					: `studiensemester_${configKey}`;
 
-				const title = `${titlePrefix}`;
-				this.addColumn(title, fieldKey, formatter);
-			}
+			const fieldKey = category
+				? `studiensemester_kategorie_${category.kategorie_id}`
+				: `studiensemester_${configKey}`;
+
+			return [this.createColumnDefinition(`${titlePrefix}`, fieldKey, cellFormatter)];
 		},
-		addColumn(title, fieldKey, formatter)
+		createColumnDefinition(title, fieldKey, cellFormatter)
 		{
-			const tabulatorInstance = this.$refs?.startTable.tabulator;
-			const newColumn = {
+			return {
 				title: title,
 				field: fieldKey,
 				hozAlign: "right",
 				bottomCalc: 'sum',
 				bottomCalcParams: { precision: 2 },
 				headerFilter: "input",
-				formatter: formatter,
+				formatter: cellFormatter,
 				formatterParams: { precision: 2 },
 				visible: true,
 			};
-			tabulatorInstance.addColumn(newColumn, true, "summe");
 		},
 		getOldSemester(e) {
 			this.isOldSemesterLoaded = !this.isOldSemesterLoaded;
@@ -277,66 +290,47 @@ export default {
 			this.$refs.loader.show();
 			this.loadData(this.loadedData).then(() => {this.$refs.loader.hide();});
 		},
-		addColumns()
+		buildConfigColumns()
 		{
-			if (this.columnsConfig.lehrauftraege)
+			const config = this.columnsConfig;
+			const columns = [];
+
+			if (config.lehrauftraege)
 			{
-				this.createColumns('lehrauftrag', 'Lehraufträge', formatter.checkLehrauftraegeStunden);
-				this.createColumns('lehrauftrag_realstunden', 'Lehraufträge Realstunden', formatter.checkLehrauftraegeStunden);
-				/*.then(() => {
-					var column = this.$refs?.startTable.tabulator.getColumn('studiensemester_1_lehrauftrag');
-					if (column)
-					{
-						let oldTitle = column.getDefinition().title;
-						const newTitle = `${oldTitle} <input id='select-old-ss' type='checkbox' title='altes Sommersemester laden'>`;
-						let elements = document.getElementsByClassName('tabulator-col-title');
-						const matchingElement = Array.from(elements).find(element => element.textContent.includes(oldTitle));
-						matchingElement.innerHTML = newTitle;
-						const checkbox = document.getElementById("select-old-ss");
-						if (checkbox)
-						{
-							checkbox.addEventListener("click", this.getOldSemester);
-						}
-					}
-				});*/
+				columns.push(...this.createColumns('lehrauftrag', 'Lehraufträge', formatter.checkLehrauftraegeStunden));
+				columns.push(...this.createColumns('lehrauftrag_realstunden', 'Lehraufträge Realstunden', formatter.checkLehrauftraegeStunden));
 			}
 
-			if (this.columnsConfig.projects)
-			{
-				this.createColumns('project', 'Projekte', formatter.checkStunden, this.columnsConfig.mode.projects);
-			}
+			if (config.projects)
+				columns.push(...this.createColumns('project', 'Projekte', formatter.checkStunden, config.mode.projects));
 
-			if (this.columnsConfig.lventwicklung)
-			{
-				this.createColumns('lv_entwicklung', 'LV-Entwicklung', formatter.checkStunden, this.columnsConfig.mode.lventwicklung);
-			}
+			if (config.lventwicklung)
+				columns.push(...this.createColumns('lv_entwicklung', 'LV-Entwicklung', formatter.checkStunden, config.mode.lventwicklung));
 
-			if (this.columnsConfig.categories)
+			if (config.categories)
 			{
-				this.columnsConfig.categories.forEach(kategorie => {
-					this.createColumns('kategorie', kategorie.beschreibung, formatter.checkStunden, this.columnsConfig.mode.categories, kategorie);
+				config.categories.forEach(kategorie => {
+					columns.push(...this.createColumns('kategorie', kategorie.beschreibung, formatter.checkStunden, config.mode.categories, kategorie));
 				});
 			}
 
-
+			return columns;
 		},
 		async getCategoriesConfig()
 		{
-			if (Object.keys(this.columnsConfig).length !== 0)
-				return;
 			await this.$api.call(ApiStart.getCategories())
 				.then(response => {
-					this.columnsConfig = response.data
+					this.columnsConfig = response.data;
 				})
-				.then(() => this.addColumns())
 				.catch(error => {
 					this.$fhcAlert.handleSystemError(error);
 				});
+
+			this.configLoaded = true;
 		},
 		tableBuilt()
 		{
-			this.getCategoriesConfig()
-				.then(() => this.theModel = { ...this.modelValue, loadDataReady: true })
+			this.theModel = { ...this.modelValue, loadDataReady: true };
 		},
 
 	},
@@ -351,7 +345,11 @@ export default {
 				<span v-html="oldStudiensemester"></span>
 			</h5>
 				<core-filter-cmpt
+					v-if="configLoaded"
 					ref="startTable"
+					:isUsingPresets="true"
+					presetsId="pepStartTable"
+					:general-presets="generalPresets"
 					:download="config?.download"
 					:tableOnly=false
 					:tabulator-options="tabulatorOptions"
@@ -371,7 +369,7 @@ export default {
 						</template>
 				</core-filter-cmpt>
 			</template>
+			<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 		</core-base-layout>
-		<fhc-loader ref="loader" :timeout="0"></fhc-loader>
 	`
 };
